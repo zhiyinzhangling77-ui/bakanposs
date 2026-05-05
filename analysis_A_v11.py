@@ -57,8 +57,21 @@ OUT_DIR.mkdir(exist_ok=True)
 N_BOOT          = 5000     # bootstrap 反復数
 CI_PCT          = (2.5, 97.5)
 MIN_N_PER_CLASS = 5        # クラス内最小サンプル(これ未満はNaN)
-DENOM_FLOOR     = 5.0      # 比の分母最小値(W/m²等)。これ未満ならその iteration を破棄
 RATIO_CLIP      = 10.0     # 比の絶対値クリップ(暴走防止)
+
+# [fix] 変数別の分母最小値(これ未満はそのbootstrap iterationを破棄)
+# v11 当初は一律 5.0 → EF(0-1), Bowen(~1), ET(<5) の指標が全て NaN になるバグ
+DENOM_FLOORS = {
+    "LE_corr"    : 5.0,     # W/m²
+    "EF_corr"    : 0.05,    # 無次元 0-1
+    "Bowen_corr" : 0.1,     # 無次元 ~1
+    "ET"         : 0.3,     # mm/day
+}
+DENOM_FLOOR_DEFAULT = 0.05
+
+# [fix] Bowen ratio の外れ値クリップ(LE near-zero 由来の極値を除外)
+# v4 daily 集約後でも |Bowen| > 20 が散発する。中央値計算前に除外
+BOWEN_CLIP = 20.0
 
 CLASSES   = ["normal", "soil dry", "atm dry", "compound"]
 COLORS    = {"normal":"#2196F3","soil dry":"#FF9800",
@@ -106,8 +119,9 @@ def load_inputs():
 # 指標計算
 # ================================================================
 
-def safe_ratio(numer, denom):
-    if denom is None or np.isnan(denom) or abs(denom) < DENOM_FLOOR:
+def safe_ratio(numer, denom, var=None):
+    floor = DENOM_FLOORS.get(var, DENOM_FLOOR_DEFAULT)
+    if denom is None or np.isnan(denom) or abs(denom) < floor:
         return np.nan
     r = numer / denom
     if abs(r) > RATIO_CLIP:
@@ -115,28 +129,32 @@ def safe_ratio(numer, denom):
     return r
 
 
-def compute_indices_from_medians(meds):
+def compute_indices_from_medians(meds, var=None):
     n = meds.get("normal");   s = meds.get("soil dry")
     a = meds.get("atm dry");  c = meds.get("compound")
     return {
-        "SDS"          : safe_ratio(n - s, n) if not (np.isnan(n) or np.isnan(s)) else np.nan,
-        "VAS"          : safe_ratio(a - n, n) if not (np.isnan(a) or np.isnan(n)) else np.nan,
-        "DSO"          : safe_ratio(c - s, s) if not (np.isnan(c) or np.isnan(s)) else np.nan,
-        "CompoundDrop" : safe_ratio(n - c, n) if not (np.isnan(n) or np.isnan(c)) else np.nan,
+        "SDS"          : safe_ratio(n - s, n, var) if not (np.isnan(n) or np.isnan(s)) else np.nan,
+        "VAS"          : safe_ratio(a - n, n, var) if not (np.isnan(a) or np.isnan(n)) else np.nan,
+        "DSO"          : safe_ratio(c - s, s, var) if not (np.isnan(c) or np.isnan(s)) else np.nan,
+        "CompoundDrop" : safe_ratio(n - c, n, var) if not (np.isnan(n) or np.isnan(c)) else np.nan,
     }
 
 
 def class_arrays(sub_df, var):
-    return {c: sub_df.loc[sub_df["drought_type"]==c, var].dropna().values
-            for c in CLASSES}
+    out = {c: sub_df.loc[sub_df["drought_type"]==c, var].dropna().values
+           for c in CLASSES}
+    # [fix] Bowen は LE near-zero 由来の極値を除外
+    if var == "Bowen_corr":
+        out = {c: v[np.abs(v) < BOWEN_CLIP] for c, v in out.items()}
+    return out
 
 
-def bootstrap_indices(data, n_boot=N_BOOT, seed=42):
+def bootstrap_indices(data, var=None, n_boot=N_BOOT, seed=42):
     rng = np.random.default_rng(seed)
 
     point_meds = {c: (np.median(v) if len(v) >= MIN_N_PER_CLASS else np.nan)
                    for c, v in data.items()}
-    point = compute_indices_from_medians(point_meds)
+    point = compute_indices_from_medians(point_meds, var=var)
 
     boots = {k: [] for k in point.keys()}
     for _ in range(n_boot):
@@ -148,7 +166,7 @@ def bootstrap_indices(data, n_boot=N_BOOT, seed=42):
                 continue
             sample = rng.choice(v, size=len(v), replace=True)
             b_meds[c] = np.median(sample)
-        idx = compute_indices_from_medians(b_meds)
+        idx = compute_indices_from_medians(b_meds, var=var)
         for k, val in idx.items():
             if not np.isnan(val):
                 boots[k].append(val)
@@ -340,11 +358,15 @@ def main():
                 if var not in sub.columns:
                     continue
                 data = class_arrays(sub, var)
-                idx_results, meds = bootstrap_indices(data)
+                idx_results, meds = bootstrap_indices(data, var=var)
                 med_str = "  ".join(
                     f"{c}={meds[c]:.2f}" if not np.isnan(meds[c]) else f"{c}=NaN"
                     for c in CLASSES)
                 print(f"  {var}: medians {med_str}")
+                # [fix] 休眠期警告: LE_normal が低すぎる場合は指標が不安定/解釈困難
+                if var == "LE_corr" and not np.isnan(meds["normal"]) and meds["normal"] < 30:
+                    print(f"    ⚠ LE_normal={meds['normal']:.1f} W/m² < 30 → "
+                          f"植物休眠/裸地期の可能性、指標は phenology アーティファクトを含む")
                 for idx_name, (pt, lo, hi, n_b) in idx_results.items():
                     summary_rows.append(dict(
                         site=site, season=season, var=var, index=idx_name,
