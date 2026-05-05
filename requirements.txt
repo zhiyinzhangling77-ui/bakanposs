@@ -1,0 +1,27 @@
+# 解析A v10 用 Python 環境
+# 推奨: Python 3.10–3.12
+#
+# 仮想環境作成例:
+#   python -m venv .venv
+#   source .venv/bin/activate
+#   pip install -r requirements.txt
+#
+# conda の場合:
+#   conda create -n analysisA python=3.11 -y
+#   conda activate analysisA
+#   pip install -r requirements.txt
+
+numpy>=1.24,<3.0
+pandas>=2.0,<3.0
+scipy>=1.11,<2.0
+matplotlib>=3.7,<4.0
+
+# NetCDF/GRACE/ERA5 読み込み
+xarray>=2024.1
+netCDF4>=1.6.5
+h5netcdf>=1.3
+dask>=2024.1
+bottleneck>=1.3.7
+
+# 入出力ユーティリティ
+pyarrow>=15.0
