@@ -73,9 +73,9 @@ def add_season(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def add_quantile_flags(df: pd.DataFrame) -> pd.DataFrame:
-    df["swc_q"] = np.nan
-    df["vpd_q"] = np.nan
-    df["drought_class"] = "normal"
+    df["swc_q"] = pd.Series(pd.NA, index=df.index, dtype="object")
+    df["vpd_q"] = pd.Series(pd.NA, index=df.index, dtype="object")
+    df["drought_class"] = pd.Series("normal", index=df.index, dtype="object")
     for site, g in df.groupby("site", sort=False):
         idx = g.index
         swc = g["SWC"]
@@ -91,7 +91,7 @@ def add_quantile_flags(df: pd.DataFrame) -> pd.DataFrame:
         atm  = (vpd >  vpd_p75) & (swc >= swc_p25)
         soil = (vpd <= vpd_p75) & (swc <  swc_p25)
         comp = (vpd >  vpd_p75) & (swc <  swc_p25)
-        cls = pd.Series("normal", index=g.index)
+        cls = pd.Series("normal", index=g.index, dtype="object")
         cls[atm] = "atm"
         cls[soil] = "soil"
         cls[comp] = "compound"
