@@ -67,14 +67,22 @@ def bootstrap_sds(le: np.ndarray, swc: np.ndarray,
 def cell(df: pd.DataFrame, label: str) -> dict | None:
     if len(df) < MIN_N:
         return None
-    le = df["LE_Wm2"].to_numpy() if "LE_Wm2" in df else df["ET_mm"].to_numpy()
+    # Prefer LE if mostly populated; otherwise fall back to ET (Oran daily lacks LE)
+    le_series = df["LE_Wm2"] if "LE_Wm2" in df else df["ET_mm"]
+    if le_series.notna().sum() < 30:
+        le_series = df["ET_mm"]
+    le = le_series.to_numpy()
     swc = df["SWC"].to_numpy()
+    ok = np.isfinite(le) & np.isfinite(swc)
+    if ok.sum() < MIN_N:
+        return None
+    le = le[ok]; swc = swc[ok]
     p25 = float(np.nanquantile(swc, 0.25))
     p75 = float(np.nanquantile(swc, 0.75))
     sds_med, sds_lo, sds_hi = bootstrap_sds(le, swc, p25, p75)
     out = {
         "stratum": label,
-        "n": len(df),
+        "n": int(ok.sum()),
         "SDS": sds_med, "SDS_lo": sds_lo, "SDS_hi": sds_hi,
     }
     for col, label_p in [("MOD16_ET", "MOD16"), ("PML_ET", "PML")]:
