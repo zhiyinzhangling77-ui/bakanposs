@@ -86,6 +86,39 @@ def prepare(df: pd.DataFrame, sat_col: str) -> pd.DataFrame:
     return bins
 
 
+def fit_raw(t: np.ndarray, y: np.ndarray, fn, p0):
+    """Fit on raw daily data (more stable than binned medians)."""
+    try:
+        popt, pcov = curve_fit(fn, t, y, p0=p0, maxfev=10000)
+        perr = np.sqrt(np.diag(pcov))
+        return popt, perr
+    except Exception:
+        return None, None
+
+
+def bootstrap_raw(t: np.ndarray, y: np.ndarray, fn, p0,
+                  n: int = N_BOOT) -> dict:
+    samples = []
+    n_pts = len(t)
+    for _ in range(n):
+        idx = RNG.choice(n_pts, size=n_pts, replace=True)
+        popt, _ = fit_raw(t[idx], y[idx], fn, p0)
+        if popt is None or np.any(np.abs(popt) > 1e3):
+            continue
+        if popt[1] <= 0 or popt[1] > 60:
+            continue
+        samples.append(popt)
+    if len(samples) < 50:
+        return {}
+    arr = np.array(samples)
+    out = {}
+    for i, name in enumerate(["a", "tau", "c"][:arr.shape[1]]):
+        out[f"{name}_med"] = float(np.median(arr[:, i]))
+        out[f"{name}_lo"] = float(np.quantile(arr[:, i], 0.025))
+        out[f"{name}_hi"] = float(np.quantile(arr[:, i], 0.975))
+    return out
+
+
 def plot_one(ax, bins: pd.DataFrame, label: str, color: str,
              popt_full, popt_trans):
     ax.scatter(bins["d_bin"], bins["median"],
@@ -125,35 +158,43 @@ def main() -> None:
                    ("PML_ET",   "PML",   "tab:green")]):
         if col not in t:
             continue
+        bias = (t[col] - t["ET_mm"])
+        d = t["days_since_irrig"]
+        ok = d.notna() & bias.notna() & (d >= 0)
+        ts_raw = d[ok].astype(float).clip(upper=20).to_numpy()
+        ys_raw = bias[ok].astype(float).to_numpy()
+
         bins = prepare(t, col)
         if len(bins) < 4:
             print(f"  {label}: not enough day bins")
             continue
-        ts = bins["d_bin"].to_numpy(dtype=float)
-        ys = bins["median"].to_numpy(dtype=float)
-        ws = bins["count"].to_numpy(dtype=float)
 
-        popt_full = fit_one(ts, ys, ws, model_full,
-                             p0=[ys[0] - ys[-1], 3.0, ys[-1]])
-        popt_trans = fit_one(ts, ys, ws, model_transient,
-                              p0=[ys[0], 3.0])
-        boot_full = bootstrap_params(ts, ys, ws, model_full,
-                                      p0=[ys[0] - ys[-1], 3.0, ys[-1]])
-        boot_trans = bootstrap_params(ts, ys, ws, model_transient,
-                                       p0=[ys[0], 3.0])
+        popt_full, perr_full = fit_raw(ts_raw, ys_raw, model_full,
+                                         p0=[-2.0, 3.0, -1.0])
+        popt_trans, perr_trans = fit_raw(ts_raw, ys_raw, model_transient,
+                                           p0=[-2.0, 3.0])
+        boot_full = bootstrap_raw(ts_raw, ys_raw, model_full,
+                                    p0=[-2.0, 3.0, -1.0])
+        boot_trans = bootstrap_raw(ts_raw, ys_raw, model_transient,
+                                     p0=[-2.0, 3.0])
 
         rows.append({"product": label, "model": "full",
+                     "n_obs": len(ts_raw),
                      **(boot_full if boot_full else {})})
         rows.append({"product": label, "model": "transient",
+                     "n_obs": len(ts_raw),
                      **(boot_trans if boot_trans else {})})
 
         plot_one(ax, bins, label, color, popt_full, popt_trans)
         if popt_full is not None:
-            print(f"  {label} full:      a={popt_full[0]:+.2f}  "
-                  f"τ={popt_full[1]:.2f}  c={popt_full[2]:+.2f}")
+            sd = perr_full if perr_full is not None else [np.nan] * 3
+            print(f"  {label} full:      a={popt_full[0]:+.2f}±{sd[0]:.2f}  "
+                  f"τ={popt_full[1]:.2f}±{sd[1]:.2f}  "
+                  f"c={popt_full[2]:+.2f}±{sd[2]:.2f}")
         if popt_trans is not None:
-            print(f"  {label} transient: a={popt_trans[0]:+.2f}  "
-                  f"τ={popt_trans[1]:.2f}")
+            sd = perr_trans if perr_trans is not None else [np.nan] * 2
+            print(f"  {label} transient: a={popt_trans[0]:+.2f}±{sd[0]:.2f}  "
+                  f"τ={popt_trans[1]:.2f}±{sd[1]:.2f}")
 
     summary = pd.DataFrame(rows)
     summary.to_csv(OUT_CSV, index=False)
