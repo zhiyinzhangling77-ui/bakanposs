@@ -42,6 +42,11 @@ var products = {
     bands: ['Lai', 'Fpar'],
     scale: 500
   },
+  NDVI: {
+    ic: 'MODIS/061/MOD13Q1',
+    bands: ['NDVI', 'EVI'],
+    scale: 250
+  },
   SMAP: {
     ic: 'NASA/SMAP/SPL4SMGP/007',
     bands: ['sm_surface', 'sm_rootzone'],
