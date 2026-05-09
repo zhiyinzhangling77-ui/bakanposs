@@ -64,14 +64,22 @@ def load_oran_ec_clean(filepath):
     df = pd.read_csv(filepath)
     n_raw = len(df)
 
-    if "TIMESTAMP" in df.columns:
-        ts = df["TIMESTAMP"].astype(str).str.replace(r"\.0$", "", regex=True)
-        df["datetime"] = pd.to_datetime(ts, format="%Y%m%d%H%M", errors="coerce")
-        if df["datetime"].notna().sum() < n_raw * 0.5:
-            ts2 = df["TIMESTAMP"].astype(str).str.replace(r"\.0$", "", regex=True)
-            df["datetime"] = pd.to_datetime(ts2, format="%Y%m%d%H%M%S", errors="coerce")
-    else:
-        df["datetime"] = pd.to_datetime(df["DateTime"], errors="coerce")
+    # Oran CSV の TIMESTAMP / DateTime は混合フォーマット:
+    #   先頭行    : '2018/01/01'           (日付のみ → 00:00 扱い)
+    #   それ以外  : '2018/01/01 00:30:00'  (半時間ステップ)
+    # pd.to_datetime は先頭行から '%Y/%m/%d' を推定して残り全部を NaT 化する。
+    # → 二段パースで両方拾う。
+    src_col = "TIMESTAMP" if "TIMESTAMP" in df.columns else "DateTime"
+    ts = df[src_col].astype(str).str.strip()
+    dt = pd.to_datetime(ts, format="%Y/%m/%d %H:%M:%S", errors="coerce")
+    miss = dt.isna()
+    if miss.any():
+        dt2 = pd.to_datetime(ts[miss], format="%Y/%m/%d", errors="coerce")
+        dt = dt.where(~miss, dt2)
+    if dt.notna().sum() < n_raw * 0.5:
+        # フォーマットが想定と違うときの最終フォールバック
+        dt = pd.to_datetime(ts, format="mixed", errors="coerce")
+    df["datetime"] = dt
 
     n_parsed = int(df["datetime"].notna().sum())
     print(f"[Oran clean] TIMESTAMP parse: {n_parsed}/{n_raw} subdaily records  "
