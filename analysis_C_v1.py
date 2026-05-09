@@ -383,6 +383,78 @@ def inspect_raw_oran_csv(path):
     print(f"  columns ({len(head.columns)}): {list(head.columns)}")
 
 
+def deep_inspect_oran_raw(path):
+    """
+    Oran 生 CSV を半時間 / 日次レベルで徹底診断:
+      - 行頻度 (半時間? 1時間? 日?)
+      - NETRAD の真の分布 (符号反転? 単位ズレ?)
+      - 日中(SW_IN>100)時の Rn 符号
+      - SW_IN/OUT, LW_IN/OUT から Rn を再計算した値と比較
+    """
+    print(f"\n[Oran 生 CSV 徹底診断]")
+    df = pd.read_csv(path)
+    print(f"  total rows: {len(df)}")
+    df["dt"] = pd.to_datetime(df["DateTime"], errors="coerce")
+    df = df.dropna(subset=["dt"]).sort_values("dt").reset_index(drop=True)
+    df["date"] = df["dt"].dt.date
+    rpd = df.groupby("date").size()
+    print(f"  date range: {df['dt'].min()} ~ {df['dt'].max()}")
+    print(f"  unique days: {df['date'].nunique()}")
+    print(f"  rows/day: median={rpd.median():.0f}  min={rpd.min()}  max={rpd.max()}")
+    delta = df["dt"].diff().dropna().mode()
+    if len(delta):
+        print(f"  most common Δt: {delta.iloc[0]}")
+
+    nr = pd.to_numeric(df["NETRAD"], errors="coerce")
+    print(f"\n  NETRAD raw (n={nr.notna().sum()}/{len(nr)}):")
+    print(f"    min={nr.min():.2f}  p1={nr.quantile(0.01):.2f}  "
+          f"p25={nr.quantile(0.25):.2f}  med={nr.median():.2f}  "
+          f"p75={nr.quantile(0.75):.2f}  p99={nr.quantile(0.99):.2f}  max={nr.max():.2f}")
+    print(f"    n(==-9999)={int((nr == -9999).sum())}  "
+          f"n(<=-500)={int((nr <= -500).sum())}  "
+          f"n(==0)={int((nr == 0).sum())}  "
+          f"n(>0)={int((nr > 0).sum())}  "
+          f"n(>200)={int((nr > 200).sum())}")
+
+    if "SW_IN" in df.columns:
+        sw = pd.to_numeric(df["SW_IN"], errors="coerce")
+        print(f"\n  SW_IN raw: med={sw.median():.2f}  "
+              f"p99={sw.quantile(0.99):.2f}  max={sw.max():.2f}  "
+              f"n(>100)={int((sw > 100).sum())}")
+        daytime = (sw > 100) & nr.notna()
+        if daytime.sum() > 0:
+            nr_day = nr[daytime]
+            print(f"    daytime(SW_IN>100, n={daytime.sum()}) NETRAD: "
+                  f"med={nr_day.median():.2f}  "
+                  f"p25={nr_day.quantile(0.25):.2f}  "
+                  f"p75={nr_day.quantile(0.75):.2f}  "
+                  f"frac<0={(nr_day < 0).mean() * 100:.1f}%")
+
+    cols_lw = ["SW_IN", "SW_OUT", "LW_IN", "LW_OUT"]
+    if all(c in df.columns for c in cols_lw):
+        for c in cols_lw:
+            df[c] = pd.to_numeric(df[c], errors="coerce")
+        rn_calc = (df["SW_IN"] - df["SW_OUT"]) + (df["LW_IN"] - df["LW_OUT"])
+        print(f"\n  Rn 再計算 (SW_IN-SW_OUT+LW_IN-LW_OUT):")
+        print(f"    min={rn_calc.min():.2f}  med={rn_calc.median():.2f}  "
+              f"max={rn_calc.max():.2f}  n_valid={rn_calc.notna().sum()}")
+        ok = rn_calc.notna() & nr.notna()
+        if ok.sum() > 100:
+            r = np.corrcoef(rn_calc[ok], nr[ok])[0, 1]
+            ratio = (nr[ok] / rn_calc[ok].replace(0, np.nan)).median()
+            diff = (nr[ok] - rn_calc[ok]).median()
+            print(f"    corr(NETRAD, Rn_calc) = {r:+.3f}  "
+                  f"median(NETRAD/Rn_calc) = {ratio:+.3f}  "
+                  f"median(NETRAD-Rn_calc) = {diff:+.2f}")
+
+    for c in ["LE", "H", "G", "ET", "VPD"]:
+        if c in df.columns:
+            s = pd.to_numeric(df[c], errors="coerce")
+            print(f"  {c:5s} raw: med={s.median():>8.3f}  "
+                  f"p25={s.quantile(0.25):>8.3f}  p75={s.quantile(0.75):>8.3f}  "
+                  f"min={s.min():>8.3f}  max={s.max():>8.3f}")
+
+
 # ================================================================
 # 5c. Tarazona の強い NDVI~GPP_proxy 信号を深掘り
 # ================================================================
@@ -542,6 +614,9 @@ if __name__ == "__main__":
     # 生 CSV ヘッダ確認 (列名のズレを発見するため)
     inspect_raw_oran_csv(A_PATHS["oran_ec"])
     inspect_raw_oran_csv(A_PATHS["tara_ec"])
+
+    # 生 NETRAD の符号 / 単位 / 日中時の妥当性を検証
+    deep_inspect_oran_raw(A_PATHS["oran_ec"])
 
     # v9 の生ローダ vs C のクリーン版 を並べてセンチネル汚染の影響を可視化
     print("\n--- v9 ローダ (センチネル未処理) ---")
