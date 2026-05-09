@@ -25,9 +25,10 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-CSV = Path("/home/shion-nagamine/bakanposs/master_full.csv")
-OUT_CSV = Path("/home/shion-nagamine/bakanposs/sds_vs_bias.csv")
-FIGS = Path("/home/shion-nagamine/bakanposs/figs")
+REPO = Path(__file__).parent.parent
+CSV = REPO / "master_full.csv"
+OUT_CSV = REPO / "sds_vs_bias.csv"
+FIGS = REPO / "figs"
 FIGS.mkdir(exist_ok=True)
 
 NDVI_GATE = 0.3

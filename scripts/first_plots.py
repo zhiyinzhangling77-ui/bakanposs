@@ -12,8 +12,9 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import pandas as pd
 
-CSV = Path("/home/shion-nagamine/bakanposs/ec_daily_master.csv")
-FIGS = Path("/home/shion-nagamine/bakanposs/figs")
+REPO = Path(__file__).parent.parent
+CSV = REPO / "ec_daily_master.csv"
+FIGS = REPO / "figs"
 FIGS.mkdir(exist_ok=True)
 
 SITE_COLORS = {"Oran": "#1f77b4", "TzM": "#d62728"}

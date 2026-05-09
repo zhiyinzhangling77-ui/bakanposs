@@ -25,8 +25,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-CSV_IN = Path("/home/shion-nagamine/bakanposs/ec_daily_master.csv")
-CSV_OUT = Path("/home/shion-nagamine/bakanposs/ec_daily_master_flagged.csv")
+REPO = Path(__file__).parent.parent
+CSV_IN = REPO / "ec_daily_master.csv"
+CSV_OUT = REPO / "ec_daily_master_flagged.csv"
 
 IRRIG_THRESHOLD = 0.5  # mm; below this treated as zero
 

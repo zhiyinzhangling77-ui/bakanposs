@@ -19,8 +19,9 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-CSV_IN = Path("/home/shion-nagamine/bakanposs/ec_daily_master_flagged.csv")
-CSV_OUT = Path("/home/shion-nagamine/bakanposs/sds_v14_results.csv")
+REPO = Path(__file__).parent.parent
+CSV_IN = REPO / "ec_daily_master_flagged.csv"
+CSV_OUT = REPO / "sds_v14_results.csv"
 
 VARS = {"LE": "LE_Wm2", "ET": "ET_mm"}
 NDVI_GATE = 0.3
