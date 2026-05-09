@@ -1,6 +1,6 @@
 // GEE: SMAP L4 3-hourly soil moisture extraction at Oran and TzM.
 // Uses 6 km buffer (> half of SMAP 9 km pixel) to ensure pixel capture.
-// Export → Google Drive → smap_daily_oran_tzm.csv
+// Export -> Google Drive -> SMAP_OranTzM.csv
 //
 // How to run:
 //   1. Open code.earthengine.google.com
@@ -30,7 +30,7 @@ var features = smap.map(function(img) {
   var stats = img.reduceRegions({
     collection: sites,
     reducer: ee.Reducer.mean(),
-    scale: 11000   // SMAP native ~9 km, use 11 km to match GEE tile
+    scale: 11000   // SMAP native ~9 km; use 11 km to match GEE tile
   });
   return stats.map(function(f) {
     return f.set({date_time: t});
