@@ -36,7 +36,49 @@ warnings.filterwarnings("ignore")
 from analysis_A_v9 import (
     load_oran_ec, load_tarazona_ec, normalize_swc,
     SITES, GROWING_MONTHS, PATHS as A_PATHS,
+    EF_DENOM_MIN,
 )
+
+
+# ================================================================
+# 0b. Oran 専用: -9999 センチネル除去版ローダ
+#     v9 の load_oran_ec はセンチネルをマスクせず日平均に混入させ、
+#     Rn / LE / H / G が物理的にあり得ない負値に汚染される。
+#     v9 を直接書き換えると A 連結など他解析に波及するため、
+#     C 専用の修正版をここで定義する。
+# ================================================================
+SENTINEL_THR = -9000.0  # これより小さい値は欠損扱い
+
+
+def load_oran_ec_clean(filepath):
+    df = pd.read_csv(filepath)
+    dt_col = next((c for c in df.columns
+                   if c.lower() in ("datetime", "timestamp")), None)
+    df["datetime"] = pd.to_datetime(df[dt_col], errors="coerce")
+    df = df.dropna(subset=["datetime"]).sort_values("datetime").reset_index(drop=True)
+    cols = ["SWC_1_1_1", "LE", "H", "G", "NETRAD", "VPD", "ET"]
+    n_masked = {}
+    for col in cols:
+        s = pd.to_numeric(df[col], errors="coerce")
+        bad = s <= SENTINEL_THR
+        n_masked[col] = int(bad.sum())
+        s = s.where(~bad, np.nan)
+        df[col] = s
+    print(f"[Oran clean] sentinel(<={SENTINEL_THR}) masked: " +
+          ", ".join(f"{k}={v}" for k, v in n_masked.items()))
+    df["date"] = df["datetime"].dt.normalize()
+    daily = df.groupby("date", as_index=False).agg(
+        SWC=("SWC_1_1_1", "mean"), LE=("LE", "mean"), H=("H", "mean"),
+        G=("G", "mean"), Rn=("NETRAD", "mean"),
+        VPD=("VPD", "mean"), ET=("ET", "sum"))
+    denom = daily["Rn"] - daily["G"]
+    valid = denom > EF_DENOM_MIN
+    daily["EF"] = np.nan
+    daily.loc[valid, "EF"] = (daily.loc[valid, "LE"] / denom[valid]).clip(0, 1.5)
+    daily = daily[(daily["SWC"] > 0) & (daily["SWC"] < 100)].reset_index(drop=True)
+    daily["site"] = "Oran"
+    print(f"[Oran EC clean] {len(daily)} 日分")
+    return daily
 
 
 # ================================================================
@@ -501,10 +543,16 @@ if __name__ == "__main__":
     inspect_raw_oran_csv(A_PATHS["oran_ec"])
     inspect_raw_oran_csv(A_PATHS["tara_ec"])
 
-    oran_ec = normalize_swc(load_oran_ec(A_PATHS["oran_ec"]), "Oran")
-    tara_ec = normalize_swc(load_tarazona_ec(A_PATHS["tara_ec"]), "Tarazona")
+    # v9 の生ローダ vs C のクリーン版 を並べてセンチネル汚染の影響を可視化
+    print("\n--- v9 ローダ (センチネル未処理) ---")
+    oran_ec_v9 = normalize_swc(load_oran_ec(A_PATHS["oran_ec"]), "Oran")
+    diagnose_ec(oran_ec_v9, "Oran (v9 / 汚染あり)")
 
-    diagnose_ec(oran_ec, "Oran")
+    print("\n--- C クリーン版 (-9999 等を NaN マスク) ---")
+    oran_ec = normalize_swc(load_oran_ec_clean(A_PATHS["oran_ec"]), "Oran")
+    diagnose_ec(oran_ec, "Oran (clean)")
+
+    tara_ec = normalize_swc(load_tarazona_ec(A_PATHS["tara_ec"]), "Tarazona")
     diagnose_ec(tara_ec, "Tarazona")
 
     oran_m, oran_sg, oran_meta = run_site_C("Oran",     oran_ec, NDVI_APPEEARS_CSV)
