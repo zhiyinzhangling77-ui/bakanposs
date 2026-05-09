@@ -5,10 +5,11 @@ Filtering to summer or to growing season (NDVI > 0.3) sharpens the
 irrigation decoupling signal because winter d8+ days also have near-zero
 EC ET, which artificially shrinks the bias.
 
-Reads: master_full.csv
+Reads: master_full_v2.csv (or master_full.csv as fallback)
 Writes:
-  figs/fig_C2_bias_by_irrig_seasonal.png    4 panels: all / summer / growing
-                                            for both MOD16 and PML
+  figs/fig_C2_bias_by_irrig_seasonal.png    4×n_products panels:
+                                            all / summer / growing / summer×NDVI>0.3
+                                            for MOD16, PML, and METv3 (if present)
   fig_C_summer_summary.csv                  bucket statistics
 """
 from pathlib import Path
@@ -16,13 +17,18 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-CSV = Path("/home/shion-nagamine/bakanposs/master_full.csv")
-FIGS = Path("/home/shion-nagamine/bakanposs/figs")
+REPO = Path(__file__).parent.parent
+# prefer v2 master (includes METv3/SMAP) if available
+CSV = REPO / "master_full_v2.csv"
+if not CSV.exists():
+    CSV = REPO / "master_full.csv"
+FIGS = REPO / "figs"
 FIGS.mkdir(exist_ok=True)
-OUT_CSV = Path("/home/shion-nagamine/bakanposs/fig_C_summer_summary.csv")
+OUT_CSV = REPO / "fig_C_summer_summary.csv"
 
 PRODUCTS = [("MOD16_ET", "MOD16", "tab:purple"),
-            ("PML_ET",   "PML",   "tab:green")]
+            ("PML_ET",   "PML",   "tab:green"),
+            ("ET_metv3_mm", "METv3", "tab:orange")]
 BUCKETS = ["irrig_d0-3", "irrig_d4-7", "irrig_d8plus"]
 
 
@@ -102,8 +108,13 @@ def main() -> None:
     print(summary.to_string(index=False))
     print(f"\nwrote {OUT_CSV}")
 
-    fig, axes = plt.subplots(2, 4, figsize=(16, 7), sharey="row")
-    for r, (col, label, c) in enumerate(PRODUCTS):
+    available = [(col, label, c) for col, label, c in PRODUCTS
+                 if col in t.columns and t[col].notna().sum() > 10]
+    n_rows = len(available)
+    fig, axes = plt.subplots(n_rows, 4, figsize=(16, 3.5 * n_rows), sharey="row")
+    if n_rows == 1:
+        axes = axes[np.newaxis, :]
+    for r, (col, label, c) in enumerate(available):
         for j, (fname, m) in enumerate(masks.items()):
             panel(axes[r, j], t[m], col, label, c,
                   f"{label} | {fname}")

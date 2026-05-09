@@ -24,9 +24,13 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from scipy.optimize import curve_fit
 
-CSV = Path("/home/shion-nagamine/bakanposs/master_full.csv")
-OUT_CSV = Path("/home/shion-nagamine/bakanposs/tau_fit_summary.csv")
-FIGS = Path("/home/shion-nagamine/bakanposs/figs")
+REPO = Path(__file__).parent.parent
+# Use master_full_v2 if it exists (includes METv3); otherwise fall back
+CSV = REPO / "master_full_v2.csv"
+if not CSV.exists():
+    CSV = REPO / "master_full.csv"
+OUT_CSV = REPO / "tau_fit_summary.csv"
+FIGS = REPO / "figs"
 FIGS.mkdir(exist_ok=True)
 
 MIN_N = 8
@@ -151,11 +155,18 @@ def main() -> None:
     print(f"TzM summer × NDVI>0.3: n={len(t)}")
 
     rows = []
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharex=True)
 
-    for ax, (col, label, color) in zip(
-            axes, [("MOD16_ET", "MOD16", "tab:purple"),
-                   ("PML_ET",   "PML",   "tab:green")]):
+    products = [("MOD16_ET", "MOD16", "tab:purple"),
+                ("PML_ET",   "PML",   "tab:green")]
+    if "ET_metv3_mm" in t.columns and t["ET_metv3_mm"].notna().sum() > 30:
+        products.append(("ET_metv3_mm", "METv3", "tab:orange"))
+
+    n_prod = len(products)
+    fig, axes = plt.subplots(1, n_prod, figsize=(6 * n_prod, 5), sharex=True)
+    if n_prod == 1:
+        axes = [axes]
+
+    for ax, (col, label, color) in zip(axes, products):
         if col not in t:
             continue
         bias = (t[col] - t["ET_mm"])

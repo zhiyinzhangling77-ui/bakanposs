@@ -10,9 +10,10 @@ Output:
 from pathlib import Path
 import pandas as pd
 
-EC = Path("/home/shion-nagamine/bakanposs/ec_daily_master_flagged.csv")
-SAT = Path("/home/shion-nagamine/bakanposs/satellite_daily.csv")
-OUT = Path("/home/shion-nagamine/bakanposs/master_full.csv")
+REPO = Path(__file__).parent.parent
+EC = REPO / "ec_daily_master_flagged.csv"
+SAT = REPO / "satellite_daily.csv"
+OUT = REPO / "master_full.csv"
 
 
 def main() -> None:

@@ -14,8 +14,11 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-CSV = Path("/home/shion-nagamine/bakanposs/master_full.csv")
-FIGS = Path("/home/shion-nagamine/bakanposs/figs")
+REPO = Path(__file__).parent.parent
+CSV = REPO / "master_full.csv"
+if not CSV.exists():
+    CSV = REPO / "master_full_v2.csv"
+FIGS = REPO / "figs"
 FIGS.mkdir(exist_ok=True)
 
 SITE_COLOR = {"Oran": "#1f77b4", "TzM": "#d62728"}

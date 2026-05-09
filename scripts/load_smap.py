@@ -11,7 +11,8 @@ from pathlib import Path
 import pandas as pd
 
 BASE = Path("/mnt/hdd/Dataset/SMAP_3hr")
-OUT = Path("/home/shion-nagamine/bakanposs/smap_daily.csv")
+REPO = Path(__file__).parent.parent
+OUT = REPO / "smap_daily.csv"
 MIN_OBS_PER_DAY = 4   # of 8 (50%)
 
 

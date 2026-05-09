@@ -1,5 +1,34 @@
 # Methods and Results — English draft
 
+## 1. Introduction
+
+### 1.1 Remote sensing of ET in irrigated agriculture
+
+Evapotranspiration (ET) is the largest term in the agricultural water balance and the primary variable connecting soil moisture, plant physiology, and regional water resources. Satellite-based ET products — including MODIS MOD16 (Mu et al., 2011; Running et al., 2019), Penman–Monteith–Leuning (PML; Zhang et al., 2019), and GLEAM (Martens et al., 2017) — now offer continuous, spatially explicit estimates at kilometre resolution and are increasingly used for operational irrigation scheduling (Bastiaanssen et al., 2014), large-scale water accounting (Biggs et al., 2021), and drought monitoring (Anderson et al., 2021). Their underlying algorithms follow the Penman–Monteith or Priestley–Taylor formulations, driven by remotely sensed land surface temperature (LST), vegetation indices, and — in microwave-based variants — surface soil water content (SWC).
+
+A consistent finding in validation studies is that satellite ET products perform well in rainfed and water-limited environments but show large systematic underestimation in irrigated agriculture (Velpuri et al., 2013; Senay et al., 2017; Talsma et al., 2018; Bezerra et al., 2021). Reported mean biases range from −1 to −5 mm d⁻¹ in irrigated cereal and orchard systems, with the largest errors during peak summer demand. These discrepancies have been attributed to algorithm structural errors (inadequate treatment of soil evaporation from drip-wetted sub-surface zones), calibration biases (FLUXNET2015 training data under-represents high-intensity drip irrigation; Pastorello et al., 2020), and boundary layer mismatches (kilometre-scale footprint averaging over heterogeneous irrigation patterns).
+
+### 1.2 The drip irrigation decoupling problem
+
+Drip and subsurface irrigation systems are designed specifically to deliver water directly to the active root zone while keeping the soil surface relatively dry. In orchards and vineyards on coarse-to-medium soils, a single drip event creates a localised wet bulb at 10–30 cm depth that supports transpiration for 2–5 days without substantially raising the 0–5 cm surface SWC (Skaggs et al., 2004; Cote et al., 2003). This "decoupling" between the surface layer sampled by both in-situ sensors and microwave remote sensing (SMOS, SMAP; penetration depth 0–5 cm) and the deeper root-zone layer sustaining canopy transpiration creates a fundamental challenge for satellite ET algorithms that use surface SWC — explicitly or implicitly through LST — as a moisture stress proxy.
+
+Despite the practical importance of this mechanism, its temporal dynamics have rarely been characterised at the site level with simultaneous eddy-covariance (EC) and satellite observations. Specifically, the question of *how quickly* the satellite ET bias relaxes after an irrigation event — which determines the effective correction timescale — has not been addressed with a continuous EC record spanning multiple irrigation seasons. Understanding this timescale is critical because drip irrigation typically operates on 2–4 day cycles; a bias that decays in 1–2 days is self-correcting at weekly timescales, whereas a bias that persists for 5–10 days implies cumulative underestimation of water use through the entire growing season.
+
+### 1.3 Research framing and prior work at the study sites
+
+The present study originates from a longer investigation at two flux tower sites in Albacete province, semi-arid southeastern Spain. An earlier analysis phase tested the hypothesis that almond trees at the Tarazona de la Mancha site (TzM) accessed deep groundwater during surface-dry periods, explaining the apparent decoupling between surface SWC and latent heat flux (LE). Systematic stratification of flux data by days since the last irrigation event (a "v14" analysis) refuted this hypothesis: the decoupling was fully explained by the drip irrigation management cycle, with no residual signal attributable to groundwater access or deep rooting. This reframing motivates the present analysis, which extends the site-level decoupling characterisation to satellite ET retrievals and quantifies the irrigation bias as a physically interpretable, event-driven signal.
+
+### 1.4 Objectives
+
+This study pursues four linked objectives:
+
+1. **Reproduce the in-situ drought sensitivity (SDS)** metric from an independent, fully documented pipeline to confirm that TzM summer latent heat flux is decoupled from surface SWC in the first 3 days after irrigation events.
+2. **Quantify the MOD16 and PML ET bias** against EC observations at both a drip-irrigated orchard (TzM, 2020–2024) and a rainfed cereal control (Oran, 2018–2020), stratified by season, irrigation bucket, and vegetation state.
+3. **Test the dose-response prediction**: if the bias is irrigation-driven, it should scale monotonically with days since last irrigation and be absent at the rainfed control site.
+4. **Fit an exponential decay bias model** of the form Δ(t) = a·exp(−t/τ) + c, where t is days since last irrigation, and recover the bias decay time constant τ and any structural permanent offset c.
+
+We find that satellite ET is underestimated by 2.7–4.1 mm d⁻¹ in the 3 days after irrigation at TzM, relaxing toward a permanent offset of −2.6 mm d⁻¹ for MOD16 and near zero for PML, with τ ≈ 3–5 d. The rainfed Oran control shows biases less than 0.5 mm d⁻¹ with no irrigation-cycle structure. These results are consistent with the drip wetted-bulb mechanism and point to distinct correction strategies for the two products.
+
 ## 2. Materials and Methods
 
 ### 2.1 Study sites

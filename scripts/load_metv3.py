@@ -21,9 +21,10 @@ import pandas as pd
 import xarray as xr
 
 BASE = Path("/home/shion-nagamine/Dataset/METv3")
-OUT_DIR = Path("/home/shion-nagamine/bakanposs/metv3_daily")
+REPO = Path(__file__).parent.parent
+OUT_DIR = REPO / "metv3_daily"
 OUT_DIR.mkdir(exist_ok=True)
-OUT_ALL = Path("/home/shion-nagamine/bakanposs/metv3_daily_all.csv")
+OUT_ALL = REPO / "metv3_daily_all.csv"
 
 SITES = {
     "Oran": (38.82, -1.86),
