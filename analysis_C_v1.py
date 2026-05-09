@@ -43,10 +43,9 @@ from analysis_A_v9 import (
 # 0. 設定
 # ================================================================
 BASE_NC = Path("/mnt/hdd/Dataset")
-NDVI_PATHS = {
-    "Oran"    : BASE_NC / "MODIS_NDVI/Oran_MOD13Q1_NDVI.csv",
-    "Tarazona": BASE_NC / "MODIS_NDVI/TzM_MOD13Q1_NDVI.csv",
-}
+# AppEEARS で抽出した単一 CSV (Oran/TzM 両方を含む)
+NDVI_APPEEARS_CSV = BASE_NC / "MOD13Q1_NDVI_EVI/MOD13Q1-NDVI-EVI-MOD13Q1-061-results.csv"
+SITE_ID_IN_CSV = {"Oran": "Oran", "Tarazona": "TzM"}
 
 SAVE_DIR = Path("./output_analysis_C_v1")
 SAVE_DIR.mkdir(exist_ok=True)
@@ -58,22 +57,67 @@ SITE_COL = {"Oran": "#E85D04", "Tarazona": "#1D9E75"}
 # 1. NDVI 読み込み・スムージング
 # ================================================================
 
-def load_ndvi_csv(filepath, site_name):
-    """MOD13Q1 を想定。列は date, NDVI (もしくは NDVI_mean)。
-    -3000..10000 のスケールなら 1e-4 倍する。"""
+def load_ndvi_csv(filepath, site_name, site_id_in_csv=None,
+                   reliability_max=1):
+    """AppEEARS の MOD13Q1 NDVI/EVI 抽出 CSV (両サイト同梱) を読む.
+
+    AppEEARS 列名例:
+      ID, Latitude, Longitude, Date,
+      MOD13Q1_061__250m_16_days_NDVI,
+      MOD13Q1_061__250m_16_days_EVI,
+      MOD13Q1_061__250m_16_days_pixel_reliability,
+      MOD13Q1_061__250m_16_days_VI_Quality, ...
+
+    pixel_reliability: 0=good, 1=marginal, 2=snow/ice, 3=cloudy, -1=fill
+    AppEEARS は通常 scale factor 適用済みなので NDVI は [-0.2, 1.0] のはず。
+    """
     df = pd.read_csv(filepath)
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    if "NDVI" not in df.columns:
-        cand = next((c for c in df.columns if c.lower().startswith("ndvi")), None)
-        if cand is None:
-            raise KeyError(f"NDVI 列が見つからない: {df.columns.tolist()}")
-        df = df.rename(columns={cand: "NDVI"})
-    df = df[["date", "NDVI"]].dropna().sort_values("date").reset_index(drop=True)
-    if df["NDVI"].abs().max() > 2.0:
-        df["NDVI"] = df["NDVI"] * 1e-4
-    df = df[df["NDVI"].between(-0.2, 1.0)].reset_index(drop=True)
-    print(f"[NDVI {site_name}] {len(df)} シーン  range=[{df['NDVI'].min():.3f}, {df['NDVI'].max():.3f}]")
-    return df
+
+    # 列名を正規化
+    cols = {c.lower(): c for c in df.columns}
+    def col(*needles):
+        for k, orig in cols.items():
+            if all(n in k for n in needles):
+                return orig
+        return None
+
+    c_id  = col("id") or col("name") or col("category")
+    c_dt  = col("date")
+    c_ndvi = col("ndvi") and next(c for c in df.columns
+                                   if "ndvi" in c.lower()
+                                   and "quality" not in c.lower()
+                                   and "reliability" not in c.lower())
+    c_rel  = col("pixel", "reliability")
+    c_qa   = col("vi", "quality")
+    if not all([c_id, c_dt, c_ndvi]):
+        raise KeyError(f"必須列が不足: {df.columns.tolist()}")
+
+    if site_id_in_csv is None:
+        site_id_in_csv = SITE_ID_IN_CSV.get(site_name, site_name)
+    sub = df[df[c_id].astype(str).str.strip() == site_id_in_csv].copy()
+    if sub.empty:
+        ids_seen = sorted(df[c_id].dropna().unique().tolist())
+        raise ValueError(f"site_id={site_id_in_csv} が CSV に無い. 候補: {ids_seen}")
+
+    sub = sub.rename(columns={c_dt: "date", c_ndvi: "NDVI"})
+    sub["date"] = pd.to_datetime(sub["date"], errors="coerce")
+    sub["NDVI"] = pd.to_numeric(sub["NDVI"], errors="coerce")
+
+    # スケールファクタ未適用なら適用
+    if sub["NDVI"].abs().max() > 2.0:
+        sub["NDVI"] = sub["NDVI"] * 1e-4
+
+    n_raw = len(sub)
+    if c_rel and c_rel in sub.columns:
+        sub[c_rel] = pd.to_numeric(sub[c_rel], errors="coerce")
+        sub = sub[(sub[c_rel] >= 0) & (sub[c_rel] <= reliability_max)]
+    sub = sub[sub["NDVI"].between(-0.2, 1.0)]
+    sub = sub.dropna(subset=["date", "NDVI"]).sort_values("date").reset_index(drop=True)
+
+    print(f"[NDVI {site_name}] AppEEARS site_id={site_id_in_csv}  "
+          f"{len(sub)}/{n_raw} シーン (reliability<={reliability_max})  "
+          f"range=[{sub['NDVI'].min():.3f}, {sub['NDVI'].max():.3f}]")
+    return sub[["date", "NDVI"]]
 
 
 def smooth_ndvi(ndvi_df, window=5, poly=2):
@@ -367,8 +411,8 @@ if __name__ == "__main__":
     oran_ec = normalize_swc(load_oran_ec(A_PATHS["oran_ec"]), "Oran")
     tara_ec = normalize_swc(load_tarazona_ec(A_PATHS["tara_ec"]), "Tarazona")
 
-    oran_m, oran_sg, oran_meta = run_site_C("Oran",     oran_ec, NDVI_PATHS["Oran"])
-    tara_m, tara_sg, tara_meta = run_site_C("Tarazona", tara_ec, NDVI_PATHS["Tarazona"])
+    oran_m, oran_sg, oran_meta = run_site_C("Oran",     oran_ec, NDVI_APPEEARS_CSV)
+    tara_m, tara_sg, tara_meta = run_site_C("Tarazona", tara_ec, NDVI_APPEEARS_CSV)
 
     per_site = {"Oran": (oran_m, oran_sg), "Tarazona": (tara_m, tara_sg)}
     plot_ndvi_timeseries(per_site, SAVE_DIR)
