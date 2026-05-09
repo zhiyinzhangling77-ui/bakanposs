@@ -51,21 +51,44 @@ SENTINEL_THR = -9000.0  # これより小さい値は欠損扱い
 
 
 def load_oran_ec_clean(filepath):
+    """
+    v9 の load_oran_ec は `DateTime` 列でパースするが、Oran CSV は
+    各日の最初の半時間にだけ DateTime が入っており、残り 47/48 行の
+    DateTime は欠損のため NaT 扱いで dropna されていた。
+    結果、914/52606 行 (=1日1行・真夜中だけ) しか残らず、
+    Rn が夜間値だけになって中央値 -63 W/m² という偽の値を吐いていた。
+
+    Ameriflux 形式の `TIMESTAMP` (YYYYMMDDhhmm 整数) を使って
+    52606 半時間レコードを正しくパースし、半時間 → 日へ集計する。
+    """
     df = pd.read_csv(filepath)
-    dt_col = next((c for c in df.columns
-                   if c.lower() in ("datetime", "timestamp")), None)
-    df["datetime"] = pd.to_datetime(df[dt_col], errors="coerce")
+    n_raw = len(df)
+
+    if "TIMESTAMP" in df.columns:
+        ts = df["TIMESTAMP"].astype(str).str.replace(r"\.0$", "", regex=True)
+        df["datetime"] = pd.to_datetime(ts, format="%Y%m%d%H%M", errors="coerce")
+        if df["datetime"].notna().sum() < n_raw * 0.5:
+            ts2 = df["TIMESTAMP"].astype(str).str.replace(r"\.0$", "", regex=True)
+            df["datetime"] = pd.to_datetime(ts2, format="%Y%m%d%H%M%S", errors="coerce")
+    else:
+        df["datetime"] = pd.to_datetime(df["DateTime"], errors="coerce")
+
+    n_parsed = int(df["datetime"].notna().sum())
+    print(f"[Oran clean] TIMESTAMP parse: {n_parsed}/{n_raw} subdaily records  "
+          f"(~{n_parsed / max(1, df['datetime'].dt.normalize().nunique()):.1f}/day)")
+
     df = df.dropna(subset=["datetime"]).sort_values("datetime").reset_index(drop=True)
+
     cols = ["SWC_1_1_1", "LE", "H", "G", "NETRAD", "VPD", "ET"]
     n_masked = {}
     for col in cols:
         s = pd.to_numeric(df[col], errors="coerce")
         bad = s <= SENTINEL_THR
         n_masked[col] = int(bad.sum())
-        s = s.where(~bad, np.nan)
-        df[col] = s
+        df[col] = s.where(~bad, np.nan)
     print(f"[Oran clean] sentinel(<={SENTINEL_THR}) masked: " +
           ", ".join(f"{k}={v}" for k, v in n_masked.items()))
+
     df["date"] = df["datetime"].dt.normalize()
     daily = df.groupby("date", as_index=False).agg(
         SWC=("SWC_1_1_1", "mean"), LE=("LE", "mean"), H=("H", "mean"),
@@ -383,6 +406,17 @@ def inspect_raw_oran_csv(path):
     print(f"  columns ({len(head.columns)}): {list(head.columns)}")
 
 
+def dump_oran_first_rows(path, n=10):
+    """先頭 n 行で DateTime と TIMESTAMP の値を確認 — どの列が半時間刻みかを目視."""
+    df = pd.read_csv(path, nrows=n)
+    cols = [c for c in ["DateTime", "TIMESTAMP", "year", "Julian",
+                        "Time_hours", "Time_days"] if c in df.columns]
+    print(f"\n[Oran 最初 {n} 行 timestamp 関連列]")
+    for c in cols:
+        vals = df[c].tolist()
+        print(f"  {c:11s}: {vals}")
+
+
 def deep_inspect_oran_raw(path):
     """
     Oran 生 CSV を半時間 / 日次レベルで徹底診断:
@@ -615,7 +649,8 @@ if __name__ == "__main__":
     inspect_raw_oran_csv(A_PATHS["oran_ec"])
     inspect_raw_oran_csv(A_PATHS["tara_ec"])
 
-    # 生 NETRAD の符号 / 単位 / 日中時の妥当性を検証
+    # 先頭行のタイムスタンプを目視 + 生 NETRAD 検証
+    dump_oran_first_rows(A_PATHS["oran_ec"], n=10)
     deep_inspect_oran_raw(A_PATHS["oran_ec"])
 
     # v9 の生ローダ vs C のクリーン版 を並べてセンチネル汚染の影響を可視化
