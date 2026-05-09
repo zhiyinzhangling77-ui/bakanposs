@@ -32,11 +32,15 @@ from pathlib import Path
 import warnings
 warnings.filterwarnings("ignore")
 
-# 解析Aの読み込み関数を再利用 (重複定義を避ける)
+# 解析Aの設定値・補助関数を再利用 (重複定義を避ける)
 from analysis_A_v9 import (
-    load_oran_ec, load_tarazona_ec, normalize_swc,
+    load_oran_ec, load_tarazona_ec,
     SITES, GROWING_MONTHS, PATHS as A_PATHS,
-    EF_DENOM_MIN,
+)
+# クリーンローダ (バグ修正版) は共通モジュールから
+from data_loaders import (
+    load_oran_ec_clean, load_tarazona_ec_clean, normalize_swc,
+    EF_DENOM_MIN, SENTINEL_THR,
 )
 
 
@@ -84,128 +88,9 @@ def inspect_tarazona_units(path):
 
 
 # ================================================================
-# 0b. Oran 専用: -9999 センチネル除去版ローダ
-#     v9 の load_oran_ec はセンチネルをマスクせず日平均に混入させ、
-#     Rn / LE / H / G が物理的にあり得ない負値に汚染される。
-#     v9 を直接書き換えると A 連結など他解析に波及するため、
-#     C 専用の修正版をここで定義する。
-# ================================================================
-SENTINEL_THR = -9000.0  # これより小さい値は欠損扱い
-
-
-def load_oran_ec_clean(filepath):
-    """
-    v9 の load_oran_ec は `DateTime` 列でパースするが、Oran CSV は
-    各日の最初の半時間にだけ DateTime が入っており、残り 47/48 行の
-    DateTime は欠損のため NaT 扱いで dropna されていた。
-    結果、914/52606 行 (=1日1行・真夜中だけ) しか残らず、
-    Rn が夜間値だけになって中央値 -63 W/m² という偽の値を吐いていた。
-
-    Ameriflux 形式の `TIMESTAMP` (YYYYMMDDhhmm 整数) を使って
-    52606 半時間レコードを正しくパースし、半時間 → 日へ集計する。
-    """
-    df = pd.read_csv(filepath)
-    n_raw = len(df)
-
-    # Oran CSV の TIMESTAMP / DateTime は混合フォーマット:
-    #   先頭行    : '2018/01/01'           (日付のみ → 00:00 扱い)
-    #   それ以外  : '2018/01/01 00:30:00'  (半時間ステップ)
-    # pd.to_datetime は先頭行から '%Y/%m/%d' を推定して残り全部を NaT 化する。
-    # → 二段パースで両方拾う。
-    src_col = "TIMESTAMP" if "TIMESTAMP" in df.columns else "DateTime"
-    ts = df[src_col].astype(str).str.strip()
-    dt = pd.Series(pd.NaT, index=df.index, dtype="datetime64[ns]")
-    fmts = [
-        "%Y/%m/%d %H:%M:%S", "%Y/%m/%d %H:%M",
-        "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M",
-        "%Y/%m/%d", "%Y-%m-%d",
-        "%m/%d/%Y %H:%M:%S", "%m/%d/%Y",
-    ]
-    for fmt in fmts:
-        miss = dt.isna()
-        if not miss.any():
-            break
-        dt2 = pd.to_datetime(ts[miss], format=fmt, errors="coerce")
-        dt = dt.where(~miss, dt2)
-    if dt.notna().sum() < n_raw * 0.95:
-        miss = dt.isna()
-        dt2 = pd.to_datetime(ts[miss], format="mixed", errors="coerce")
-        dt = dt.where(~miss, dt2)
-    df["datetime"] = dt
-
-    n_parsed = int(df["datetime"].notna().sum())
-    print(f"[Oran clean] TIMESTAMP parse: {n_parsed}/{n_raw} subdaily records  "
-          f"(~{n_parsed / max(1, df['datetime'].dt.normalize().nunique()):.1f}/day)")
-
-    df = df.dropna(subset=["datetime"]).sort_values("datetime").reset_index(drop=True)
-
-    cols = ["SWC_1_1_1", "LE", "H", "G", "NETRAD", "VPD", "ET"]
-    n_masked = {}
-    for col in cols:
-        s = pd.to_numeric(df[col], errors="coerce")
-        bad = s <= SENTINEL_THR
-        n_masked[col] = int(bad.sum())
-        df[col] = s.where(~bad, np.nan)
-    print(f"[Oran clean] sentinel(<={SENTINEL_THR}) masked: " +
-          ", ".join(f"{k}={v}" for k, v in n_masked.items()))
-
-    df["date"] = df["datetime"].dt.normalize()
-    daily = df.groupby("date", as_index=False).agg(
-        SWC=("SWC_1_1_1", "mean"), LE=("LE", "mean"), H=("H", "mean"),
-        G=("G", "mean"), Rn=("NETRAD", "mean"),
-        VPD=("VPD", "mean"), ET=("ET", "sum"))
-    denom = daily["Rn"] - daily["G"]
-    valid = denom > EF_DENOM_MIN
-    daily["EF"] = np.nan
-    daily.loc[valid, "EF"] = (daily.loc[valid, "LE"] / denom[valid]).clip(0, 1.5)
-    daily = daily[(daily["SWC"] > 0) & (daily["SWC"] < 100)].reset_index(drop=True)
-    # Oran の VPD は hPa (mb)。kPa に揃え、外れ値 (>10 kPa) は NaN。
-    daily["VPD"] = daily["VPD"] / 10.0
-    daily.loc[(daily["VPD"] > 10) | (daily["VPD"] < 0), "VPD"] = np.nan
-    daily["site"] = "Oran"
-    print(f"[Oran EC clean] {len(daily)} 日分  (VPD hPa→kPa, 外れ値除去)")
-    return daily
-
-
-def load_tarazona_ec_clean(filepath):
-    """Tarazona の単位を Oran と揃えるクリーン版.
-    - ET: ET_avg (mm/30min の日平均? 不明) ではなく ET_sum (日合計 mm) を使用
-    - VPD: VPD_kPa を直接使用 (VPD_mean は Pa)
-    """
-    df = pd.read_csv(filepath)
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df = df.dropna(subset=["date"]).sort_values("date").reset_index(drop=True)
-    rename = {"SWC_avg": "SWC", "LE_avg": "LE", "H_avg": "H",
-              "G_avg": "G", "NetRad_avg": "Rn"}
-    df = df.rename(columns=rename)
-    if "ET_sum" in df.columns:
-        df["ET"] = pd.to_numeric(df["ET_sum"], errors="coerce")
-        et_src = "ET_sum"
-    else:
-        df["ET"] = pd.to_numeric(df["ET_avg"], errors="coerce")
-        et_src = "ET_avg"
-    if "VPD_kPa" in df.columns:
-        df["VPD"] = pd.to_numeric(df["VPD_kPa"], errors="coerce")
-        vpd_src = "VPD_kPa"
-    elif "VPD_mean" in df.columns:
-        df["VPD"] = pd.to_numeric(df["VPD_mean"], errors="coerce") / 1000.0
-        vpd_src = "VPD_mean/1000"
-    for c in ["SWC", "LE", "H", "G", "Rn"]:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
-    denom = df["Rn"] - df["G"]
-    valid = denom > EF_DENOM_MIN
-    df["EF"] = np.nan
-    df.loc[valid, "EF"] = (df.loc[valid, "LE"] / denom[valid]).clip(0, 1.5)
-    keep = ["date", "SWC", "LE", "H", "G", "Rn", "VPD", "ET", "EF"]
-    df = df[[c for c in keep if c in df.columns]].copy()
-    df["site"] = "Tarazona"
-    print(f"[Tarazona EC clean] {len(df)} 日分  "
-          f"(ET<-{et_src}, VPD<-{vpd_src})")
-    return df
-
-
-# ================================================================
 # 0. 設定
+#    (loader 本体は data_loaders.py に切り出した。
+#     A/B でも同じローダを使うため共有モジュール化)
 # ================================================================
 BASE_NC = Path("/mnt/hdd/Dataset")
 # AppEEARS で抽出した単一 CSV (Oran/TzM 両方を含む)
@@ -252,6 +137,10 @@ def load_ndvi_csv(filepath, site_name, site_id_in_csv=None,
                                    if "ndvi" in c.lower()
                                    and "quality" not in c.lower()
                                    and "reliability" not in c.lower())
+    c_evi = next((c for c in df.columns
+                  if "evi" in c.lower()
+                  and "quality" not in c.lower()
+                  and "reliability" not in c.lower()), None)
     c_rel  = col("pixel", "reliability")
     c_qa   = col("vi", "quality")
     if not all([c_id, c_dt, c_ndvi]):
@@ -264,13 +153,19 @@ def load_ndvi_csv(filepath, site_name, site_id_in_csv=None,
         ids_seen = sorted(df[c_id].dropna().unique().tolist())
         raise ValueError(f"site_id={site_id_in_csv} が CSV に無い. 候補: {ids_seen}")
 
-    sub = sub.rename(columns={c_dt: "date", c_ndvi: "NDVI"})
+    rename_map = {c_dt: "date", c_ndvi: "NDVI"}
+    if c_evi:
+        rename_map[c_evi] = "EVI"
+    sub = sub.rename(columns=rename_map)
     sub["date"] = pd.to_datetime(sub["date"], errors="coerce")
     sub["NDVI"] = pd.to_numeric(sub["NDVI"], errors="coerce")
+    if "EVI" in sub.columns:
+        sub["EVI"] = pd.to_numeric(sub["EVI"], errors="coerce")
 
-    # スケールファクタ未適用なら適用
     if sub["NDVI"].abs().max() > 2.0:
         sub["NDVI"] = sub["NDVI"] * 1e-4
+    if "EVI" in sub.columns and sub["EVI"].abs().max() > 2.0:
+        sub["EVI"] = sub["EVI"] * 1e-4
 
     n_raw = len(sub)
     if c_rel and c_rel in sub.columns:
@@ -281,8 +176,11 @@ def load_ndvi_csv(filepath, site_name, site_id_in_csv=None,
 
     print(f"[NDVI {site_name}] AppEEARS site_id={site_id_in_csv}  "
           f"{len(sub)}/{n_raw} シーン (reliability<={reliability_max})  "
-          f"range=[{sub['NDVI'].min():.3f}, {sub['NDVI'].max():.3f}]")
-    return sub[["date", "NDVI"]]
+          f"NDVI=[{sub['NDVI'].min():.3f}, {sub['NDVI'].max():.3f}]"
+          + (f"  EVI=[{sub['EVI'].min():.3f}, {sub['EVI'].max():.3f}]"
+             if "EVI" in sub.columns else ""))
+    keep = ["date", "NDVI"] + (["EVI"] if "EVI" in sub.columns else [])
+    return sub[keep]
 
 
 def smooth_ndvi(ndvi_df, window=5, poly=2):
@@ -297,20 +195,24 @@ def smooth_ndvi(ndvi_df, window=5, poly=2):
 
 
 def match_ndvi(ec_df, ndvi_df, max_days=10):
-    """前後最近傍の平均 (NDWI と同パターン)."""
+    """前後最近傍の平均で NDVI (および EVI) を結合."""
     ec   = ec_df.sort_values("date").reset_index(drop=True).copy()
     ndvi = ndvi_df.sort_values("date").reset_index(drop=True).copy()
     tol = pd.Timedelta(days=max_days)
+
+    vi_cols = [c for c in ["NDVI", "EVI"] if c in ndvi.columns]
     fwd = pd.merge_asof(ec, ndvi, on="date", direction="backward", tolerance=tol)
     bwd = pd.merge_asof(ec, ndvi, on="date", direction="forward",  tolerance=tol,
                         suffixes=("", "_bwd"))
-    fwd_v = fwd["NDVI"].values
-    bwd_c = "NDVI_bwd" if "NDVI_bwd" in bwd.columns else "NDVI"
-    bwd_v = bwd[bwd_c].values
-    ec["NDVI"] = np.where(np.isnan(fwd_v) & np.isnan(bwd_v), np.nan,
-                  np.where(np.isnan(fwd_v), bwd_v,
-                  np.where(np.isnan(bwd_v), fwd_v, (fwd_v + bwd_v) / 2)))
-    print(f"  NDVI マッチ: {ec['NDVI'].notna().sum()}/{len(ec)} 日")
+    for col in vi_cols:
+        fwd_v = fwd[col].values
+        bwd_c = f"{col}_bwd" if f"{col}_bwd" in bwd.columns else col
+        bwd_v = bwd[bwd_c].values
+        ec[col] = np.where(np.isnan(fwd_v) & np.isnan(bwd_v), np.nan,
+                    np.where(np.isnan(fwd_v), bwd_v,
+                    np.where(np.isnan(bwd_v), fwd_v, (fwd_v + bwd_v) / 2)))
+    print(f"  NDVI マッチ: {ec['NDVI'].notna().sum()}/{len(ec)} 日"
+          + (f"  EVI マッチ: {ec['EVI'].notna().sum()}" if "EVI" in ec.columns else ""))
     return ec
 
 
@@ -838,6 +740,273 @@ def plot_partial_corr(oran, tara, save_dir):
         print(f"  [保存] {out}")
 
 
+# ================================================================
+# H2: NDVI が高 LAI 域で飽和していないか EVI で検証
+#
+#   仮説: Tarazona アーモンド樹冠は LAI が高くても NDVI は 0.5–0.6 で
+#         頭打ち。生育期内 NDVI 分散が情報を持たない可能性。
+#   検証: NDVI と EVI の関係が線形なら飽和なし。NDVI が頭打ちで EVI が
+#         伸びるなら飽和あり (= EVI を使う方が植生活性度を捉えられる)。
+# ================================================================
+def ndvi_saturation_check(merged, site, save_dir):
+    if "EVI" not in merged.columns or merged["EVI"].notna().sum() < 30:
+        print(f"\n[H2 {site}] EVI 列なし or サンプル不足; skip"); return None
+
+    print(f"\n{'=' * 60}\n[H2 {site}] NDVI vs EVI 飽和検証\n{'=' * 60}")
+    sub = merged.dropna(subset=["NDVI", "EVI"]).copy()
+    if len(sub) < 30:
+        return None
+
+    r_lin, _ = stats.spearmanr(sub["NDVI"], sub["EVI"])
+    print(f"  全データ ρ(NDVI, EVI) = {r_lin:+.3f}  n={len(sub)}")
+
+    # 高 NDVI 領域 (>= p67) と低-中 NDVI 領域 (<= p67) で線形関係が変わるか
+    p67 = sub["NDVI"].quantile(0.67)
+    low = sub[sub["NDVI"] < p67]
+    hi  = sub[sub["NDVI"] >= p67]
+    if len(hi) >= 10 and len(low) >= 10:
+        r_low, _ = stats.spearmanr(low["NDVI"], low["EVI"])
+        r_hi,  _ = stats.spearmanr(hi["NDVI"],  hi["EVI"])
+        slope_low = np.polyfit(low["NDVI"], low["EVI"], 1)[0]
+        slope_hi  = np.polyfit(hi["NDVI"],  hi["EVI"], 1)[0]
+        print(f"  NDVI < p67 (low-mid, n={len(low)}): "
+              f"ρ={r_low:+.3f}  slope EVI/NDVI={slope_low:+.3f}")
+        print(f"  NDVI ≥ p67 (high,    n={len(hi)}):  "
+              f"ρ={r_hi:+.3f}  slope EVI/NDVI={slope_hi:+.3f}")
+        if slope_hi < slope_low * 0.6:
+            print(f"  → 高 NDVI 領域で傾きが落ちている = NDVI 飽和の兆候")
+        else:
+            print(f"  → 飽和の明確な兆候なし")
+
+    # EVI を使うと NDVI で見えなかった LE 相関が出るか
+    if "LE" in merged.columns:
+        gg = merged[merged.get("phen") == "growing"].dropna(
+            subset=["NDVI", "EVI", "LE"])
+        if len(gg) >= 30:
+            r_n, _ = stats.spearmanr(gg["NDVI"], gg["LE"])
+            r_e, _ = stats.spearmanr(gg["EVI"],  gg["LE"])
+            print(f"  生育期内 (n={len(gg)}): ρ(NDVI,LE)={r_n:+.3f}  "
+                  f"ρ(EVI,LE)={r_e:+.3f}")
+
+    # Figure
+    with plt.rc_context(PAPER_RC):
+        fig, ax = plt.subplots(figsize=(5.5, 5))
+        ax.scatter(sub["NDVI"], sub["EVI"], s=10, alpha=0.45,
+                   color=SITE_COLOR[site], edgecolors="white", linewidths=0.3)
+        m, b = np.polyfit(sub["NDVI"], sub["EVI"], 1)
+        xs = np.linspace(sub["NDVI"].min(), sub["NDVI"].max(), 50)
+        ax.plot(xs, m * xs + b, "k--", lw=1.0,
+                label=f"linear fit: y={m:+.2f}x{b:+.3f}")
+        ax.plot(xs, xs, ":", color="gray", lw=0.8, label="y = x")
+        ax.set_xlabel("NDVI"); ax.set_ylabel("EVI")
+        ax.set_title(f"{site}: NDVI vs EVI", loc="left", fontweight="bold")
+        ax.legend(frameon=False)
+        ax.grid(True, alpha=0.25)
+        out = Path(save_dir) / f"C_H2_ndvi_evi_{site}.png"
+        plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
+        print(f"  [保存] {out}")
+
+
+# ================================================================
+# H4: Oran の NDVI~H 負相関がアルベド経由か検証
+#
+#   仮説: NDVI 上昇 → アルベド低下 → 利用可能エネルギー増 → H 減?
+#         それとも気孔開放 → LE 増 → エネルギーバランス上 H 減?
+#   検証: Oran CSV の ALB 列を使って、
+#     1) NDVI ~ ALB が負相関か
+#     2) NDVI の H 寄与が ALB を控除しても残るか (partial corr)
+# ================================================================
+def albedo_feedback_check(oran_raw_path, oran_merged):
+    print(f"\n{'=' * 60}\n[H4 Oran] アルベド・フィードバック検証\n{'=' * 60}")
+    df = pd.read_csv(oran_raw_path)
+    if "ALB" not in df.columns:
+        print("  ALB 列なし; skip"); return
+    src_col = "TIMESTAMP" if "TIMESTAMP" in df.columns else "DateTime"
+    ts = df[src_col].astype(str).str.strip()
+    dt = pd.Series(pd.NaT, index=df.index, dtype="datetime64[ns]")
+    for fmt in ["%Y/%m/%d %H:%M:%S", "%Y/%m/%d"]:
+        miss = dt.isna()
+        if miss.any():
+            dt = dt.where(~miss,
+                          pd.to_datetime(ts[miss], format=fmt, errors="coerce"))
+    df["datetime"] = dt
+    df = df.dropna(subset=["datetime"]).copy()
+
+    df["ALB"] = pd.to_numeric(df["ALB"], errors="coerce")
+    df["SW_IN"] = pd.to_numeric(df["SW_IN"], errors="coerce")
+    df = df.where(df > -9000)  # 念のためセンチネル
+    # 日中のみ ALB を集計 (SW_IN > 100 W/m²)
+    daytime = df[df["SW_IN"] > 100].copy()
+    daytime["date"] = daytime["datetime"].dt.normalize()
+    alb_daily = daytime.groupby("date", as_index=False).agg(ALB_day=("ALB", "median"))
+    alb_daily = alb_daily[(alb_daily["ALB_day"] > 0.05) &
+                           (alb_daily["ALB_day"] < 0.5)]
+    print(f"  ALB 日中中央値: n={len(alb_daily)} 日, "
+          f"med={alb_daily['ALB_day'].median():.3f}  "
+          f"range=[{alb_daily['ALB_day'].quantile(0.05):.3f}, "
+          f"{alb_daily['ALB_day'].quantile(0.95):.3f}]")
+
+    merged = oran_merged.merge(alb_daily, on="date", how="left")
+    sub = merged.dropna(subset=["NDVI", "H", "ALB_day"])
+    if len(sub) < 30:
+        print("  サンプル不足"); return
+
+    r_na, _ = stats.spearmanr(sub["NDVI"], sub["ALB_day"])
+    r_nh, _ = stats.spearmanr(sub["NDVI"], sub["H"])
+    r_ah, _ = stats.spearmanr(sub["ALB_day"], sub["H"])
+    print(f"  ρ(NDVI, ALB) = {r_na:+.3f}   "
+          f"ρ(NDVI, H)   = {r_nh:+.3f}   "
+          f"ρ(ALB, H)    = {r_ah:+.3f}")
+
+    # 部分相関: NDVI と H の関係が ALB を控除すると残るか
+    z = lambda s: (s.values - s.mean()) / s.std()
+    z_n, z_h, z_a = z(sub["NDVI"]), z(sub["H"]), z(sub["ALB_day"])
+
+    def part(y, x, w):
+        ry = y - w * (np.dot(w, y) / np.dot(w, w))
+        rx = x - w * (np.dot(w, x) / np.dot(w, w))
+        return float(np.corrcoef(ry, rx)[0, 1])
+    pr = part(z_h, z_n, z_a)
+    print(f"  partial r(H, NDVI | ALB) = {pr:+.3f}")
+    if abs(pr) < abs(r_nh) * 0.5:
+        print("  → ALB を控除すると NDVI~H が大きく減衰 = "
+              "アルベド経由が主機構")
+    else:
+        print("  → ALB 控除後も NDVI~H が残存 = "
+              "気孔/エネルギー再分配など別機構が主")
+
+
+# ================================================================
+# H7: 月別 NDVI のセカンドピーク検出 (二期作見落としチェック)
+#
+#   Oran 月フィルター 11–6 月で生育期と仮定しているが、もし 7–10 月にも
+#   小さなピーク (夏作) があれば、生育期定義から漏れている。
+# ================================================================
+def detect_second_peak(per_site):
+    print(f"\n{'=' * 60}\n[H7] 月別 NDVI セカンドピーク検出\n{'=' * 60}")
+    for site, (df, _) in per_site.items():
+        sub = df.dropna(subset=["NDVI"]).copy()
+        if "date" not in sub.columns or len(sub) == 0:
+            continue
+        sub["month"] = pd.to_datetime(sub["date"]).dt.month
+        med = sub.groupby("month")["NDVI"].median()
+        med_arr = med.reindex(range(1, 13)).values
+        # 単純なピーク検出: 局所最大が 2 つ以上あるか?
+        peaks = []
+        for i in range(12):
+            left  = med_arr[(i - 1) % 12]
+            right = med_arr[(i + 1) % 12]
+            v = med_arr[i]
+            if np.isfinite(v) and np.isfinite(left) and np.isfinite(right):
+                if v >= left and v >= right and v > np.nanmean(med_arr):
+                    peaks.append((i + 1, v))
+        peaks_str = "  ".join(f"M{m:02d}={v:.2f}" for m, v in peaks)
+        print(f"  {site:8s} peaks: {peaks_str}  "
+              f"(全{len([p for p in peaks])}峰)")
+        if len(peaks) >= 2:
+            print(f"    → セカンドピーク検出. 二期作の可能性")
+        else:
+            print(f"    → 単峰. 単作と整合")
+
+
+# ================================================================
+# H1+H8: 灌漑効果と深根効果の分離 (Tarazona のみ)
+#
+#   仮説: Tarazona の高 EF は深根アクセスではなく、灌漑による
+#         安定的な表層水供給だけで説明できるかもしれない。
+#   検証: 「灌漑からの経過日数」別に LE/EF を見る。
+#         - 灌漑だけが効いているなら、灌漑後 1 週間以内に EF が高く、
+#           7 日以降は急減衰
+#         - 深根が効いているなら、長期間 (7 日以降も) EF が維持される
+# ================================================================
+def irrigation_lag_analysis(tara_df, save_dir):
+    """Irrig_mm の入った Tarazona DataFrame で「最終灌漑からの日数」別 LE/EF."""
+    if "Irrig_mm" not in tara_df.columns:
+        print("\n[H1+H8] Irrig_mm 列なし; skip"); return None
+
+    print(f"\n{'=' * 60}\n[H1+H8] 灌漑経過日数別 LE/EF (Tarazona)\n{'=' * 60}")
+
+    df = tara_df.copy().sort_values("date").reset_index(drop=True)
+    df["Irrig_mm"] = pd.to_numeric(df["Irrig_mm"], errors="coerce").fillna(0)
+    irrig_event = df["Irrig_mm"] > 0.5  # 0.5 mm 以上を灌漑日と定義
+    n_events = int(irrig_event.sum())
+    print(f"  灌漑日 (>0.5 mm): {n_events} 日")
+    if n_events < 5:
+        print("  灌漑イベント不足; skip"); return None
+
+    # 各日について、直近の灌漑日からの経過日数
+    days_since = np.full(len(df), np.nan)
+    last = -10**9
+    for i in range(len(df)):
+        if irrig_event.iloc[i]:
+            last = i
+            days_since[i] = 0
+        elif last >= 0:
+            days_since[i] = i - last
+    df["days_since_irrig"] = days_since
+
+    # ビンを区切って集計
+    bins = [-0.5, 0.5, 3.5, 7.5, 14.5, 30.5, 1e9]
+    labels = ["irrig day", "1-3", "4-7", "8-14", "15-30", ">30"]
+    df["lag_bin"] = pd.cut(df["days_since_irrig"], bins=bins, labels=labels)
+
+    # 生育期に絞る
+    growing = df[df.get("phen") == "growing"].copy() if "phen" in df.columns else df
+
+    print(f"  生育期 n={len(growing)}")
+    rows = []
+    for lab in labels:
+        sub = growing[growing["lag_bin"] == lab]
+        if len(sub) >= 5:
+            le_med = sub["LE"].median()
+            ef_med = sub["EF"].median()
+            et_med = sub["ET"].median()
+            rows.append((lab, len(sub), le_med, ef_med, et_med))
+            print(f"    lag={lab:>10s}  n={len(sub):3d}  "
+                  f"LE_med={le_med:6.1f}  EF_med={ef_med:.3f}  ET_med={et_med:.2f}")
+
+    # Mann-Whitney: 灌漑直後 (lag 1-3) vs 1 週間以上後 (8-14)
+    sub_a = growing[growing["lag_bin"] == "1-3"]["EF"].dropna()
+    sub_b = growing[growing["lag_bin"] == "8-14"]["EF"].dropna()
+    if len(sub_a) >= 5 and len(sub_b) >= 5:
+        u, p = stats.mannwhitneyu(sub_a, sub_b, alternative="greater")
+        print(f"  EF (lag 1-3) > EF (lag 8-14)?  "
+              f"medians: {sub_a.median():.3f} vs {sub_b.median():.3f}  "
+              f"p={p:.2e}")
+        if p > 0.05:
+            print("  → 灌漑後 1 週間以上経っても EF が維持されている "
+                  "= 深根アクセスの状況証拠")
+        else:
+            print("  → 灌漑直後の方が有意に高い "
+                  "= 灌漑寄与が支配的")
+
+    # 図: 経過日数 vs EF の box
+    plot_data = []
+    plot_labels = []
+    for lab in labels:
+        sub = growing[growing["lag_bin"] == lab]["EF"].dropna()
+        if len(sub) >= 3:
+            plot_data.append(sub.values); plot_labels.append(f"{lab}\n(n={len(sub)})")
+    if plot_data:
+        with plt.rc_context(PAPER_RC):
+            fig, ax = plt.subplots(figsize=(8, 4.5))
+            bp = ax.boxplot(plot_data, labels=plot_labels, patch_artist=True,
+                            widths=0.55, showfliers=False)
+            for patch in bp["boxes"]:
+                patch.set_facecolor(SITE_COLOR["Tarazona"]); patch.set_alpha(0.6)
+            ax.set_ylabel("EF")
+            ax.set_xlabel("Days since last irrigation")
+            ax.set_title("Tarazona: EF vs days since irrigation\n(growing season)",
+                         loc="left", fontweight="bold")
+            ax.grid(True, alpha=0.25, axis="y")
+            ax.set_ylim(-0.05, 1.55)
+            out = Path(save_dir) / "C_H1_irrigation_lag.png"
+            plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
+            print(f"  [保存] {out}")
+
+    return df
+
+
 def deep_dive_gpp(df, site):
     """
     NDVI~GPP_proxy 信号を 生育期限定 / VPD 層別 / 月別ラグ で詳査。
@@ -1027,6 +1196,29 @@ if __name__ == "__main__":
     # 部分相関で NDVI / Rn の独立寄与を切り分け
     partial_correlation_analysis(oran_m, "Oran")
     partial_correlation_analysis(tara_m, "Tarazona")
+
+    # H1+H8: 灌漑経過日数別 LE/EF (Tarazona のみ)
+    # tara_m は Irrig_mm を含む load_tarazona_ec_clean 由来であることを期待
+    if "Irrig_mm" in tara_m.columns:
+        irrigation_lag_analysis(tara_m, SAVE_DIR)
+    else:
+        # ローダから落ちている場合は再取得
+        from data_loaders import load_tarazona_ec_clean as _ltec
+        tara_full = _ltec(A_PATHS["tara_ec"], verbose=False)
+        if "Irrig_mm" in tara_full.columns:
+            tara_with_irr = tara_m.merge(
+                tara_full[["date", "Irrig_mm"]], on="date", how="left")
+            irrigation_lag_analysis(tara_with_irr, SAVE_DIR)
+
+    # H2: NDVI 飽和を EVI で検証 (両サイト)
+    ndvi_saturation_check(oran_m, "Oran",     SAVE_DIR)
+    ndvi_saturation_check(tara_m, "Tarazona", SAVE_DIR)
+
+    # H4: アルベド・フィードバック (Oran のみ)
+    albedo_feedback_check(A_PATHS["oran_ec"], oran_m)
+
+    # H7: 月別 NDVI のセカンドピーク検出
+    detect_second_peak(per_site)
 
     # paper-quality figures
     plot_final_summary(oran_m, tara_m, SAVE_DIR)
