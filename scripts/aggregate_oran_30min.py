@@ -30,28 +30,38 @@ MIN_OBS_PER_DAY = 24  # half-hours; 24 = 50% coverage
 
 
 def load_30min() -> pd.DataFrame:
-    cols = ["DateTime", "TIMESTAMP", "LE", "LE_QC", "H", "H_QC", "NETRAD", "G",
+    """Robust loader: build timestamp from year + Julian + Time_hours.
+
+    The DateTime / TIMESTAMP string columns mix "YYYY/MM/DD" and
+    "YYYY/MM/DD HH:MM:SS" so pandas locks onto the date-only format and
+    loses 98% of rows. year + Julian + Time_hours are clean numerics that
+    are guaranteed present for every half-hour.
+    """
+    cols = ["year", "Julian", "Time_hours",
+            "LE", "LE_QC", "H", "H_QC", "NETRAD", "G",
             "VPD", "TA_1_1_1", "SWC_1_1_1", "P", "energy_closure"]
     df = pd.read_csv(RAW, usecols=cols, low_memory=False)
     print(f"  read {len(df):,} raw rows")
 
-    # Try TIMESTAMP first, fall back to DateTime
-    ts1 = pd.to_datetime(df["TIMESTAMP"], errors="coerce")
-    ts2 = pd.to_datetime(df["DateTime"], errors="coerce")
-    df["ts"] = ts1.where(ts1.notna(), ts2)
-    n_bad = df["ts"].isna().sum()
-    if n_bad:
-        print(f"  {n_bad:,} rows had unparseable timestamps (dropped)")
-    df = df.dropna(subset=["ts"]).copy()
-
-    # Force numeric: flux + QC columns may be read as object due to mixed types
-    for col in ["LE", "H", "NETRAD", "G", "VPD", "TA_1_1_1", "SWC_1_1_1", "P",
-                "energy_closure"]:
+    for col in cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
-    for col in ["LE_QC", "H_QC"]:
-        df[col] = pd.to_numeric(df[col], errors="coerce").astype("Int64")
 
+    bad_idx = df[["year", "Julian", "Time_hours"]].isna().any(axis=1)
+    if bad_idx.any():
+        print(f"  {bad_idx.sum():,} rows had bad year/Julian/Time_hours (dropped)")
+    df = df[~bad_idx].copy()
+
+    df["ts"] = (
+        pd.to_datetime(df["year"].astype(int).astype(str), format="%Y")
+        + pd.to_timedelta(df["Julian"].astype(int) - 1, unit="D")
+        + pd.to_timedelta(df["Time_hours"], unit="h")
+    )
+
+    df["LE_QC"] = df["LE_QC"].astype("Int64")
+    df["H_QC"] = df["H_QC"].astype("Int64")
     df["date"] = df["ts"].dt.normalize()
+    print(f"  kept {len(df):,} half-hour rows  "
+          f"({df['ts'].min().date()} → {df['ts'].max().date()})")
     return df
 
 
