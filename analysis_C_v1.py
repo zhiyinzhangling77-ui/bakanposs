@@ -262,20 +262,27 @@ def phenology_phase(ndvi_sg_df, site):
 # 5. A 連結: 低 SWC × 高 NDVI 期の Tarazona vs Oran
 # ================================================================
 
-def cross_site_dry_canopy(oran, tara):
+def cross_site_dry_canopy(oran, tara, mode="ndvi_p67"):
     """
     深根仮説の状況証拠:
-        SWC 低 (サイト内 p25 未満) かつ NDVI 高 (サイト内 p67 以上)
-        の日の LE / EF を Oran と Tarazona で比較。
-    Tarazona が有意に高ければ、緑の維持を支える追加水源 = 深根アクセス
-    の状況証拠になる。
+        SWC 低 (サイト内 p25 未満) かつ 「植生が活発」な日の LE / EF を
+        Oran と Tarazona で比較。
+    Tarazona が有意に高ければ、緑の維持を支える追加水源 = 深根アクセスの状況証拠。
+
+    mode:
+      'ndvi_p67'     : NDVI ≥ p67  (元仕様, 厳しい)
+      'ndvi_p50'     : NDVI ≥ p50  (緩和)
+      'growing_flag' : phen=='growing'  (Otsu 由来)
     """
-    print(f"\n{'='*60}\n[A 連結] 低 SWC × 高 NDVI 日のサイト間比較\n{'='*60}")
+    print(f"\n{'='*60}\n[A 連結 / mode={mode}] 低 SWC × 緑 のサイト間比較\n{'='*60}")
 
     def filt(df):
         sub = df.dropna(subset=["SWC", "NDVI"])
         sw = sub["SWC"].quantile(0.25)
-        nv = sub["NDVI"].quantile(0.67)
+        if mode == "growing_flag":
+            return sub[(sub["SWC"] < sw) & (sub.get("phen") == "growing")]
+        q = 0.50 if mode == "ndvi_p50" else 0.67
+        nv = sub["NDVI"].quantile(q)
         return sub[(sub["SWC"] < sw) & (sub["NDVI"] >= nv)]
 
     do = filt(oran)
@@ -298,6 +305,88 @@ def cross_site_dry_canopy(oran, tara):
         print(f"  {var:3s}: Oran={a.median():7.2f}(n={len(a)})  "
               f"Tarazona={b.median():7.2f}(n={len(b)})  p={p:.2e}  {sig}")
     return res
+
+
+# ================================================================
+# 5b. 診断: EC データの実態を可視化
+# ================================================================
+
+def diagnose_ec(df, site):
+    """Rn / G / denom / EF などの欠損・分布を吐く."""
+    print(f"\n[EC診断 {site}]  rows={len(df)}")
+    print(f"  columns: {list(df.columns)}")
+    for c in ["LE", "H", "G", "Rn", "SWC", "VPD", "ET", "EF", "NDVI"]:
+        if c in df.columns:
+            s = pd.to_numeric(df[c], errors="coerce")
+            n = int(s.notna().sum())
+            if n == 0:
+                print(f"  {c:5s}: all NaN")
+                continue
+            print(f"  {c:5s}: n={n:4d}/{len(df)}  "
+                  f"min={s.min():>8.3f}  med={s.median():>8.3f}  "
+                  f"p75={s.quantile(0.75):>8.3f}  max={s.max():>8.3f}")
+    if all(c in df.columns for c in ["Rn", "G"]):
+        denom = df["Rn"] - df["G"]
+        thr = 10
+        print(f"  denom=Rn-G : n_valid(>{thr})={(denom > thr).sum()}/{len(df)}  "
+              f"med={denom.median():.2f}  p25={denom.quantile(0.25):.2f}  "
+              f"p75={denom.quantile(0.75):.2f}")
+
+
+def inspect_raw_oran_csv(path):
+    """v9 が読む前の生 CSV を覗く → EF 列名や G 列名のズレを発見."""
+    print(f"\n[Raw Oran CSV inspect] {path}")
+    head = pd.read_csv(path, nrows=3)
+    print(f"  shape head: {head.shape}")
+    print(f"  columns ({len(head.columns)}): {list(head.columns)}")
+
+
+# ================================================================
+# 5c. Tarazona の強い NDVI~GPP_proxy 信号を深掘り
+# ================================================================
+
+def deep_dive_gpp(df, site):
+    """
+    NDVI~GPP_proxy 信号を 生育期限定 / VPD 層別 / 月別ラグ で詳査。
+    Tarazona は ρ=+0.67 と強いので、その信号源が本当に植生活性か、
+    単なる季節同位相 (Rn と NDVI が同時に上がるだけ) かを切り分ける。
+    """
+    print(f"\n{'='*60}\n[GPP 深掘り {site}]\n{'='*60}")
+    if "phen" not in df.columns:
+        print("  phen 列なし; スキップ"); return
+
+    g = df[df["phen"] == "growing"].dropna(subset=["NDVI"])
+    print(f"  生育期 n={len(g)}")
+
+    for var in ["LE", "ET", "EF", "GPP_proxy"]:
+        if var not in g.columns: continue
+        sub = g[["NDVI", var]].dropna()
+        if len(sub) < 10: continue
+        r, p = stats.spearmanr(sub["NDVI"], sub[var])
+        print(f"  growing only: NDVI ~ {var:9s} ρ={r:+.3f}  p={p:.2e}  n={len(sub)}")
+
+    # GPP_proxy の構成要素を分離: NDVI 単独 vs Rn 単独 と LE
+    if {"Rn", "NDVI", "LE"}.issubset(g.columns):
+        sub = g.dropna(subset=["Rn", "NDVI", "LE"])
+        if len(sub) > 20:
+            r1, _ = stats.spearmanr(sub["NDVI"], sub["LE"])
+            r2, _ = stats.spearmanr(sub["Rn"],   sub["LE"])
+            r3, _ = stats.spearmanr(sub["NDVI"] * sub["Rn"], sub["LE"])
+            print(f"  growing only [n={len(sub)}]: ρ(NDVI,LE)={r1:+.3f}  "
+                  f"ρ(Rn,LE)={r2:+.3f}  ρ(NDVI×Rn,LE)={r3:+.3f}")
+            print(f"  → NDVI×Rn が NDVI 単独より強ければ、植生×放射の積が効いている")
+
+    # VPD 三分位での層別
+    if "VPD" in g.columns:
+        sub = g.dropna(subset=["NDVI", "LE", "VPD"]).copy()
+        if len(sub) > 30:
+            sub["VPD_q"] = pd.qcut(sub["VPD"], q=3, labels=["low", "mid", "high"])
+            print("  VPD 層別 NDVI~LE:")
+            for q in ["low", "mid", "high"]:
+                ss = sub[sub["VPD_q"] == q]
+                if len(ss) >= 10:
+                    r, p = stats.spearmanr(ss["NDVI"], ss["LE"])
+                    print(f"    VPD={q:4s} (n={len(ss):3d}): ρ={r:+.3f}  p={p:.2e}")
 
 
 # ================================================================
@@ -408,8 +497,15 @@ if __name__ == "__main__":
     print("解析C v1: フェノロジー × フラックス")
     print("=" * 60)
 
+    # 生 CSV ヘッダ確認 (列名のズレを発見するため)
+    inspect_raw_oran_csv(A_PATHS["oran_ec"])
+    inspect_raw_oran_csv(A_PATHS["tara_ec"])
+
     oran_ec = normalize_swc(load_oran_ec(A_PATHS["oran_ec"]), "Oran")
     tara_ec = normalize_swc(load_tarazona_ec(A_PATHS["tara_ec"]), "Tarazona")
+
+    diagnose_ec(oran_ec, "Oran")
+    diagnose_ec(tara_ec, "Tarazona")
 
     oran_m, oran_sg, oran_meta = run_site_C("Oran",     oran_ec, NDVI_APPEEARS_CSV)
     tara_m, tara_sg, tara_meta = run_site_C("Tarazona", tara_ec, NDVI_APPEEARS_CSV)
@@ -418,7 +514,15 @@ if __name__ == "__main__":
     plot_ndvi_timeseries(per_site, SAVE_DIR)
     plot_ndvi_vs_flux(per_site, SAVE_DIR)
 
-    a_results = cross_site_dry_canopy(oran_m, tara_m)
+    # A 連結 — 厳しい / 緩和 / Otsu 由来の3パターンを並べる
+    a_res_strict   = cross_site_dry_canopy(oran_m, tara_m, mode="ndvi_p67")
+    a_res_relaxed  = cross_site_dry_canopy(oran_m, tara_m, mode="ndvi_p50")
+    a_res_growing  = cross_site_dry_canopy(oran_m, tara_m, mode="growing_flag")
+    a_results = a_res_relaxed if a_res_relaxed else a_res_strict
+
+    # GPP 信号源の深掘り
+    deep_dive_gpp(oran_m, "Oran")
+    deep_dive_gpp(tara_m, "Tarazona")
 
     print(f"\n{'='*60}\n★ 解析C 最終サマリー\n{'='*60}")
     for site, meta in [("Oran", oran_meta), ("Tarazona", tara_meta)]:
