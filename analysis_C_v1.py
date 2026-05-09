@@ -40,6 +40,26 @@ from analysis_A_v9 import (
 )
 
 
+def diagnose_oran_parse_failures(path):
+    """Oran CSV のうち TIMESTAMP がパース不能だった行の中身を覗く."""
+    df = pd.read_csv(path)
+    ts = df["TIMESTAMP"].astype(str).str.strip()
+    dt = pd.to_datetime(ts, format="%Y/%m/%d %H:%M:%S", errors="coerce")
+    miss = dt.isna()
+    if miss.any():
+        dt2 = pd.to_datetime(ts[miss], format="%Y/%m/%d", errors="coerce")
+        dt = dt.where(~miss, dt2)
+    failed = dt.isna()
+    n_fail = int(failed.sum())
+    print(f"\n[Oran parse 失敗診断] {n_fail}/{len(ts)} 行 ({100 * n_fail / len(ts):.1f}%)")
+    if n_fail == 0:
+        return
+    uniq = ts[failed].drop_duplicates().tolist()
+    print(f"  ユニーク失敗値: {len(uniq)} 種")
+    for s in uniq[:20]:
+        print(f"    {repr(s)}")
+
+
 def inspect_tarazona_units(path):
     """Tarazona の ET_avg vs ET_sum, VPD_mean vs VPD_kPa を比較し
     単位を判定."""
@@ -94,14 +114,23 @@ def load_oran_ec_clean(filepath):
     # → 二段パースで両方拾う。
     src_col = "TIMESTAMP" if "TIMESTAMP" in df.columns else "DateTime"
     ts = df[src_col].astype(str).str.strip()
-    dt = pd.to_datetime(ts, format="%Y/%m/%d %H:%M:%S", errors="coerce")
-    miss = dt.isna()
-    if miss.any():
-        dt2 = pd.to_datetime(ts[miss], format="%Y/%m/%d", errors="coerce")
+    dt = pd.Series(pd.NaT, index=df.index, dtype="datetime64[ns]")
+    fmts = [
+        "%Y/%m/%d %H:%M:%S", "%Y/%m/%d %H:%M",
+        "%Y-%m-%d %H:%M:%S", "%Y-%m-%d %H:%M",
+        "%Y/%m/%d", "%Y-%m-%d",
+        "%m/%d/%Y %H:%M:%S", "%m/%d/%Y",
+    ]
+    for fmt in fmts:
+        miss = dt.isna()
+        if not miss.any():
+            break
+        dt2 = pd.to_datetime(ts[miss], format=fmt, errors="coerce")
         dt = dt.where(~miss, dt2)
-    if dt.notna().sum() < n_raw * 0.5:
-        # フォーマットが想定と違うときの最終フォールバック
-        dt = pd.to_datetime(ts, format="mixed", errors="coerce")
+    if dt.notna().sum() < n_raw * 0.95:
+        miss = dt.isna()
+        dt2 = pd.to_datetime(ts[miss], format="mixed", errors="coerce")
+        dt = dt.where(~miss, dt2)
     df["datetime"] = dt
 
     n_parsed = int(df["datetime"].notna().sum())
@@ -564,6 +593,70 @@ def deep_inspect_oran_raw(path):
 # 5c. Tarazona の強い NDVI~GPP_proxy 信号を深掘り
 # ================================================================
 
+def partial_correlation_analysis(df, site):
+    """
+    LE = a + b·NDVI + c·Rn の標準化重回帰 + 部分相関で
+    NDVI と Rn の独立寄与を切り分ける.
+    """
+    g = df[df.get("phen") == "growing"].dropna(
+        subset=["NDVI", "Rn", "LE"]).copy()
+    if len(g) < 30:
+        print(f"\n[Partial corr {site}] n<30, skip")
+        return
+    le = g["LE"].values
+    nv = g["NDVI"].values
+    rn = g["Rn"].values
+    z_le = (le - le.mean()) / le.std()
+    z_nv = (nv - nv.mean()) / nv.std()
+    z_rn = (rn - rn.mean()) / rn.std()
+
+    X = np.column_stack([np.ones(len(z_le)), z_nv, z_rn])
+    beta, *_ = np.linalg.lstsq(X, z_le, rcond=None)
+    pred = X @ beta
+    r2 = 1.0 - ((z_le - pred) ** 2).sum() / ((z_le - z_le.mean()) ** 2).sum()
+
+    def partial_r(y, x, z):
+        ry = y - z * (np.dot(z, y) / np.dot(z, z))
+        rx = x - z * (np.dot(z, x) / np.dot(z, z))
+        return float(np.corrcoef(ry, rx)[0, 1])
+
+    pr_nv = partial_r(z_le, z_nv, z_rn)
+    pr_rn = partial_r(z_le, z_rn, z_nv)
+
+    print(f"\n[Partial corr {site}] 生育期 n={len(g)}")
+    print(f"  標準化回帰  z(LE) = {beta[0]:+.3f} "
+          f"+ ({beta[1]:+.3f})·z(NDVI) + ({beta[2]:+.3f})·z(Rn)")
+    print(f"  R²            = {r2:.3f}")
+    print(f"  partial r(LE, NDVI | Rn)   = {pr_nv:+.3f}  "
+          f"(NDVI の独立寄与)")
+    print(f"  partial r(LE, Rn   | NDVI) = {pr_rn:+.3f}  "
+          f"(Rn の独立寄与)")
+    if abs(pr_rn) > abs(pr_nv) * 1.5:
+        print(f"  → Rn 主導: {site} の LE は放射駆動")
+    elif abs(pr_nv) > abs(pr_rn) * 1.5:
+        print(f"  → NDVI 主導: {site} の LE は植生主導")
+    else:
+        print(f"  → NDVI と Rn が同等寄与")
+    return dict(beta=beta.tolist(), r2=r2, pr_nv=pr_nv, pr_rn=pr_rn, n=len(g))
+
+
+def _sig_stars(p):
+    if not np.isfinite(p): return "n.s."
+    if p < 0.001: return "***"
+    if p < 0.01:  return "**"
+    if p < 0.05:  return "*"
+    return "n.s."
+
+
+PAPER_RC = {
+    "font.size": 11, "axes.titlesize": 12, "axes.labelsize": 11,
+    "xtick.labelsize": 10, "ytick.labelsize": 10, "legend.fontsize": 10,
+    "axes.spines.top": False, "axes.spines.right": False,
+    "axes.linewidth": 0.9,
+}
+SITE_COLOR = {"Oran": "#c75b3c", "Tarazona": "#2f7a7a"}
+
+
 def plot_final_summary(oran, tara, save_dir):
     """
     解析C の主結果を 1 枚で:
@@ -580,68 +673,169 @@ def plot_final_summary(oran, tara, save_dir):
     oran_dry = filt(oran)
     tara_dry = filt(tara)
 
-    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+    with plt.rc_context(PAPER_RC):
+        fig, axes = plt.subplots(1, 2, figsize=(11, 4.5),
+                                 gridspec_kw=dict(wspace=0.3))
 
-    ax = axes[0]
-    data = []
-    labels = []
-    for name, sub in [("Oran", oran_dry), ("Tarazona", tara_dry)]:
-        v = sub["EF"].dropna().values
-        if len(v):
-            data.append(v)
-            labels.append(f"{name}\n(n={len(v)})")
-    bp = ax.boxplot(data, labels=labels, patch_artist=True, widths=0.55,
-                    showmeans=True,
-                    meanprops=dict(marker="D", markerfacecolor="white",
-                                   markeredgecolor="black", markersize=7))
-    colors = ["#d97350", "#3f8a8a"]
-    for patch, c in zip(bp["boxes"], colors):
-        patch.set_facecolor(c); patch.set_alpha(0.55)
-    ax.set_ylabel("EF (Evaporative Fraction)")
-    ax.set_title("Low SWC (<p25) × High NDVI (≥p50)\nEF distribution")
-    ax.grid(True, alpha=0.3, axis="y")
-    ax.set_ylim(-0.05, 1.55)
+        ax = axes[0]
+        data, labels, ns = [], [], []
+        for name, sub in [("Oran", oran_dry), ("Tarazona", tara_dry)]:
+            v = sub["EF"].dropna().values
+            if len(v):
+                data.append(v); labels.append(name); ns.append(len(v))
+        bp = ax.boxplot(data, labels=labels, patch_artist=True, widths=0.55,
+                        showmeans=True, showfliers=False,
+                        medianprops=dict(color="black", lw=1.4),
+                        meanprops=dict(marker="D", markerfacecolor="white",
+                                       markeredgecolor="black", markersize=6))
+        for patch, name in zip(bp["boxes"], labels):
+            patch.set_facecolor(SITE_COLOR[name]); patch.set_alpha(0.55)
+            patch.set_edgecolor(SITE_COLOR[name])
+        # data points overlay
+        for i, (v, name) in enumerate(zip(data, labels)):
+            jitter = (np.random.RandomState(0).rand(len(v)) - 0.5) * 0.15
+            ax.scatter(np.full_like(v, i + 1, dtype=float) + jitter, v,
+                       s=14, color=SITE_COLOR[name], alpha=0.55,
+                       edgecolors="white", linewidths=0.4, zorder=3)
 
-    if len(data) == 2 and min(len(data[0]), len(data[1])) >= 3:
-        u, p = stats.mannwhitneyu(data[1], data[0], alternative="greater")
-        ax.text(0.5, 1.45, f"Mann–Whitney (T>O): p={p:.1e}",
-                ha="center", fontsize=10,
-                color=("red" if p < 0.05 else "gray"))
+        for i, n in enumerate(ns):
+            ax.text(i + 1, -0.03, f"n={n}", ha="center", va="top", fontsize=9)
 
-    ax = axes[1]
-    width = 0.35
-    qlabels = ["low", "mid", "high"]
-    rho_oran = []
-    rho_tara = []
+        ax.set_ylabel("Evaporative Fraction (EF)")
+        ax.set_title("(a)  EF under low SWC × high NDVI",
+                     loc="left", fontweight="bold")
+        ax.grid(True, alpha=0.25, axis="y")
+        ax.set_ylim(-0.08, 1.55)
+
+        if len(data) == 2 and min(len(data[0]), len(data[1])) >= 3:
+            _, p = stats.mannwhitneyu(data[1], data[0], alternative="greater")
+            star = _sig_stars(p)
+            y_top = 1.4
+            ax.plot([1, 1, 2, 2], [y_top - 0.04, y_top, y_top, y_top - 0.04],
+                    color="black", lw=1.0)
+            ax.text(1.5, y_top + 0.02, f"{star}  p = {p:.1e}",
+                    ha="center", va="bottom", fontsize=10)
+
+        ax = axes[1]
+        qlabels = ["low", "mid", "high"]
+        bar = {}
+        for site, df in [("Oran", oran), ("Tarazona", tara)]:
+            sub = df[df.get("phen") == "growing"].dropna(
+                subset=["NDVI", "LE", "VPD"]).copy()
+            rho = [np.nan] * 3
+            if len(sub) >= 30:
+                sub["q"] = pd.qcut(sub["VPD"], q=3, labels=qlabels)
+                for j, q in enumerate(qlabels):
+                    ss = sub[sub["q"] == q]
+                    if len(ss) >= 10:
+                        rho[j], _ = stats.spearmanr(ss["NDVI"], ss["LE"])
+            bar[site] = rho
+
+        x = np.arange(3); width = 0.36
+        ax.bar(x - width / 2, bar["Oran"],     width, label="Oran",
+               color=SITE_COLOR["Oran"],     alpha=0.85, edgecolor="white")
+        ax.bar(x + width / 2, bar["Tarazona"], width, label="Tarazona",
+               color=SITE_COLOR["Tarazona"], alpha=0.85, edgecolor="white")
+        for j, q in enumerate(qlabels):
+            for k, site in enumerate(["Oran", "Tarazona"]):
+                v = bar[site][j]
+                if np.isfinite(v):
+                    off = -width / 2 if site == "Oran" else width / 2
+                    ax.text(j + off, v + (0.03 if v >= 0 else -0.05),
+                            f"{v:+.2f}", ha="center", fontsize=9)
+        ax.axhline(0, color="black", lw=0.8)
+        ax.set_xticks(x); ax.set_xticklabels(qlabels)
+        ax.set_xlabel("VPD tertile (within site)")
+        ax.set_ylabel(r"Spearman $\rho$ (NDVI, LE)")
+        ax.set_title("(b)  NDVI–LE coupling vs VPD stress",
+                     loc="left", fontweight="bold")
+        ax.legend(frameon=False, loc="upper right")
+        ax.grid(True, alpha=0.25, axis="y")
+        ax.set_ylim(-0.45, 0.9)
+
+        out = save_dir / "C_final_summary.png"
+        plt.savefig(out, dpi=180, bbox_inches="tight")
+        plt.close()
+        print(f"  [保存] {out}")
+
+
+def plot_monthly_ndvi(per_site, save_dir):
+    """月別 NDVI 中央値 ± IQR をサイトで重ねる (フェノロジー位相比較)."""
+    save_dir = Path(save_dir)
+    with plt.rc_context(PAPER_RC):
+        fig, ax = plt.subplots(figsize=(8, 4.5))
+        for site, (df, _) in per_site.items():
+            sub = df.dropna(subset=["NDVI"]).copy()
+            if "date" not in sub.columns or len(sub) == 0:
+                continue
+            sub["month"] = pd.to_datetime(sub["date"]).dt.month
+            grp = sub.groupby("month")["NDVI"]
+            med = grp.median()
+            q25 = grp.quantile(0.25)
+            q75 = grp.quantile(0.75)
+            x = med.index.values
+            ax.fill_between(x, q25.values, q75.values,
+                            color=SITE_COLOR[site], alpha=0.20)
+            ax.plot(x, med.values, "-o", color=SITE_COLOR[site],
+                    label=site, lw=2, markersize=5)
+        ax.set_xticks(range(1, 13))
+        ax.set_xlabel("Month"); ax.set_ylabel("NDVI")
+        ax.set_title("Monthly NDVI (median ± IQR)",
+                     loc="left", fontweight="bold")
+        ax.legend(frameon=False)
+        ax.grid(True, alpha=0.25)
+        out = save_dir / "C_monthly_ndvi.png"
+        plt.savefig(out, dpi=180, bbox_inches="tight")
+        plt.close()
+        print(f"  [保存] {out}")
+
+
+def plot_partial_corr(oran, tara, save_dir):
+    """生育期内の partial correlation を 2 サイト並置."""
+    save_dir = Path(save_dir)
+    rows = []
     for site, df in [("Oran", oran), ("Tarazona", tara)]:
-        sub = df[df.get("phen") == "growing"].dropna(subset=["NDVI", "LE", "VPD"]).copy()
-        if len(sub) < 30:
-            (rho_oran if site == "Oran" else rho_tara).extend([np.nan] * 3)
+        g = df[df.get("phen") == "growing"].dropna(
+            subset=["NDVI", "Rn", "LE"]).copy()
+        if len(g) < 30:
             continue
-        sub["q"] = pd.qcut(sub["VPD"], q=3, labels=qlabels)
-        out = []
-        for q in qlabels:
-            ss = sub[sub["q"] == q]
-            r, _ = stats.spearmanr(ss["NDVI"], ss["LE"]) if len(ss) >= 10 else (np.nan, np.nan)
-            out.append(r)
-        (rho_oran if site == "Oran" else rho_tara).extend(out)
+        z = lambda s: (s - s.mean()) / s.std()
+        z_le = z(g["LE"].values); z_nv = z(g["NDVI"].values); z_rn = z(g["Rn"].values)
 
-    x = np.arange(3)
-    ax.bar(x - width / 2, rho_oran, width, label="Oran",     color=colors[0], alpha=0.85)
-    ax.bar(x + width / 2, rho_tara, width, label="Tarazona", color=colors[1], alpha=0.85)
-    ax.axhline(0, color="black", lw=0.8)
-    ax.set_xticks(x); ax.set_xticklabels(qlabels)
-    ax.set_xlabel("VPD tertile (within site)")
-    ax.set_ylabel("Spearman ρ (NDVI vs LE)")
-    ax.set_title("NDVI–LE coupling under VPD stress\n(growing season only)")
-    ax.legend()
-    ax.grid(True, alpha=0.3, axis="y")
+        def part(y, x, w):
+            ry = y - w * (np.dot(w, y) / np.dot(w, w))
+            rx = x - w * (np.dot(w, x) / np.dot(w, w))
+            return float(np.corrcoef(ry, rx)[0, 1])
+        rows.append((site, part(z_le, z_nv, z_rn), part(z_le, z_rn, z_nv)))
 
-    plt.tight_layout()
-    out = save_dir / "C_final_summary.png"
-    plt.savefig(out, dpi=140)
-    plt.close()
-    print(f"  [保存] {out}")
+    if not rows:
+        return
+    with plt.rc_context(PAPER_RC):
+        fig, ax = plt.subplots(figsize=(7, 4.2))
+        sites = [r[0] for r in rows]
+        nv_vals = [r[1] for r in rows]
+        rn_vals = [r[2] for r in rows]
+        x = np.arange(len(sites)); width = 0.36
+        ax.bar(x - width / 2, nv_vals, width, label=r"NDVI | Rn",
+               color="#6c8ebf", edgecolor="white")
+        ax.bar(x + width / 2, rn_vals, width, label=r"Rn | NDVI",
+               color="#d6a64a", edgecolor="white")
+        for i, (n, r) in enumerate(zip(nv_vals, rn_vals)):
+            ax.text(i - width / 2, n + 0.02 * np.sign(n or 1), f"{n:+.2f}",
+                    ha="center", fontsize=10)
+            ax.text(i + width / 2, r + 0.02 * np.sign(r or 1), f"{r:+.2f}",
+                    ha="center", fontsize=10)
+        ax.set_xticks(x); ax.set_xticklabels(sites)
+        ax.axhline(0, color="black", lw=0.8)
+        ax.set_ylabel("Partial correlation with LE")
+        ax.set_title("Independent contribution of NDVI vs Rn to LE\n(growing season)",
+                     loc="left", fontweight="bold")
+        ax.legend(frameon=False, loc="upper left")
+        ax.grid(True, alpha=0.25, axis="y")
+        out = save_dir / "C_partial_corr.png"
+        plt.savefig(out, dpi=180, bbox_inches="tight")
+        plt.close()
+        print(f"  [保存] {out}")
 
 
 def deep_dive_gpp(df, site):
@@ -803,6 +997,7 @@ if __name__ == "__main__":
     # 先頭行のタイムスタンプを目視 + 生 NETRAD 検証
     dump_oran_first_rows(A_PATHS["oran_ec"], n=10)
     deep_inspect_oran_raw(A_PATHS["oran_ec"])
+    diagnose_oran_parse_failures(A_PATHS["oran_ec"])
     inspect_tarazona_units(A_PATHS["tara_ec"])
 
     print("\n--- C クリーン版 (TIMESTAMP 修正 + 単位整合) ---")
@@ -829,8 +1024,14 @@ if __name__ == "__main__":
     deep_dive_gpp(oran_m, "Oran")
     deep_dive_gpp(tara_m, "Tarazona")
 
-    # 主結果の 1 枚図
+    # 部分相関で NDVI / Rn の独立寄与を切り分け
+    partial_correlation_analysis(oran_m, "Oran")
+    partial_correlation_analysis(tara_m, "Tarazona")
+
+    # paper-quality figures
     plot_final_summary(oran_m, tara_m, SAVE_DIR)
+    plot_monthly_ndvi(per_site, SAVE_DIR)
+    plot_partial_corr(oran_m, tara_m, SAVE_DIR)
 
     print(f"\n{'='*60}\n★ 解析C 最終サマリー\n{'='*60}")
     for site, meta in [("Oran", oran_meta), ("Tarazona", tara_meta)]:
