@@ -40,6 +40,29 @@ from analysis_A_v9 import (
 )
 
 
+def inspect_tarazona_units(path):
+    """Tarazona の ET_avg vs ET_sum, VPD_mean vs VPD_kPa を比較し
+    単位を判定."""
+    df = pd.read_csv(path)
+    print("\n[Tarazona 単位検証]")
+    if {"ET_avg", "ET_sum"}.issubset(df.columns):
+        a = pd.to_numeric(df["ET_avg"], errors="coerce")
+        s = pd.to_numeric(df["ET_sum"], errors="coerce")
+        ok = a.notna() & s.notna() & (a > 0)
+        if ok.sum() > 10:
+            ratio = (s[ok] / a[ok]).median()
+            print(f"  ET_avg med={a.median():.3f}  ET_sum med={s.median():.3f}  "
+                  f"sum/avg ratio≈{ratio:.1f} (24=hourly, 48=halfhourly)")
+    if {"VPD_mean", "VPD_kPa"}.issubset(df.columns):
+        m = pd.to_numeric(df["VPD_mean"], errors="coerce")
+        k = pd.to_numeric(df["VPD_kPa"], errors="coerce")
+        ok = m.notna() & k.notna() & (k > 0)
+        if ok.sum() > 10:
+            ratio = (m[ok] / k[ok]).median()
+            print(f"  VPD_mean med={m.median():.1f}  VPD_kPa med={k.median():.3f}  "
+                  f"mean/kPa ratio≈{ratio:.0f} (1000=Pa, 10=hPa)")
+
+
 # ================================================================
 # 0b. Oran 専用: -9999 センチネル除去版ローダ
 #     v9 の load_oran_ec はセンチネルをマスクせず日平均に混入させ、
@@ -107,9 +130,49 @@ def load_oran_ec_clean(filepath):
     daily["EF"] = np.nan
     daily.loc[valid, "EF"] = (daily.loc[valid, "LE"] / denom[valid]).clip(0, 1.5)
     daily = daily[(daily["SWC"] > 0) & (daily["SWC"] < 100)].reset_index(drop=True)
+    # Oran の VPD は hPa (mb)。kPa に揃え、外れ値 (>10 kPa) は NaN。
+    daily["VPD"] = daily["VPD"] / 10.0
+    daily.loc[(daily["VPD"] > 10) | (daily["VPD"] < 0), "VPD"] = np.nan
     daily["site"] = "Oran"
-    print(f"[Oran EC clean] {len(daily)} 日分")
+    print(f"[Oran EC clean] {len(daily)} 日分  (VPD hPa→kPa, 外れ値除去)")
     return daily
+
+
+def load_tarazona_ec_clean(filepath):
+    """Tarazona の単位を Oran と揃えるクリーン版.
+    - ET: ET_avg (mm/30min の日平均? 不明) ではなく ET_sum (日合計 mm) を使用
+    - VPD: VPD_kPa を直接使用 (VPD_mean は Pa)
+    """
+    df = pd.read_csv(filepath)
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date"]).sort_values("date").reset_index(drop=True)
+    rename = {"SWC_avg": "SWC", "LE_avg": "LE", "H_avg": "H",
+              "G_avg": "G", "NetRad_avg": "Rn"}
+    df = df.rename(columns=rename)
+    if "ET_sum" in df.columns:
+        df["ET"] = pd.to_numeric(df["ET_sum"], errors="coerce")
+        et_src = "ET_sum"
+    else:
+        df["ET"] = pd.to_numeric(df["ET_avg"], errors="coerce")
+        et_src = "ET_avg"
+    if "VPD_kPa" in df.columns:
+        df["VPD"] = pd.to_numeric(df["VPD_kPa"], errors="coerce")
+        vpd_src = "VPD_kPa"
+    elif "VPD_mean" in df.columns:
+        df["VPD"] = pd.to_numeric(df["VPD_mean"], errors="coerce") / 1000.0
+        vpd_src = "VPD_mean/1000"
+    for c in ["SWC", "LE", "H", "G", "Rn"]:
+        df[c] = pd.to_numeric(df[c], errors="coerce")
+    denom = df["Rn"] - df["G"]
+    valid = denom > EF_DENOM_MIN
+    df["EF"] = np.nan
+    df.loc[valid, "EF"] = (df.loc[valid, "LE"] / denom[valid]).clip(0, 1.5)
+    keep = ["date", "SWC", "LE", "H", "G", "Rn", "VPD", "ET", "EF"]
+    df = df[[c for c in keep if c in df.columns]].copy()
+    df["site"] = "Tarazona"
+    print(f"[Tarazona EC clean] {len(df)} 日分  "
+          f"(ET<-{et_src}, VPD<-{vpd_src})")
+    return df
 
 
 # ================================================================
@@ -501,6 +564,86 @@ def deep_inspect_oran_raw(path):
 # 5c. Tarazona の強い NDVI~GPP_proxy 信号を深掘り
 # ================================================================
 
+def plot_final_summary(oran, tara, save_dir):
+    """
+    解析C の主結果を 1 枚で:
+      左 : 低 SWC × 高 NDVI (p50) 期の EF 分布 (box) — 深根仮説の主証拠
+      右 : 生育期 NDVI~LE を VPD 三分位で層別したサイト比較
+    """
+    save_dir = Path(save_dir)
+
+    def filt(df):
+        sub = df.dropna(subset=["SWC", "NDVI"])
+        return sub[(sub["SWC"] < sub["SWC"].quantile(0.25)) &
+                   (sub["NDVI"] >= sub["NDVI"].quantile(0.50))]
+
+    oran_dry = filt(oran)
+    tara_dry = filt(tara)
+
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
+
+    ax = axes[0]
+    data = []
+    labels = []
+    for name, sub in [("Oran", oran_dry), ("Tarazona", tara_dry)]:
+        v = sub["EF"].dropna().values
+        if len(v):
+            data.append(v)
+            labels.append(f"{name}\n(n={len(v)})")
+    bp = ax.boxplot(data, labels=labels, patch_artist=True, widths=0.55,
+                    showmeans=True,
+                    meanprops=dict(marker="D", markerfacecolor="white",
+                                   markeredgecolor="black", markersize=7))
+    colors = ["#d97350", "#3f8a8a"]
+    for patch, c in zip(bp["boxes"], colors):
+        patch.set_facecolor(c); patch.set_alpha(0.55)
+    ax.set_ylabel("EF (Evaporative Fraction)")
+    ax.set_title("Low SWC (<p25) × High NDVI (≥p50)\nEF distribution")
+    ax.grid(True, alpha=0.3, axis="y")
+    ax.set_ylim(-0.05, 1.55)
+
+    if len(data) == 2 and min(len(data[0]), len(data[1])) >= 3:
+        u, p = stats.mannwhitneyu(data[1], data[0], alternative="greater")
+        ax.text(0.5, 1.45, f"Mann–Whitney (T>O): p={p:.1e}",
+                ha="center", fontsize=10,
+                color=("red" if p < 0.05 else "gray"))
+
+    ax = axes[1]
+    width = 0.35
+    qlabels = ["low", "mid", "high"]
+    rho_oran = []
+    rho_tara = []
+    for site, df in [("Oran", oran), ("Tarazona", tara)]:
+        sub = df[df.get("phen") == "growing"].dropna(subset=["NDVI", "LE", "VPD"]).copy()
+        if len(sub) < 30:
+            (rho_oran if site == "Oran" else rho_tara).extend([np.nan] * 3)
+            continue
+        sub["q"] = pd.qcut(sub["VPD"], q=3, labels=qlabels)
+        out = []
+        for q in qlabels:
+            ss = sub[sub["q"] == q]
+            r, _ = stats.spearmanr(ss["NDVI"], ss["LE"]) if len(ss) >= 10 else (np.nan, np.nan)
+            out.append(r)
+        (rho_oran if site == "Oran" else rho_tara).extend(out)
+
+    x = np.arange(3)
+    ax.bar(x - width / 2, rho_oran, width, label="Oran",     color=colors[0], alpha=0.85)
+    ax.bar(x + width / 2, rho_tara, width, label="Tarazona", color=colors[1], alpha=0.85)
+    ax.axhline(0, color="black", lw=0.8)
+    ax.set_xticks(x); ax.set_xticklabels(qlabels)
+    ax.set_xlabel("VPD tertile (within site)")
+    ax.set_ylabel("Spearman ρ (NDVI vs LE)")
+    ax.set_title("NDVI–LE coupling under VPD stress\n(growing season only)")
+    ax.legend()
+    ax.grid(True, alpha=0.3, axis="y")
+
+    plt.tight_layout()
+    out = save_dir / "C_final_summary.png"
+    plt.savefig(out, dpi=140)
+    plt.close()
+    print(f"  [保存] {out}")
+
+
 def deep_dive_gpp(df, site):
     """
     NDVI~GPP_proxy 信号を 生育期限定 / VPD 層別 / 月別ラグ で詳査。
@@ -660,18 +803,14 @@ if __name__ == "__main__":
     # 先頭行のタイムスタンプを目視 + 生 NETRAD 検証
     dump_oran_first_rows(A_PATHS["oran_ec"], n=10)
     deep_inspect_oran_raw(A_PATHS["oran_ec"])
+    inspect_tarazona_units(A_PATHS["tara_ec"])
 
-    # v9 の生ローダ vs C のクリーン版 を並べてセンチネル汚染の影響を可視化
-    print("\n--- v9 ローダ (センチネル未処理) ---")
-    oran_ec_v9 = normalize_swc(load_oran_ec(A_PATHS["oran_ec"]), "Oran")
-    diagnose_ec(oran_ec_v9, "Oran (v9 / 汚染あり)")
-
-    print("\n--- C クリーン版 (-9999 等を NaN マスク) ---")
+    print("\n--- C クリーン版 (TIMESTAMP 修正 + 単位整合) ---")
     oran_ec = normalize_swc(load_oran_ec_clean(A_PATHS["oran_ec"]), "Oran")
     diagnose_ec(oran_ec, "Oran (clean)")
 
-    tara_ec = normalize_swc(load_tarazona_ec(A_PATHS["tara_ec"]), "Tarazona")
-    diagnose_ec(tara_ec, "Tarazona")
+    tara_ec = normalize_swc(load_tarazona_ec_clean(A_PATHS["tara_ec"]), "Tarazona")
+    diagnose_ec(tara_ec, "Tarazona (clean)")
 
     oran_m, oran_sg, oran_meta = run_site_C("Oran",     oran_ec, NDVI_APPEEARS_CSV)
     tara_m, tara_sg, tara_meta = run_site_C("Tarazona", tara_ec, NDVI_APPEEARS_CSV)
@@ -689,6 +828,9 @@ if __name__ == "__main__":
     # GPP 信号源の深掘り
     deep_dive_gpp(oran_m, "Oran")
     deep_dive_gpp(tara_m, "Tarazona")
+
+    # 主結果の 1 枚図
+    plot_final_summary(oran_m, tara_m, SAVE_DIR)
 
     print(f"\n{'='*60}\n★ 解析C 最終サマリー\n{'='*60}")
     for site, meta in [("Oran", oran_meta), ("Tarazona", tara_meta)]:
