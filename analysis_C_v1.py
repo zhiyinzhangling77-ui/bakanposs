@@ -838,7 +838,9 @@ def albedo_feedback_check(oran_raw_path, oran_merged):
 
     df["ALB"] = pd.to_numeric(df["ALB"], errors="coerce")
     df["SW_IN"] = pd.to_numeric(df["SW_IN"], errors="coerce")
-    df = df.where(df > -9000)  # 念のためセンチネル
+    # 数値列のセンチネル除去
+    for col in ["ALB", "SW_IN"]:
+        df[col] = df[col].where(df[col] > -9000, np.nan)
     # 日中のみ ALB を集計 (SW_IN > 100 W/m²)
     daytime = df[df["SW_IN"] > 100].copy()
     daytime["date"] = daytime["datetime"].dt.normalize()
