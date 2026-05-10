@@ -841,8 +841,32 @@ def albedo_feedback_check(oran_raw_path, oran_merged):
     # 数値列のセンチネル除去
     for col in ["ALB", "SW_IN"]:
         df[col] = df[col].where(df[col] > -9000, np.nan)
-    # 日中のみ ALB を集計 (SW_IN > 100 W/m²)
-    daytime = df[df["SW_IN"] > 100].copy()
+
+    # SW_IN 単位推定:
+    # 通常 W/m² なら晴天日中で 800-1000 を超える。
+    # max が 5 未満なら kW/m² と推定して x1000、
+    # 50 未満なら MJ/m²/30min っぽいので x555。
+    sw_max = df["SW_IN"].max(skipna=True)
+    sw_p99 = df["SW_IN"].quantile(0.99)
+    if sw_max < 5:
+        sw_scale, unit_guess = 1000.0, "kW/m² → W/m² (x1000)"
+    elif sw_max < 50:
+        sw_scale, unit_guess = 100.0, "scale-down (x100)"
+    else:
+        sw_scale, unit_guess = 1.0, "W/m² (no scale)"
+    df["SW_IN"] = df["SW_IN"] * sw_scale
+    print(f"  SW_IN raw max={sw_max:.3f}, p99={sw_p99:.3f} → {unit_guess}")
+
+    # フィルタ条件: SW_IN > 100 W/m² OR (時刻が 9-16時 かつ ALB が 0.05-0.5)
+    hour = df["datetime"].dt.hour
+    daytime_mask = (df["SW_IN"] > 100) | (
+        (hour >= 9) & (hour <= 16) &
+        df["ALB"].between(0.05, 0.5))
+    daytime = df[daytime_mask].copy()
+    print(f"  日中サンプル: n={len(daytime)} 行 (SW_IN > 100 OR 9-16時の有効ALB)")
+    if len(daytime) < 100:
+        print("  日中サンプル不足; skip"); return
+
     daytime["date"] = daytime["datetime"].dt.normalize()
     alb_daily = daytime.groupby("date", as_index=False).agg(ALB_day=("ALB", "median"))
     alb_daily = alb_daily[(alb_daily["ALB_day"] > 0.05) &
