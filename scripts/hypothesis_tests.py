@@ -200,95 +200,149 @@ def compute_sds(arr: np.ndarray, sm: np.ndarray) -> tuple[float, int, int]:
     return float(sds), int(dry.sum()), int(norm.sum())
 
 
-def h6_smap_oran(df: pd.DataFrame) -> list[dict]:
-    """SMAP root-zone vs in-situ SWC at rainfed Oran summer."""
-    oran = df[(df.site == "Oran") & (df.season == "summer") &
-              (df.NDVI.fillna(0) > 0.3)].copy()
-    print(f"  Oran summer x NDVI>0.3: n={len(oran)}")
+def h6_smap_multistratum(df: pd.DataFrame) -> list[dict]:
+    """SMAP root-zone vs in-situ SWC across multiple strata.
+
+    The original test on Oran summer (n=34, post-harvest) was limited.
+    Here we evaluate the SMAP-as-substitute hypothesis on every stratum
+    where SDS is meaningful: Oran spring (active growth, n>>200 expected),
+    Oran summer, TzM spring/summer/fall, and TzM summer by irrig bucket.
+    """
+    NDVI_GATE = 0.3
+    strata = []
+
+    # site x season
+    for site in ["Oran", "TzM"]:
+        for season in ["spring", "summer", "fall"]:
+            sub = df[(df.site == site) & (df.season == season) &
+                     (df.NDVI.fillna(0) > NDVI_GATE)]
+            if len(sub) >= 20:
+                strata.append((f"{site}_{season}", site, sub))
+
+    # TzM summer x irrig bucket
+    tzm_sum = df[(df.site == "TzM") & (df.season == "summer") &
+                 (df.NDVI.fillna(0) > NDVI_GATE)]
+    for bk in ["irrig_d0-3", "irrig_d4-7", "irrig_d8plus"]:
+        sub = tzm_sum[tzm_sum.irrig_bucket == bk]
+        if len(sub) >= 20:
+            strata.append((f"TzM_summer_{bk}", "TzM", sub))
 
     rows = []
-    fig, axes = plt.subplots(1, 3, figsize=(16, 5))
+    print(f"  evaluating {len(strata)} strata")
+    for label, site, sub in strata:
+        # 1. correlation
+        both = sub.dropna(subset=["SWC", "smap_rootzone"])
+        r, p = (np.nan, np.nan)
+        if len(both) >= 10:
+            r, p = stats.pearsonr(both["SWC"], both["smap_rootzone"])
 
-    # ── correlation between SWC and SMAP rootzone ──
-    both = oran.dropna(subset=["SWC", "smap_rootzone"])
-    if len(both) >= 10:
-        r, p = stats.pearsonr(both["SWC"], both["smap_rootzone"])
-    else:
-        r, p = np.nan, np.nan
+        # 2. SDS for each SM source.  Oran lacks LE_Wm2, so use ET_mm.
+        et_col = "LE_Wm2" if (sub["LE_Wm2"].notna().sum() >= 30) else "ET_mm"
+        sds_results = {}
+        for sm_col, key in [("SWC", "in_situ"),
+                            ("smap_rootzone", "smap_rz"),
+                            ("smap_surface", "smap_surf")]:
+            d = sub.dropna(subset=[et_col, sm_col])
+            if len(d) < 20:
+                sds_results[key] = (np.nan, len(d))
+                continue
+            sds, _, _ = compute_sds(d[et_col].to_numpy(), d[sm_col].to_numpy())
+            sds_results[key] = (sds, len(d))
 
+        rows.append({
+            "test": "H6", "stratum": label, "site": site,
+            "n_total": len(sub),
+            "et_col_used": et_col,
+            "r_swc_smap_rz": r, "p_swc_smap_rz": p, "n_corr": len(both),
+            "SDS_in_situ":  sds_results["in_situ"][0],
+            "SDS_smap_rz":  sds_results["smap_rz"][0],
+            "SDS_smap_surf": sds_results["smap_surf"][0],
+            "n_in_situ":  sds_results["in_situ"][1],
+            "n_smap_rz":  sds_results["smap_rz"][1],
+            "n_smap_surf": sds_results["smap_surf"][1],
+        })
+        print(f"  {label:<28s}  n={len(sub):>3d}  "
+              f"r={r:+.2f}  "
+              f"SDS_insitu={sds_results['in_situ'][0]:+.2f}  "
+              f"SDS_smap={sds_results['smap_rz'][0]:+.2f}")
+
+    # ── figure ──────────────────────────────────────────────────────────────
+    summary = pd.DataFrame(rows)
+
+    fig, axes = plt.subplots(1, 3, figsize=(17, 5))
+
+    # Panel 1: SDS comparison (in-situ vs SMAP rz) per stratum
     ax = axes[0]
-    ax.scatter(both["SWC"], both["smap_rootzone"], s=15, alpha=0.5,
-               color="tab:blue")
-    if len(both) >= 2:
+    s = summary.dropna(subset=["SDS_in_situ", "SDS_smap_rz"])
+    for site, marker in [("Oran", "o"), ("TzM", "s")]:
+        ss = s[s.site == site]
+        ax.scatter(ss["SDS_in_situ"], ss["SDS_smap_rz"],
+                   s=ss["n_total"] * 0.5, alpha=0.7,
+                   marker=marker, label=site,
+                   edgecolor="k", linewidth=0.5)
+        for _, r_ in ss.iterrows():
+            ax.annotate(r_["stratum"].replace("_", "\n"),
+                        xy=(r_["SDS_in_situ"], r_["SDS_smap_rz"]),
+                        xytext=(5, 5), textcoords="offset points",
+                        fontsize=7)
+    lims = [-0.6, 0.6]
+    ax.plot(lims, lims, "k--", lw=0.7)
+    ax.axhline(0, color="gray", lw=0.5)
+    ax.axvline(0, color="gray", lw=0.5)
+    ax.set_xlim(lims); ax.set_ylim(lims)
+    ax.set_xlabel("SDS using in-situ SWC (5 cm)")
+    ax.set_ylabel("SDS using SMAP root-zone")
+    ax.set_title("SDS substitution: 1:1 line = perfect proxy")
+    ax.legend(); ax.grid(alpha=0.3)
+
+    # Panel 2: correlation r per stratum
+    ax = axes[1]
+    s2 = summary.sort_values("r_swc_smap_rz", ascending=False)
+    colors = ["tab:blue" if x == "Oran" else "tab:red" for x in s2.site]
+    bars = ax.barh(range(len(s2)), s2["r_swc_smap_rz"],
+                    color=colors, alpha=0.8, edgecolor="k")
+    ax.set_yticks(range(len(s2)))
+    ax.set_yticklabels(s2["stratum"], fontsize=8)
+    for i, (v, n) in enumerate(zip(s2["r_swc_smap_rz"], s2["n_corr"])):
+        if np.isfinite(v):
+            ax.text(v, i, f"  r={v:+.2f}  n={n}",
+                    va="center", fontsize=8)
+    ax.axvline(0.5, color="green", lw=0.7, ls="--",
+               label="r=0.5 acceptable")
+    ax.set_xlabel("Pearson r(in-situ SWC, SMAP root-zone)")
+    ax.set_title("Cross-source agreement per stratum")
+    ax.legend(); ax.grid(axis="x", alpha=0.3)
+    ax.set_xlim(-0.2, 1.05)
+
+    # Panel 3: focal Oran spring scatter
+    ax = axes[2]
+    oran_spring = df[(df.site == "Oran") & (df.season == "spring") &
+                      (df.NDVI.fillna(0) > NDVI_GATE)]
+    both = oran_spring.dropna(subset=["SWC", "smap_rootzone"])
+    if len(both) >= 10:
+        r_os, p_os = stats.pearsonr(both["SWC"], both["smap_rootzone"])
+        ax.scatter(both["SWC"], both["smap_rootzone"],
+                   s=15, alpha=0.5, color="tab:blue")
         m, b = np.polyfit(both["SWC"], both["smap_rootzone"], 1)
         xx = np.linspace(both["SWC"].min(), both["SWC"].max(), 50)
-        ax.plot(xx, m*xx + b, "k--", lw=1)
-    ax.set_xlabel("in-situ SWC (5 cm)  [vol %]")
-    ax.set_ylabel("SMAP root-zone (~1 m)  [m^3/m^3]")
-    ax.set_title(f"Oran summer: r={r:.2f}  p={p:.1e}  n={len(both)}")
-    ax.grid(alpha=0.3)
+        ax.plot(xx, m * xx + b, "k--", lw=1)
+        ax.set_title(f"Oran spring (focal): r={r_os:+.2f} "
+                     f"p={p_os:.1e} n={len(both)}")
+        ax.set_xlabel("in-situ SWC (5 cm) [vol %]")
+        ax.set_ylabel("SMAP root-zone [m^3/m^3]")
+        ax.grid(alpha=0.3)
 
-    # ── SDS using each soil-moisture source ──
-    d_swc = oran.dropna(subset=["ET_mm", "SWC"])
-    sds_swc, n_dry_s, n_norm_s = compute_sds(
-        d_swc["ET_mm"].to_numpy(), d_swc["SWC"].to_numpy())
-    d_smap = oran.dropna(subset=["ET_mm", "smap_rootzone"])
-    sds_smap, n_dry_m, n_norm_m = compute_sds(
-        d_smap["ET_mm"].to_numpy(), d_smap["smap_rootzone"].to_numpy())
-    d_sms = oran.dropna(subset=["ET_mm", "smap_surface"])
-    sds_sms, n_dry_ms, n_norm_ms = compute_sds(
-        d_sms["ET_mm"].to_numpy(), d_sms["smap_surface"].to_numpy())
-
-    rows.append({
-        "test": "H6", "stratum": "Oran summer NDVI>0.3",
-        "r_swc_smap_rz": r, "p_swc_smap_rz": p,
-        "SDS_in_situ_SWC": sds_swc,
-        "SDS_smap_rootzone": sds_smap,
-        "SDS_smap_surface": sds_sms,
-        "n_swc": len(d_swc), "n_smap_rz": len(d_smap),
-        "n_smap_surf": len(d_sms),
-    })
-    print(f"  SDS_in-situ      = {sds_swc:+.3f}  (n={len(d_swc)})")
-    print(f"  SDS_SMAP rootzone= {sds_smap:+.3f}  (n={len(d_smap)})")
-    print(f"  SDS_SMAP surface = {sds_sms:+.3f}  (n={len(d_sms)})")
-    print(f"  r(SWC, SMAP_rz)  = {r:+.3f}  p={p:.2e}")
-
-    ax = axes[1]
-    bars = ax.bar(["in-situ\nSWC", "SMAP\nroot-zone", "SMAP\nsurface"],
-                   [sds_swc, sds_smap, sds_sms],
-                   color=["tab:blue", "tab:orange", "tab:red"],
-                   alpha=0.8)
-    for bar, v in zip(bars, [sds_swc, sds_smap, sds_sms]):
-        if np.isfinite(v):
-            ax.text(bar.get_x() + bar.get_width()/2,
-                    bar.get_height(), f"{v:+.2f}",
-                    ha="center", va="bottom", fontsize=11)
-    ax.axhline(0, color="k", lw=0.7)
-    ax.set_ylabel("SDS")
-    ax.set_title("Oran summer SDS by soil moisture source")
-    ax.grid(axis="y", alpha=0.3)
-
-    # ── time series of SWC and SMAP rootzone ──
-    ax = axes[2]
-    o = oran.sort_values("date")
-    if "SWC" in o:
-        ax2 = ax.twinx()
-        ax.plot(o["date"], o["SWC"], color="tab:blue",
-                lw=1, label="SWC (5 cm)")
-        ax.set_ylabel("SWC (5 cm) [vol %]", color="tab:blue")
-        ax2.plot(o["date"], o["smap_rootzone"], color="tab:orange",
-                 lw=1, label="SMAP rootzone")
-        ax2.set_ylabel("SMAP rootzone [m^3/m^3]", color="tab:orange")
-    ax.set_xlabel("date")
-    ax.set_title("Oran: SWC vs SMAP rootzone time series")
-    ax.grid(alpha=0.3)
-
-    fig.suptitle("H6: SMAP root-zone as alternative drought predictor at Oran",
-                 fontsize=12)
+    fig.suptitle("H6 multi-stratum: SMAP root-zone vs in-situ SWC across "
+                 "all meaningful strata", fontsize=12)
     fig.tight_layout()
-    fig.savefig(FIGS / "fig_H6_smap_oran.png", dpi=150)
+    fig.savefig(FIGS / "fig_H6_smap_multistratum.png", dpi=150)
     plt.close(fig)
     return rows
+
+
+# Backward-compat wrapper so existing main() call still works
+def h6_smap_oran(df: pd.DataFrame) -> list[dict]:
+    return h6_smap_multistratum(df)
 
 
 # ── main ─────────────────────────────────────────────────────────────────────
