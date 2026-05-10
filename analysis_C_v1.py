@@ -838,14 +838,14 @@ def albedo_feedback_check(oran_raw_path, oran_merged):
 
     df["ALB"] = pd.to_numeric(df["ALB"], errors="coerce")
     df["SW_IN"] = pd.to_numeric(df["SW_IN"], errors="coerce")
+    if "SW_OUT" in df.columns:
+        df["SW_OUT"] = pd.to_numeric(df["SW_OUT"], errors="coerce")
     # 数値列のセンチネル除去
-    for col in ["ALB", "SW_IN"]:
-        df[col] = df[col].where(df[col] > -9000, np.nan)
+    for col in ["ALB", "SW_IN", "SW_OUT"]:
+        if col in df.columns:
+            df[col] = df[col].where(df[col] > -9000, np.nan)
 
     # SW_IN 単位推定:
-    # 通常 W/m² なら晴天日中で 800-1000 を超える。
-    # max が 5 未満なら kW/m² と推定して x1000、
-    # 50 未満なら MJ/m²/30min っぽいので x555。
     sw_max = df["SW_IN"].max(skipna=True)
     sw_p99 = df["SW_IN"].quantile(0.99)
     if sw_max < 5:
@@ -855,7 +855,30 @@ def albedo_feedback_check(oran_raw_path, oran_merged):
     else:
         sw_scale, unit_guess = 1.0, "W/m² (no scale)"
     df["SW_IN"] = df["SW_IN"] * sw_scale
+    if "SW_OUT" in df.columns:
+        df["SW_OUT"] = df["SW_OUT"] * sw_scale
     print(f"  SW_IN raw max={sw_max:.3f}, p99={sw_p99:.3f} → {unit_guess}")
+
+    # ALB 診断
+    alb_n = df["ALB"].notna().sum()
+    alb_p1, alb_med, alb_p99 = (df["ALB"].quantile(q) for q in (0.01, 0.5, 0.99))
+    print(f"  ALB raw: n={alb_n}  p1={alb_p1:.3f}  med={alb_med:.3f}  p99={alb_p99:.3f}")
+
+    # ALB が物理的範囲外 (or 全 NaN) なら SW_OUT/SW_IN で計算
+    if (not np.isfinite(alb_med)) or alb_med <= 0.01 or alb_med >= 1.5:
+        if "SW_OUT" in df.columns:
+            with np.errstate(divide="ignore", invalid="ignore"):
+                df["ALB_calc"] = np.where(
+                    df["SW_IN"] > 50, df["SW_OUT"] / df["SW_IN"], np.nan)
+            calc_med = df["ALB_calc"].quantile(0.5)
+            print(f"  ALB の生値が異常域 → SW_OUT/SW_IN で計算: med={calc_med:.3f}")
+            df["ALB"] = df["ALB_calc"]
+        else:
+            print("  ALB 異常 + SW_OUT 列なし; skip"); return
+    elif alb_med > 1.5:
+        # ALB が % (0-100) で記録されている可能性
+        df["ALB"] = df["ALB"] / 100.0
+        print(f"  ALB が % と推定 → ÷100")
 
     # フィルタ条件: SW_IN > 100 W/m² OR (時刻が 9-16時 かつ ALB が 0.05-0.5)
     hour = df["datetime"].dt.hour
