@@ -2,20 +2,21 @@
 
 The paper's logic:
   SDS measures how strongly EC ET tracks surface SWC.
-  Satellite ET retrievals (MOD16, PML) effectively assume that ET is
-  closely tied to surface moisture and LAI/canopy state.
+  Satellite ET retrievals (MOD16, PML, METv3) effectively assume that ET
+  is closely tied to surface moisture and LAI/canopy state.
   Therefore strata where SDS is small (decoupled) should be the strata
   where the satellite product underestimates EC the most.
 
 For each (site, season, irrig_bucket) cell with sufficient data we
 compute:
   SDS         = 1 - mean(LE | dry SWC) / mean(LE | normal SWC)
-  bias_MOD16  = mean(MOD16_ET - EC_ET)
-  bias_PML    = mean(PML_ET   - EC_ET)
-and plot bias vs SDS — the expected pattern is a positive slope (low
-SDS → strongly negative bias).
+  bias_MOD16  = mean(MOD16_ET   - EC_ET)
+  bias_PML    = mean(PML_ET     - EC_ET)
+  bias_METv3  = mean(ET_metv3_mm - EC_ET)
+and plot bias vs SDS - the expected pattern is a positive slope (low
+SDS -> strongly negative bias).
 
-Reads: master_full.csv
+Reads: master_full_v2.csv (preferred, has METv3) or master_full.csv
 Writes:
   sds_vs_bias.csv
   figs/fig_E_sds_vs_bias.png
@@ -26,7 +27,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 REPO = Path(__file__).parent.parent
-CSV = REPO / "master_full.csv"
+CSV = REPO / "master_full_v2.csv"
+if not CSV.exists():
+    CSV = REPO / "master_full.csv"
 OUT_CSV = REPO / "sds_vs_bias.csv"
 FIGS = REPO / "figs"
 FIGS.mkdir(exist_ok=True)
@@ -35,6 +38,10 @@ NDVI_GATE = 0.3
 MIN_N = 20
 RNG = np.random.default_rng(42)
 N_BOOT = 1000
+
+PRODUCTS = [("MOD16_ET",    "MOD16", "tab:purple"),
+            ("PML_ET",      "PML",   "tab:green"),
+            ("ET_metv3_mm", "METv3", "tab:orange")]
 
 
 def sds_from_arrays(le: np.ndarray, swc: np.ndarray,
@@ -86,7 +93,7 @@ def cell(df: pd.DataFrame, label: str) -> dict | None:
         "n": int(ok.sum()),
         "SDS": sds_med, "SDS_lo": sds_lo, "SDS_hi": sds_hi,
     }
-    for col, label_p in [("MOD16_ET", "MOD16"), ("PML_ET", "PML")]:
+    for col, label_p, _ in PRODUCTS:
         if col not in df:
             continue
         bias = (df[col] - df["ET_mm"]).dropna()
@@ -136,10 +143,15 @@ def main() -> None:
     print(out.to_string(index=False))
     print(f"\nwrote {OUT_CSV}")
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5), sharex=True)
-    for ax, (col, label, c) in zip(
-            axes, [("bias_MOD16_mean", "MOD16", "tab:purple"),
-                   ("bias_PML_mean", "PML", "tab:green")]):
+    available = [(f"bias_{label}_mean", label, c)
+                 for _, label, c in PRODUCTS
+                 if f"bias_{label}_mean" in out.columns]
+    n_prod = len(available)
+    fig, axes = plt.subplots(1, n_prod, figsize=(5.5 * n_prod, 5),
+                              sharex=True)
+    if n_prod == 1:
+        axes = [axes]
+    for ax, (col, label, c) in zip(axes, available):
         for site, marker in [("Oran", "o"), ("TzM", "s")]:
             sub = out[out.site == site].dropna(subset=["SDS", col])
             if not len(sub):
