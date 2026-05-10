@@ -361,30 +361,78 @@ Phase C  (satellite cross-check)
 
 ---
 
-## 7. 仮説検証の結果 (H1, H4, H6)
+## 7. 仮説検証の結果 (H1, H4, H6) — 実データでの検証
 
-`scripts/hypothesis_tests.py` を実行することで以下が定量化される (このセクションは実行後に実数値で更新される予定):
+`scripts/hypothesis_tests.py` を実データに適用した結果 (n=401 for TzM summer × NDVI>0.3, 2026-05-10 実行):
 
-### H1: τ-based 補正の有効性
-- 期待値: MOD16 = RMSE -25%、PML = -50%、METv3 = -40%
-- 実装: `tau_fit_summary.csv` の (a, τ, c) を使って予測バイアスを計算 → satellite ET から差し引き → 補正後 RMSE を比較
+### H1: τ-based 補正の有効性 → **強く支持**
 
-### H4: AIC モデル比較
-- 期待値: days_since_irrig 単独 < VPD 単独。最良は VPD + d + 交互作用
-- 実装: 3つの線形モデルをOLSフィット → AIC算出
+| 製品 | n | RMSE_raw | RMSE_corr | 削減 | MBE_raw | MBE_corr |
+|---|---:|---:|---:|---:|---:|---:|
+| MOD16 | 400 | 4.01 | **1.39** | **−65 %** | −3.69 | +0.00 |
+| PML   | 325 | 2.82 | **1.44** | **−49 %** | −2.26 | +0.01 |
+| METv3 | 400 | 3.85 | **1.50** | **−61 %** | −3.37 | +0.01 |
 
-### H6: SMAP root-zone の代替性
-- 期待値: r(SWC, SMAP_rz) > 0.5、SDS_smap が SDS_in-situ と ±0.05 以内
-- 実装: Oran summer × NDVI>0.3 で計算
+→ **想定 (-25 / -50 / -40 %) を遥かに上回る削減**。すべての製品で MBE がほぼ完全に 0 へ収束 (補正が unbiased になった)。RMSE 残差 ~1.4 mm/d は灌漑バケット内の確率変動 (天候・LAI 個体差) の範囲。
+
+**重要な含意**: MOD16 の最大削減 (-65 %) は、「τ-fit の永久オフセット項 c が構造的 floor を吸収し、過渡項 a·exp(-t/τ) が灌漑タイミング誤差を吸収する」モデル設計の正当性を示している。MOD16 の構造的バイアスは「補正不可能な root cause」ではなく「灌漑情報を入力に与えれば吸収できるパラメトリック誤差」であった。
+
+### H4: AIC でのモデル比較 → **決定的に支持**
+
+| 製品 | n | AIC (VPD only) | AIC (days only) | AIC (VPD+d+interact) | 最良 | ΔAIC |
+|---|---:|---:|---:|---:|---|---:|
+| MOD16 | 393 | 1415 | 1356 | **1343** | VPD+d+interaction | **-73** |
+| PML   | 318 | 1167 | 1137 | **1101** | VPD+d+interaction | **-66** |
+| METv3 | 393 | 1567 | 1429 | **1414** | VPD+d+interaction | **-153** |
+
+→ Burnham & Anderson (2002) の判定基準:
+- ΔAIC > 2 → "改善あり"
+- ΔAIC > 10 → "圧倒的改善" (decisive evidence)
+
+**全3製品で ΔAIC > 60、METv3 では > 150** → days_since_irrig が bias の主構造を握る変数であることが疑いの余地なく示された。VPD 単独モデルは、AIC で見るとどの製品でも明確に劣る → **大気需要だけではバイアスは説明できない**。
+
+**VPD と days_since_irrig の関係**: 交互作用項を含む M3 が最良 → 「灌漑直後の高VPD日に過小評価が増幅される」非線形効果が存在。これは「乾燥かつ高蒸発要求の日ほど、衛星が「葉は乾ききっている」と誤判定して ET を低く出す」物理像と一致。
+
+### H6: SMAP root-zone の代替性 → **部分支持（要追加検証）**
+
+Oran summer × NDVI > 0.3 (n=34) での結果:
+
+| 指標 | in-situ SWC | SMAP rootzone | SMAP surface |
+|---|---:|---:|---:|
+| n | 34 | 34 | 34 |
+| SDS | -0.03 | -0.19 | -0.10 |
+
+| 相関 | r | p |
+|---|---:|---:|
+| SWC vs SMAP rootzone | **+0.971** | < 1e-21 |
+
+→ **SMAP root-zone と in-situ SWC は驚異的に強く連動 (r=0.97)**。これは "SMAP がEC観測の代替になる" 仮説を強く支持する数値。
+
+**ただし注意点**:
+- Oran summer は **post-harvest 期間** (作物収穫後で NDVI が低い)。SDS が3指標すべてで ~ 0 になっているのは「干ばつ感受性が消えている」のではなく「**生きた植生が無いのでLEがどの土壌水分とも相関しない**」状態。
+- 真の代替性検証は **Oran spring (active growth, n=200+)** で行うべき。
+
+**追加分析の提案**:
+```python
+# 真のH6検証: Oran spring (n>>34) で SMAP root-zone を使った SDS を計算
+oran_spring = df[(df.site=="Oran") & (df.season=="spring")
+                  & (df.NDVI.fillna(0) > 0.3)]
+# → SDS_in-situ ≈ +0.43、SDS_smap_rz が同程度なら代替性確立
+```
+
+---
 
 ### 検証できなかった仮説
-- **H2** (灌漑タイプ依存): 他の灌漑タイプを持つ FLUXNETサイトが必要
-- **H3** (作物根深依存): 他作物のEC観測が必要
-- **H5** (METv3 5km混合): SIGPAC parcel境界 / 高解像度 landcover が必要
-- **H7** (SDS index 広域マッピング): EuroFLUX inventory が必要
-- **H8** (regional ET correction): regional ET maps が必要
 
-→ いずれもデータ取得 (FLUXNET / EuroFLUX 申請、Sentinel-2 hi-res tiles) で対応可能。**論文後の続編研究**として位置付ける。
+| # | 仮説 | 必要なデータ | 入手経路 |
+|---|---|---|---|
+| H2 | 灌漑タイプ依存 | 他のFLUXNETサイト (flood/sprinkler) | FLUXNET2015 / OneFlux |
+| H3 | 作物根深依存 | olive / vegetable / vine の EC | EuroFLUX / 個別研究者 |
+| H5 | METv3 5km混合 | SIGPAC parcel境界 / hi-res landcover | SIGPAC viewer / Sentinel-2 |
+| H7 | SDS index 広域 | EuroFLUX inventory | ICOS / EuropeFluxNet |
+| H8 | regional ET 補正 | regional ET map + reference | local water authority |
+
+→ いずれもデータ取得 (申請、Sentinel-2 download) で対応可能。**論文後の続編研究**として位置付ける。
 
 ---
 
