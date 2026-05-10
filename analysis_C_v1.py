@@ -935,6 +935,103 @@ def albedo_feedback_check(oran_raw_path, oran_merged):
 #   Oran 月フィルター 11–6 月で生育期と仮定しているが、もし 7–10 月にも
 #   小さなピーク (夏作) があれば、生育期定義から漏れている。
 # ================================================================
+# ================================================================
+# H7 後続: Oran 春作 vs 冬作の分離解析
+#
+#   H7 で M04 と M12 の 2 ピークが検出された。Oran の生育期内
+#   (n=274) を「春作 (Feb-Jul, peak Apr)」と「冬作 (Oct-Jan, peak Dec)」
+#   に分けて、NDVI~LE/EF 関係や VPD 層別感度がサイクル間で違うかを検証。
+# ================================================================
+def crop_split_analysis_oran(merged_oran, save_dir):
+    print(f"\n{'=' * 60}\n[H7後続] Oran 春作/冬作 分離解析\n{'=' * 60}")
+    df = merged_oran.copy()
+    if "date" not in df.columns:
+        print("  date 列なし; skip"); return
+    df["month"] = pd.to_datetime(df["date"]).dt.month
+
+    # 作物ラベル: 春作=Feb-Jul, 冬作=Oct-Jan, それ以外は除外
+    def label(m):
+        if m in (2, 3, 4, 5, 6, 7):    return "spring"
+        if m in (10, 11, 12, 1):        return "winter"
+        return None
+    df["crop"] = df["month"].apply(label)
+
+    growing = df[(df.get("phen") == "growing") & df["crop"].notna()].copy()
+    print(f"  生育期 × 作物ラベル付き: n={len(growing)}")
+
+    rows = []
+    for crop in ["spring", "winter"]:
+        sub = growing[growing["crop"] == crop]
+        if len(sub) < 20:
+            print(f"  {crop:>6s}: n={len(sub)} 不足"); continue
+        n = len(sub)
+        ndvi_med = sub["NDVI"].median()
+        le_med   = sub["LE"].median()
+        ef_med   = sub["EF"].median()
+        et_med   = sub["ET"].median()
+        # NDVI~LE 相関
+        valid = sub.dropna(subset=["NDVI", "LE"])
+        rho_le, p_le = stats.spearmanr(valid["NDVI"], valid["LE"])
+        # NDVI~EF 相関
+        valid_ef = sub.dropna(subset=["NDVI", "EF"])
+        rho_ef, p_ef = stats.spearmanr(valid_ef["NDVI"], valid_ef["EF"])
+        # 部分相関 (NDVI vs Rn)
+        valid_p = sub.dropna(subset=["NDVI", "LE", "Rn"])
+        if len(valid_p) >= 20:
+            z = lambda s: (s.values - s.mean()) / s.std()
+            zn, zr, zl = z(valid_p["NDVI"]), z(valid_p["Rn"]), z(valid_p["LE"])
+            # part(LE, NDVI | Rn)
+            rl_n = zl - zr * (np.dot(zr, zl) / np.dot(zr, zr))
+            rn_r = zn - zr * (np.dot(zr, zn) / np.dot(zr, zr))
+            pr_n = float(np.corrcoef(rl_n, rn_r)[0, 1])
+            # part(LE, Rn | NDVI)
+            rl_r = zl - zn * (np.dot(zn, zl) / np.dot(zn, zn))
+            rr_n = zr - zn * (np.dot(zn, zr) / np.dot(zn, zn))
+            pr_r = float(np.corrcoef(rl_r, rr_n)[0, 1])
+        else:
+            pr_n, pr_r = np.nan, np.nan
+
+        rows.append((crop, n, ndvi_med, le_med, ef_med, et_med,
+                     rho_le, p_le, rho_ef, p_ef, pr_n, pr_r))
+        print(f"\n  --- {crop.upper()} (n={n}) ---")
+        print(f"    NDVI med={ndvi_med:.3f}  LE med={le_med:.1f}  "
+              f"EF med={ef_med:.3f}  ET med={et_med:.2f}")
+        print(f"    ρ(NDVI, LE) = {rho_le:+.3f}  p={p_le:.2e}")
+        print(f"    ρ(NDVI, EF) = {rho_ef:+.3f}  p={p_ef:.2e}")
+        if not np.isnan(pr_n):
+            print(f"    partial r(LE, NDVI | Rn) = {pr_n:+.3f}")
+            print(f"    partial r(LE, Rn | NDVI) = {pr_r:+.3f}")
+
+    if len(rows) < 2:
+        return
+
+    # サマリ図
+    with plt.rc_context(PAPER_RC):
+        fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
+        for ax, var, ylabel in zip(axes, ["LE", "EF"],
+                                    ["LE [W/m²]", "EF"]):
+            data = []
+            labels = []
+            for crop in ["spring", "winter"]:
+                sub = growing[growing["crop"] == crop][var].dropna()
+                if len(sub) > 0:
+                    data.append(sub.values)
+                    labels.append(f"{crop}\n(n={len(sub)})")
+            if data:
+                bp = ax.boxplot(data, labels=labels, patch_artist=True,
+                                widths=0.55, showfliers=False)
+                colors = ["#2ca02c", "#1f77b4"]
+                for patch, c in zip(bp["boxes"], colors):
+                    patch.set_facecolor(c); patch.set_alpha(0.55)
+                ax.set_ylabel(ylabel)
+                ax.grid(True, alpha=0.25, axis="y")
+        fig.suptitle("Oran: spring crop (Feb-Jul) vs winter crop (Oct-Jan)",
+                     fontweight="bold", fontsize=11)
+        out = Path(save_dir) / "C_H7_crop_split_Oran.png"
+        plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
+        print(f"\n  [保存] {out}")
+
+
 def detect_second_peak(per_site):
     print(f"\n{'=' * 60}\n[H7] 月別 NDVI セカンドピーク検出\n{'=' * 60}")
     for site, (df, _) in per_site.items():
@@ -1272,6 +1369,9 @@ if __name__ == "__main__":
 
     # H7: 月別 NDVI のセカンドピーク検出
     detect_second_peak(per_site)
+
+    # H7 後続: Oran で 2 ピーク検出 → 春作/冬作を分けた解析
+    crop_split_analysis_oran(oran_m, SAVE_DIR)
 
     # paper-quality figures
     plot_final_summary(oran_m, tara_m, SAVE_DIR)
