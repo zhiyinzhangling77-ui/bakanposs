@@ -18,9 +18,10 @@ import re
 import numpy as np
 import pandas as pd
 
-BASE = Path("/home/shion-nagamine/Downloads/drive-download-20260509T065316Z-3-001")
-OUT_LONG = Path("/home/shion-nagamine/bakanposs/satellite_long.csv")
-OUT_DAILY = Path("/home/shion-nagamine/bakanposs/satellite_daily.csv")
+BASE = Path("/mnt/hdd/Dataset")
+REPO = Path(__file__).parent.parent
+OUT_LONG = REPO / "satellite_long.csv"
+OUT_DAILY = REPO / "satellite_daily.csv"
 
 DATE_VAR = re.compile(r"^(\d{4}-\d{2}-\d{2})_(.+)$")
 
