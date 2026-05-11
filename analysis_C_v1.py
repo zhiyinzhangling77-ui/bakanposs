@@ -936,74 +936,68 @@ def albedo_feedback_check(oran_raw_path, oran_merged):
 #   小さなピーク (夏作) があれば、生育期定義から漏れている。
 # ================================================================
 # ================================================================
-# H7 後続: Oran 春作 vs 冬作の分離解析
+# H7 後続: Oran 主生育期 vs 初期生育期の分離解析
 #
-#   H7 で M04 と M12 の 2 ピークが検出された。Oran の生育期内
-#   (n=274) を「春作 (Feb-Jul, peak Apr)」と「冬作 (Oct-Jan, peak Dec)」
-#   に分けて、NDVI~LE/EF 関係や VPD 層別感度がサイクル間で違うかを検証。
+#   H7 で M04 と M12 の 2 ピークが検出されたが、これは冬コムギ単一
+#   サイクルの「最盛期 (Feb-Jul, M04 peak)」と「播種後の初期生育期
+#   (Oct-Jan, M12 peak)」を見ているだけ。別作物ではない。
+#   本関数は同一サイクルの 2 つの相を分けて、フラックスの挙動が
+#   どれだけ違うかを見る。
 # ================================================================
 def crop_split_analysis_oran(merged_oran, save_dir):
-    print(f"\n{'=' * 60}\n[H7後続] Oran 春作/冬作 分離解析\n{'=' * 60}")
+    print(f"\n{'=' * 60}\n[H7後続] Oran 主生育期/初期生育期 分離解析\n{'=' * 60}")
+    print("  注: スペイン冬穀作は単一サイクル。Feb-Jul=最盛期、Oct-Jan=初期生育期。")
     df = merged_oran.copy()
     if "date" not in df.columns:
         print("  date 列なし; skip"); return
     df["month"] = pd.to_datetime(df["date"]).dt.month
 
-    # 作物ラベル: 春作=Feb-Jul, 冬作=Oct-Jan, それ以外は除外
+    # 同一作物サイクルの 2 相
     def label(m):
-        if m in (2, 3, 4, 5, 6, 7):    return "spring"
-        if m in (10, 11, 12, 1):        return "winter"
+        if m in (2, 3, 4, 5, 6, 7):    return "main"   # 最盛期
+        if m in (10, 11, 12, 1):        return "early"  # 初期生育
         return None
-    df["crop"] = df["month"].apply(label)
+    df["phase"] = df["month"].apply(label)
 
-    growing = df[(df.get("phen") == "growing") & df["crop"].notna()].copy()
-    print(f"  生育期 × 作物ラベル付き: n={len(growing)}")
+    growing = df[(df.get("phen") == "growing") & df["phase"].notna()].copy()
+    print(f"  生育期 × フェノロジー相: n={len(growing)}")
 
-    rows = []
-    for crop in ["spring", "winter"]:
-        sub = growing[growing["crop"] == crop]
+    for phase, label_jp in [("main", "主生育期 (Feb-Jul, peak Apr)"),
+                              ("early", "初期生育期 (Oct-Jan, peak Dec)")]:
+        sub = growing[growing["phase"] == phase]
         if len(sub) < 20:
-            print(f"  {crop:>6s}: n={len(sub)} 不足"); continue
+            print(f"  {phase:>6s}: n={len(sub)} 不足"); continue
         n = len(sub)
         ndvi_med = sub["NDVI"].median()
         le_med   = sub["LE"].median()
         ef_med   = sub["EF"].median()
         et_med   = sub["ET"].median()
-        # NDVI~LE 相関
+        rn_med   = sub["Rn"].median()
         valid = sub.dropna(subset=["NDVI", "LE"])
         rho_le, p_le = stats.spearmanr(valid["NDVI"], valid["LE"])
-        # NDVI~EF 相関
         valid_ef = sub.dropna(subset=["NDVI", "EF"])
         rho_ef, p_ef = stats.spearmanr(valid_ef["NDVI"], valid_ef["EF"])
-        # 部分相関 (NDVI vs Rn)
         valid_p = sub.dropna(subset=["NDVI", "LE", "Rn"])
         if len(valid_p) >= 20:
             z = lambda s: (s.values - s.mean()) / s.std()
             zn, zr, zl = z(valid_p["NDVI"]), z(valid_p["Rn"]), z(valid_p["LE"])
-            # part(LE, NDVI | Rn)
             rl_n = zl - zr * (np.dot(zr, zl) / np.dot(zr, zr))
             rn_r = zn - zr * (np.dot(zr, zn) / np.dot(zr, zr))
             pr_n = float(np.corrcoef(rl_n, rn_r)[0, 1])
-            # part(LE, Rn | NDVI)
             rl_r = zl - zn * (np.dot(zn, zl) / np.dot(zn, zn))
             rr_n = zr - zn * (np.dot(zn, zr) / np.dot(zn, zn))
             pr_r = float(np.corrcoef(rl_r, rr_n)[0, 1])
         else:
             pr_n, pr_r = np.nan, np.nan
 
-        rows.append((crop, n, ndvi_med, le_med, ef_med, et_med,
-                     rho_le, p_le, rho_ef, p_ef, pr_n, pr_r))
-        print(f"\n  --- {crop.upper()} (n={n}) ---")
-        print(f"    NDVI med={ndvi_med:.3f}  LE med={le_med:.1f}  "
-              f"EF med={ef_med:.3f}  ET med={et_med:.2f}")
+        print(f"\n  --- {label_jp} (n={n}) ---")
+        print(f"    NDVI med={ndvi_med:.3f}  Rn med={rn_med:.1f}  "
+              f"LE med={le_med:.1f}  EF med={ef_med:.3f}  ET med={et_med:.2f}")
         print(f"    ρ(NDVI, LE) = {rho_le:+.3f}  p={p_le:.2e}")
         print(f"    ρ(NDVI, EF) = {rho_ef:+.3f}  p={p_ef:.2e}")
         if not np.isnan(pr_n):
             print(f"    partial r(LE, NDVI | Rn) = {pr_n:+.3f}")
             print(f"    partial r(LE, Rn | NDVI) = {pr_r:+.3f}")
-
-    if len(rows) < 2:
-        return
 
     # サマリ図
     with plt.rc_context(PAPER_RC):
@@ -1012,11 +1006,11 @@ def crop_split_analysis_oran(merged_oran, save_dir):
                                     ["LE [W/m²]", "EF"]):
             data = []
             labels = []
-            for crop in ["spring", "winter"]:
-                sub = growing[growing["crop"] == crop][var].dropna()
+            for phase in ["main", "early"]:
+                sub = growing[growing["phase"] == phase][var].dropna()
                 if len(sub) > 0:
                     data.append(sub.values)
-                    labels.append(f"{crop}\n(n={len(sub)})")
+                    labels.append(f"{phase}\n(n={len(sub)})")
             if data:
                 bp = ax.boxplot(data, labels=labels, patch_artist=True,
                                 widths=0.55, showfliers=False)
@@ -1025,11 +1019,178 @@ def crop_split_analysis_oran(merged_oran, save_dir):
                     patch.set_facecolor(c); patch.set_alpha(0.55)
                 ax.set_ylabel(ylabel)
                 ax.grid(True, alpha=0.25, axis="y")
-        fig.suptitle("Oran: spring crop (Feb-Jul) vs winter crop (Oct-Jan)",
+        fig.suptitle("Oran cereal: main growing phase (Feb-Jul) vs "
+                     "early growth (Oct-Jan)",
                      fontweight="bold", fontsize=11)
-        out = Path(save_dir) / "C_H7_crop_split_Oran.png"
+        out = Path(save_dir) / "C_H7_phase_split_Oran.png"
         plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
         print(f"\n  [保存] {out}")
+
+
+# ================================================================
+# 同期間ベンチマーク: Apr-Jun 限定でサイト間比較
+#
+#   Oran 冬穀: Feb-Jul に活発、ピーク M04 (NDVI ~0.52)
+#   Tarazona アーモンド: Apr-Sep に活発、ピーク M05 (NDVI ~0.43)
+#   共通の活発期 = Apr-Jun (3 ヶ月)
+#
+#   この窓に限定して LE/EF/ET のサイト間比較を行い、
+#   両サイトが「揃って活動している月」だけで深根 vs 灌漑の解釈を
+#   再評価する。
+# ================================================================
+def same_period_benchmark(oran_m, tara_m, save_dir):
+    print(f"\n{'=' * 60}\n[同期間] Apr-Jun ベンチマーク (両サイト共通活発期)\n{'=' * 60}")
+    common_months = [4, 5, 6]
+
+    def restrict(df, name):
+        d = df.copy()
+        d["month"] = pd.to_datetime(d["date"]).dt.month
+        sub = d[d["month"].isin(common_months)]
+        print(f"  {name}: 全期間 n={len(d)} → Apr-Jun n={len(sub)}")
+        return sub
+
+    o = restrict(oran_m, "Oran    ")
+    t = restrict(tara_m, "Tarazona")
+
+    print(f"\n  Apr-Jun 全体での絶対値比較 (Mann-Whitney, Tarazona > Oran 仮説):")
+    for var, fmt in [("LE", "{:.1f}"), ("EF", "{:.3f}"), ("ET", "{:.2f}"),
+                       ("NDVI", "{:.3f}"), ("Rn", "{:.1f}"), ("VPD", "{:.2f}")]:
+        oa = o[var].dropna(); ta = t[var].dropna()
+        if len(oa) < 10 or len(ta) < 10: continue
+        u, p = stats.mannwhitneyu(ta, oa, alternative="greater")
+        star = "★★★" if p < 1e-3 else ("★" if p < 0.05 else "n.s.")
+        print(f"    {var:6s}: Oran med=" + fmt.format(oa.median()) +
+              f" (n={len(oa)})  vs  Tarazona med=" + fmt.format(ta.median()) +
+              f" (n={len(ta)})  p={p:.2e}  {star}")
+
+    # 低 SWC × 緑 (NDVI p50 ベース) を Apr-Jun に限定
+    print(f"\n  低 SWC × 緑 (NDVI ≥ p50, site-wise) を Apr-Jun に限定:")
+    rows = []
+    for name, sub in [("Oran", o), ("Tarazona", t)]:
+        if "NDVI" not in sub or "SWC" not in sub: continue
+        swc_p25 = sub["SWC"].quantile(0.25)
+        ndvi_p50 = sub["NDVI"].quantile(0.50)
+        sel = sub[(sub["SWC"] < swc_p25) & (sub["NDVI"] >= ndvi_p50)]
+        rows.append((name, sel))
+        print(f"    {name:8s}: SWC<{swc_p25:.1f}% & NDVI≥{ndvi_p50:.3f}  → n={len(sel)}")
+
+    if len(rows) == 2 and min(len(rows[0][1]), len(rows[1][1])) >= 5:
+        for var in ["LE", "EF", "ET"]:
+            oa = rows[0][1][var].dropna(); ta = rows[1][1][var].dropna()
+            if len(oa) < 3 or len(ta) < 3: continue
+            u, p = stats.mannwhitneyu(ta, oa, alternative="greater")
+            star = "★★★" if p < 1e-3 else ("★" if p < 0.05 else "n.s.")
+            print(f"    {var:6s}: Oran={oa.median():.2f} (n={len(oa)})  "
+                  f"vs  Tarazona={ta.median():.2f} (n={len(ta)})  "
+                  f"p={p:.2e}  {star}")
+
+    # 図: 月別 LE/EF 比較
+    with plt.rc_context(PAPER_RC):
+        fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
+        for ax, var, ylabel in zip(axes, ["LE", "EF"],
+                                    ["LE [W/m²]", "EF"]):
+            for name, sub_full, color in [("Oran", oran_m, SITE_COLOR["Oran"]),
+                                            ("Tarazona", tara_m, SITE_COLOR["Tarazona"])]:
+                d = sub_full.copy()
+                d["month"] = pd.to_datetime(d["date"]).dt.month
+                monthly = d.groupby("month")[var].median()
+                ax.plot(monthly.index, monthly.values, "o-",
+                        color=color, label=name, markersize=6, linewidth=1.6)
+            for m in common_months:
+                ax.axvspan(m - 0.5, m + 0.5, color="yellow", alpha=0.15)
+            ax.set_xlabel("Month"); ax.set_ylabel(ylabel)
+            ax.set_xticks(range(1, 13))
+            ax.legend(frameon=False)
+            ax.grid(True, alpha=0.25)
+        fig.suptitle("Monthly medians (yellow = Apr-Jun common window)",
+                     fontweight="bold", fontsize=11)
+        out = Path(save_dir) / "C_same_period_monthly.png"
+        plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
+        print(f"\n  [保存] {out}")
+
+
+# ================================================================
+# 年々変動チェック: 2018 / 2019 / 2020 で主要結果が再現するか
+#
+#   H1 (灌漑経過日数による EF 減衰) と
+#   サイト間 EF 比較 (Tarazona > Oran) が
+#   各年で同じ方向に出るかを確認。
+#   スペイン中部は 2019 が比較的乾燥年。
+# ================================================================
+def interannual_check(oran_m, tara_m, save_dir):
+    print(f"\n{'=' * 60}\n[年々変動] 2018/2019/2020 で結果の頑健性チェック\n{'=' * 60}")
+    o = oran_m.copy(); t = tara_m.copy()
+    o["year"] = pd.to_datetime(o["date"]).dt.year
+    t["year"] = pd.to_datetime(t["date"]).dt.year
+
+    print(f"\n  年別サンプル数:")
+    for y in [2018, 2019, 2020]:
+        oo = o[o["year"] == y]
+        tt = t[t["year"] == y]
+        print(f"    {y}: Oran n={len(oo)}, Tarazona n={len(tt)}")
+
+    print(f"\n  生育期 EF サイト間比較 (Mann-Whitney, Tarazona > Oran):")
+    summary_rows = []
+    for y in [2018, 2019, 2020]:
+        oo = o[(o["year"] == y) & (o.get("phen") == "growing")]
+        tt = t[(t["year"] == y) & (t.get("phen") == "growing")]
+        oef = oo["EF"].dropna(); tef = tt["EF"].dropna()
+        if len(oef) < 10 or len(tef) < 10:
+            print(f"    {y}: n 不足"); continue
+        u, p = stats.mannwhitneyu(tef, oef, alternative="greater")
+        star = "★★★" if p < 1e-3 else ("★" if p < 0.05 else "n.s.")
+        ole = oo["LE"].median(); tle = tt["LE"].median()
+        summary_rows.append((y, ole, tle, oef.median(), tef.median(), p))
+        print(f"    {y}: Oran EF={oef.median():.3f} (n={len(oef)})  "
+              f"vs  Tarazona EF={tef.median():.3f} (n={len(tef)})  "
+              f"p={p:.2e}  {star}")
+
+    # H1 (irrigation lag) 年別チェック
+    print(f"\n  H1 灌漑経過日数別 EF (Tarazona, 年別):")
+    if "Irrig_mm" in t.columns:
+        for y in [2018, 2019, 2020]:
+            tt = t[(t["year"] == y) & (t.get("phen") == "growing")].copy()
+            tt["Irrig_mm"] = pd.to_numeric(tt["Irrig_mm"], errors="coerce").fillna(0)
+            tt = tt.sort_values("date").reset_index(drop=True)
+            irrig = tt["Irrig_mm"] > 0.5
+            days_since = np.full(len(tt), np.nan)
+            last = -10**9
+            for i in range(len(tt)):
+                if irrig.iloc[i]: last = i; days_since[i] = 0
+                elif last >= 0:    days_since[i] = i - last
+            tt["lag"] = days_since
+            a = tt[(tt["lag"] >= 1) & (tt["lag"] <= 3)]["EF"].dropna()
+            b = tt[(tt["lag"] >= 8) & (tt["lag"] <= 14)]["EF"].dropna()
+            if len(a) >= 5 and len(b) >= 5:
+                u, p = stats.mannwhitneyu(a, b, alternative="greater")
+                star = "★★★" if p < 1e-3 else ("★" if p < 0.05 else "n.s.")
+                print(f"    {y}: lag 1-3 EF={a.median():.3f} (n={len(a)})  "
+                      f"vs  lag 8-14 EF={b.median():.3f} (n={len(b)})  "
+                      f"p={p:.2e}  {star}")
+            else:
+                print(f"    {y}: lag bin n 不足  (1-3 n={len(a)}, 8-14 n={len(b)})")
+
+    # 図
+    if summary_rows:
+        with plt.rc_context(PAPER_RC):
+            fig, ax = plt.subplots(figsize=(7, 4.5))
+            years = [r[0] for r in summary_rows]
+            o_ef  = [r[3] for r in summary_rows]
+            t_ef  = [r[4] for r in summary_rows]
+            x = np.arange(len(years))
+            ax.bar(x - 0.18, o_ef, 0.36, label="Oran",
+                   color=SITE_COLOR["Oran"], alpha=0.8)
+            ax.bar(x + 0.18, t_ef, 0.36, label="Tarazona",
+                   color=SITE_COLOR["Tarazona"], alpha=0.8)
+            ax.set_xticks(x); ax.set_xticklabels([str(y) for y in years])
+            ax.set_ylabel("Median EF (growing season)")
+            ax.set_title("Inter-annual EF: Tarazona > Oran each year",
+                         loc="left", fontweight="bold")
+            ax.legend(frameon=False)
+            ax.grid(True, alpha=0.25, axis="y")
+            out = Path(save_dir) / "C_interannual_EF.png"
+            plt.savefig(out, dpi=180, bbox_inches="tight"); plt.close()
+            print(f"\n  [保存] {out}")
 
 
 def detect_second_peak(per_site):
@@ -1370,8 +1531,14 @@ if __name__ == "__main__":
     # H7: 月別 NDVI のセカンドピーク検出
     detect_second_peak(per_site)
 
-    # H7 後続: Oran で 2 ピーク検出 → 春作/冬作を分けた解析
+    # H7 後続: Oran で 2 ピーク検出 → 単一サイクルの主/初期生育期を分けた解析
     crop_split_analysis_oran(oran_m, SAVE_DIR)
+
+    # 同期間ベンチマーク: Apr-Jun (両サイト共通活発期) に限定
+    same_period_benchmark(oran_m, tara_m, SAVE_DIR)
+
+    # 年々変動チェック: 2018/2019/2020 で主要結果の頑健性
+    interannual_check(oran_m, tara_m, SAVE_DIR)
 
     # paper-quality figures
     plot_final_summary(oran_m, tara_m, SAVE_DIR)
