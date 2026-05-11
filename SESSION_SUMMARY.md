@@ -538,17 +538,51 @@ Spring Tarazona の CI [-0.98, +0.83] は単に sample 不足の現れで、深�
 
 ## 10. 重要ファイル一覧
 
-### コード
+### コード(解析A 本流)
 | パス | 内容 |
 |---|---|
 | `/home/user/bakanposs/analysis_A_v9.py` | NDWI 3軸統合(失敗例として保存) |
-| `/home/user/bakanposs/analysis_A_v10.py` | DRR + cross-site(失敗例として保存) |
+| `/home/user/bakanposs/analysis_A_v10.py` | DRR + cross-site(失敗例として保存)。**現在 data_loaders import に書き換え済** |
 | `/home/user/bakanposs/analysis_A_v11.py` | within-site SDS(DENOM_FLOOR bug fix 済) |
 | `/home/user/bakanposs/analysis_A_v12.py` | 自己説明的 figures(8 枚) |
 | `/home/user/bakanposs/analysis_A_v13.py` | 灌漑 days_since_irrig 階層化 |
-| `/home/user/bakanposs/analysis_A_v14.py` | **現最終版**: 季節分離 + 夏期 bucket |
+| `/home/user/bakanposs/analysis_A_v14.py` | **解析A 現最終版**: 季節分離 + 夏期 bucket |
+
+### コード(共通ライブラリ・並行解析)
+| パス | 内容 |
+|---|---|
+| `/home/user/bakanposs/data_loaders.py` | **解析A/B/C 共通の EC ローダ**。解析C で発見した v9 ローダの 5 つのバグを修正したクリーン版。`load_oran_ec_clean`, `load_tarazona_ec_clean`, `normalize_swc` を提供。v10 が import 済 |
+| `/home/user/bakanposs/analysis_C_v1.py` | **解析C(並行)**: MODIS NDVI を独立軸として導入し、フェノロジー × フラックスを解析。解析A の深根仮説に対する状況証拠を別観点(NDVI vs EF/LE/GPP)から評価 |
+
+### 共通インフラ
+| パス | 内容 |
+|---|---|
 | `/home/user/bakanposs/requirements.txt` | 全環境依存 |
 | `/home/user/bakanposs/SESSION_SUMMARY.md` | **このドキュメント** |
+
+### data_loaders.py の主要修正点(解析C 経由で判明)
+1. Oran timestamp の自動推定エラー(`%Y/%m/%d` 確定で残り NaT 化)を 3段フォールバック化
+2. -9999 等のセンチネル値マスク
+3. Oran VPD: hPa → kPa 統一(÷10)、`|VPD|>10 kPa` 外れ値除去
+4. Tarazona ET: `ET_avg` ではなく `ET_sum`(日合計 mm)を採用
+5. Tarazona VPD: `VPD_kPa` 列を直接採用(`VPD_mean` は Pa で単位不整合)
+
+**最終単位の統一**:
+- LE/H/G/Rn: W/m²
+- ET: mm/day
+- VPD: kPa
+- SWC: %(m³/m³ は `normalize_swc` で ×100)
+
+⚠️ **重要**: 解析A v9-v11 は古いローダで実行されていたため、上記バグの影響を受けている可能性あり。次セッションで v15 を書く際は **必ず `data_loaders` を import** すること。
+
+### 解析C(並行)の目的
+- 目的1: 生育期/非生育期を NDVI から客観定義(GROWING_MONTHS の妥当性検証)
+- 目的2: NDVI vs EF/LE/GPP_proxy を Oran vs Tarazona で比較
+- 目的3: サイト間フェノロジー位相の定量化
+- 目的4(A 連結): 低 SWC × 高 NDVI 期で Tarazona が EF を保てるか = 深根仮説の状況証拠の再評価
+- 目的5(B 連結): EC LE と NDVI×Rn 簡易 GPP プロキシの整合性
+
+→ 次セッションで A/C 結果を統合して論文化の方向を確定する選択肢あり。
 
 ### 中間ファイル(ユーザー側で生成、Claude 側 repo にはなし)
 | パス | 内容 | 必要なバージョン |
@@ -586,3 +620,28 @@ Spring Tarazona の CI [-0.98, +0.83] は単に sample 不足の現れで、深�
 - `0c12aea` v12 refactored
 - `bcaf1a3` v13 irrigation analysis
 - `1dc0ecb` v14 seasonal × bucket
+- `2ade97e` (parallel) data_loaders.py 抽出, analysis_C_v1.py 追加, v10 を data_loaders import に書き換え
+- `df16969` SESSION_SUMMARY.md 追加
+
+---
+
+## 11. 解析C 関連の補足(並行作業)
+
+### 11.1 解析C の独立性
+解析C(`analysis_C_v1.py`)は解析A とは独立した観点で同じ EC データを分析。
+深根仮説の代替確認として、NDVI と LE/EF の関係を見る。
+
+### 11.2 解析C で使う追加データ
+- **MODIS MOD13Q1 NDVI**: 16-day, 250m
+- 取得方法: Google Earth Engine `scripts/gee_extract.js`(別途存在の想定)
+- ⚠️ 次セッションで実際の NDVI CSV パスを確認すること
+
+### 11.3 A と C の統合可能性
+- A の v14 「灌漑による SWC-ET decoupling」結論
+- C の NDVI による phenology 補正
+- → 両者を組み合わせれば「LAI/Phenology 差を補正した上での灌漑効果」が示せる可能性
+
+### 11.4 解析B の存在(?)
+- `data_loaders.py` のコメントに「解析A/B/C 共通」と記載
+- 解析B のスクリプトはまだ未確認(`/home/user/bakanposs/` には `analysis_B_*.py` が存在しないか?要再確認)
+- 次セッション開始時に `ls /home/user/bakanposs/` で確認すること
