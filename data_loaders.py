@@ -28,9 +28,32 @@ SENTINEL_THR = -9000.0    # これ以下は欠損扱い
 VPD_MAX_KPA  = 10.0       # 物理的にあり得ない VPD はマスク
 
 
+def _recover_datetime_from_julian(df, mask):
+    """year + Julian + Time_hours 列から datetime を復元.
+    TIMESTAMP/DateTime が空欄 ('nan') の行に対するフォールバック."""
+    needed = ["year", "Julian", "Time_hours"]
+    if not all(c in df.columns for c in needed):
+        return None
+    sub = df.loc[mask, needed].apply(pd.to_numeric, errors="coerce")
+    valid = sub.notna().all(axis=1)
+    if not valid.any():
+        return None
+    sub = sub.loc[valid]
+    base = pd.to_datetime(
+        sub["year"].astype(int).astype(str)
+        + sub["Julian"].astype(int).astype(str).str.zfill(3),
+        format="%Y%j", errors="coerce")
+    hours_td = pd.to_timedelta(sub["Time_hours"].astype(float), unit="h")
+    recovered = base + hours_td
+    out = pd.Series(pd.NaT, index=df.index, dtype="datetime64[ns]")
+    out.loc[sub.index] = recovered.values
+    return out
+
+
 def load_oran_ec_clean(filepath, verbose=True):
     """Oran 半時間値 CSV → 日次集計.
-    Ameriflux の TIMESTAMP 列を二段＋mixed の三段フォールバックでパース."""
+    Ameriflux の TIMESTAMP 列を二段＋mixed の三段フォールバックでパース.
+    最後に year/Julian/Time_hours 列から復元 (TIMESTAMP='nan' 行救済)."""
     df = pd.read_csv(filepath)
     n_raw = len(df)
 
@@ -53,12 +76,27 @@ def load_oran_ec_clean(filepath, verbose=True):
         miss = dt.isna()
         dt2 = pd.to_datetime(ts[miss], format="mixed", errors="coerce")
         dt = dt.where(~miss, dt2)
+    n_after_str_parse = int(dt.notna().sum())
+
+    # フォールバック: year/Julian/Time_hours から復元
+    miss = dt.isna()
+    if miss.any():
+        recovered = _recover_datetime_from_julian(df, miss)
+        if recovered is not None:
+            n_recover = int((recovered.notna() & miss).sum())
+            dt = dt.where(~miss, recovered)
+            if verbose and n_recover > 0:
+                print(f"[Oran loader] year/Julian/Time_hours から "
+                      f"{n_recover} 行を復元")
+
     df["datetime"] = dt
     n_parsed = int(df["datetime"].notna().sum())
     if verbose:
         days_n = max(1, df["datetime"].dt.normalize().nunique())
+        recover_gain = n_parsed - n_after_str_parse
         print(f"[Oran loader] {n_parsed}/{n_raw} subdaily records parsed "
-              f"(~{n_parsed / days_n:.1f}/day)")
+              f"(~{n_parsed / days_n:.1f}/day; "
+              f"+{recover_gain} from Julian fallback)")
 
     df = df.dropna(subset=["datetime"]).sort_values("datetime").reset_index(drop=True)
 
