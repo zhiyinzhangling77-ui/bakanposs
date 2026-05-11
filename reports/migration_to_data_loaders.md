@@ -93,6 +93,8 @@ git commit -m "import data_loaders.py from analysis-C branch"
 - Oran の EF が計算可能日数が 28 → 899 日に増える
 - Oran VPD が kPa に統一されるので、サイト間 VPD 比較が初めて公平になる
 - Tarazona ET が `mm/day` で正しく出る (旧 `ET_avg` は別単位だった)
+- **半時間レコード使用率が 84% → 100%** (year/Julian/Time_hours フォールバックにより
+  TIMESTAMP='nan' の 8517 行が復元される)
 
 **期待される変化** (相関・サイト間比較):
 
