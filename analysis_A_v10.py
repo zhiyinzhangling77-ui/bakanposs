@@ -38,6 +38,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from scipy import stats
 from pathlib import Path
+from data_loaders import load_oran_ec_clean, load_tarazona_ec_clean, normalize_swc
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -142,50 +143,6 @@ def merge_era5(ec, era5):
 # ================================================================
 # 2. EC 読み込み
 # ================================================================
-
-def load_oran_ec(fp):
-    df = pd.read_csv(fp)
-    dt = next((c for c in df.columns if c.lower() in ("datetime","timestamp")), None)
-    df["datetime"] = pd.to_datetime(df[dt], errors="coerce")
-    df = df.dropna(subset=["datetime"]).sort_values("datetime").reset_index(drop=True)
-    for c in ["SWC_1_1_1","LE","H","G","NETRAD","VPD","ET"]:
-        df[c] = pd.to_numeric(df[c], errors="coerce")
-    df["date"] = df["datetime"].dt.normalize()
-    daily = df.groupby("date", as_index=False).agg(
-        SWC=("SWC_1_1_1","mean"), LE=("LE","mean"), H=("H","mean"),
-        G=("G","mean"), Rn=("NETRAD","mean"), VPD=("VPD","mean"), ET=("ET","sum"))
-    denom = daily["Rn"] - daily["G"]; v = denom > EF_DENOM_MIN
-    daily["EF"] = np.nan
-    daily.loc[v,"EF"] = (daily.loc[v,"LE"]/denom[v]).clip(0,1.5)
-    daily = daily[(daily["SWC"]>0) & (daily["SWC"]<100)].reset_index(drop=True)
-    daily["site"] = "Oran"
-    print(f"[Oran EC] {len(daily)} 日分")
-    return daily
-
-
-def load_tarazona_ec(fp):
-    df = pd.read_csv(fp)
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    df = df.dropna(subset=["date"]).sort_values("date").reset_index(drop=True)
-    df = df.rename(columns={"SWC_avg":"SWC","LE_avg":"LE","H_avg":"H","G_avg":"G",
-                             "NetRad_avg":"Rn","VPD_mean":"VPD","ET_avg":"ET"})
-    for c in ["SWC","LE","H","G","Rn","VPD","ET"]:
-        if c in df.columns: df[c] = pd.to_numeric(df[c], errors="coerce")
-    denom = df["Rn"] - df["G"]; v = denom > EF_DENOM_MIN
-    df["EF"] = np.nan
-    df.loc[v,"EF"] = (df.loc[v,"LE"]/denom[v]).clip(0,1.5)
-    df = df[(df["SWC"]>0) & (df["SWC"]<100)].reset_index(drop=True)
-    df["site"] = "Tarazona"
-    print(f"[Tarazona EC] {len(df)} 日分")
-    return df[[c for c in ["date","site","SWC","LE","H","G","Rn","EF","VPD","ET"]
-               if c in df.columns]]
-
-
-def normalize_swc(df, site):
-    if df["SWC"].dropna().max() <= 1.0:
-        df = df.copy(); df["SWC"] *= 100
-        print(f"  SWC [{site}]: m³/m³ → %")
-    return df
 
 
 # ================================================================
@@ -598,11 +555,10 @@ if __name__ == "__main__":
     print("="*60)
 
     # Step1-3
-    oran_ec = load_oran_ec(PATHS["oran_ec"])
-    tara_ec = load_tarazona_ec(PATHS["tara_ec"])
+    oran_ec = load_oran_ec_clean(PATHS["oran_ec"])
+    tara_ec = normalize_swc(load_tarazona_ec_clean(PATHS["tara_ec"]), "Tarazona")
     print("\n--- SWC 単位統一 ---")
     oran_ec = normalize_swc(oran_ec, "Oran")
-    tara_ec = normalize_swc(tara_ec, "Tarazona")
     print("\n--- ERA5 VPD ---")
     e_o = load_era5_vpd(SITES["Oran"]["lat"], SITES["Oran"]["lon"])
     e_t = load_era5_vpd(SITES["Tarazona"]["lat"], SITES["Tarazona"]["lon"])
