@@ -593,7 +593,16 @@ def main():
     print(f"  Oran: {len(oran)} 日, LE 有効={oran['LE'].notna().sum()}")
 
     # Tarazona format を統一: irrigation events
-    tara_for_event = tara.rename(columns={"LE_corr": "LE"}).copy()
+    # 注: parquet には "LE" と "LE_corr" の両方が存在することがある
+    # → rename ではなく drop+copy で重複列を避ける
+    tara_for_event = tara.copy()
+    if "LE_corr" in tara_for_event.columns:
+        # 解析には LE_corr (閉合補正済) を使う。古い LE 列があれば破棄
+        if "LE" in tara_for_event.columns:
+            tara_for_event = tara_for_event.drop(columns=["LE"])
+        tara_for_event = tara_for_event.rename(columns={"LE_corr": "LE"})
+    if "LE" not in tara_for_event.columns:
+        sys.exit("[ERROR] Tarazona に LE / LE_corr 列がありません")
     tara_for_event["LE"] = pd.to_numeric(tara_for_event["LE"], errors="coerce")
     tara_for_event["Irrig_mm"] = tara_for_event["Irrig_mm"].fillna(0)
 
