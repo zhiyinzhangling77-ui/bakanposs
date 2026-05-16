@@ -274,8 +274,13 @@ def estimate_le_inf(events, tail_threshold=7):
 def fit_with_validation(events, le_inf, n_boot=2000):
     """fit + validation + bootstrap SE"""
     if len(events) < N_EVENTS_MIN_VALID:
-        return dict(success=False, reason=f"n_events={len(events)} < {N_EVENTS_MIN_VALID}",
-                    n_events=len(events), n_data=0)
+        return dict(valid=False, success=False,
+                    reason=f"n_events={len(events)} < {N_EVENTS_MIN_VALID}",
+                    n_events=len(events), n_data=0,
+                    tau=np.nan, le0=np.nan, amplitude=np.nan, r2=np.nan,
+                    le_inf=le_inf,
+                    ci_lo=np.nan, ci_hi=np.nan, tau_se=np.nan,
+                    n_boot_valid=0)
     pooled = pd.concat([ev["data"] for ev in events])
     arr_d = pooled["days_since_event"].values.astype(float)
     arr_y = pooled["LE"].values
