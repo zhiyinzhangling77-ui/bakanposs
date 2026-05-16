@@ -249,27 +249,65 @@ def _bin(arr_d, arr_y, min_per_bin):
 
 
 def fit_2param(arr_d, arr_y, le_inf, min_per_bin=MIN_PER_BIN,
-                le_0_floor=LE_0_FLOOR):
+                le_0_floor=None, verbose=False):
+    """
+    2-param exp fit。
+    le_0_floor=None なら適応的(LE_∞+1 と観測値範囲から決定)。
+    複数の初期値で再試行し、収束しなければ verbose で理由表示。
+    """
     g = _bin(arr_d, arr_y, min_per_bin)
-    if len(g) < 3: return None
+    if len(g) < 3:
+        if verbose: print(f"    [fit fail] only {len(g)} bins (need ≥3)")
+        return None
     x = g["d"].values.astype(float)
     y = g["median"].values
+
+    # 適応的境界
+    y_max_obs = float(np.nanmax(y))
+    y_med_obs = float(np.nanmedian(y))
+    if le_0_floor is None:
+        le_0_floor = max(le_inf + 1, 10.0)
+    # ceiling は観測最大の 1.5 倍 or 350 のうち大きい方
+    le_0_ceil  = max(y_max_obs * 1.5, le_0_floor + 20, LE_0_CEIL)
+    if verbose:
+        print(f"    bounds: LE_0 ∈ [{le_0_floor:.1f}, {le_0_ceil:.1f}], "
+              f"τ ∈ [{TAU_FLOOR}, {TAU_CEIL}]")
+        print(f"    bins: {len(g)}, y range [{y.min():.1f}, {y_max_obs:.1f}]")
+
     def model(d, le0, tau): return exp_model_2p(d, le0, tau, le_inf)
-    try:
-        popt, _ = curve_fit(model, x, y, p0=[y.max(), 5.0],
-                            bounds=([le_0_floor, TAU_FLOOR], [LE_0_CEIL, TAU_CEIL]),
-                            maxfev=8000)
-        yp = model(x, *popt)
-        sse = float(np.sum((y-yp)**2))
-        r2  = float(1 - sse/np.sum((y-y.mean())**2)) if np.var(y) > 0 else np.nan
-        return dict(le0=popt[0], tau=popt[1], r2=r2, sse=sse,
-                    n_bins=len(g), grouped=g)
-    except Exception:
-        return None
+
+    # 複数初期値で再試行
+    initial_guesses = [
+        [max(y_max_obs, le_0_floor + 1), 5.0],
+        [max(y_max_obs * 1.1, le_0_floor + 1), 3.0],
+        [(y_max_obs + le_inf) / 2, 7.0],
+        [max(y_med_obs + 10, le_0_floor + 1), 2.0],
+    ]
+    last_err = None
+    for p0 in initial_guesses:
+        try:
+            popt, _ = curve_fit(model, x, y, p0=p0,
+                                bounds=([le_0_floor, TAU_FLOOR],
+                                        [le_0_ceil, TAU_CEIL]),
+                                maxfev=8000)
+            yp = model(x, *popt)
+            sse = float(np.sum((y-yp)**2))
+            r2  = float(1 - sse/np.sum((y-y.mean())**2)) if np.var(y) > 0 else np.nan
+            if verbose:
+                print(f"    [fit OK] p0={p0} → LE_0={popt[0]:.1f}, τ={popt[1]:.2f}, R²={r2:.3f}")
+            return dict(le0=popt[0], tau=popt[1], r2=r2, sse=sse,
+                        n_bins=len(g), grouped=g)
+        except Exception as e:
+            last_err = e
+            continue
+    if verbose:
+        print(f"    [fit fail] all 4 initial guesses failed. Last error: {last_err}")
+    return None
 
 
 def bootstrap_tau(arr_d, arr_y, le_inf, n_boot=5000, min_per_bin=MIN_PER_BIN,
-                   le_0_floor=LE_0_FLOOR, seed=42):
+                   le_0_floor=None, seed=42):
+    """le_0_floor=None で適応的境界を使う"""
     rng = np.random.default_rng(seed)
     n = len(arr_d)
     taus = []
@@ -319,16 +357,21 @@ def detect_rain_events(df_daily, rain_threshold, min_window, max_window,
     return events
 
 
-def compute_pseudo_tau(events, le_inf_inferred=None):
+def compute_pseudo_tau(events, le_inf_inferred=None, verbose=True):
     """
     pooled rain events → days_since_event vs LE → 2-param fit
     LE_∞ は events の long-tail から自動推定
+    Oran のような低 LE サイトでも fit できるよう適応的境界
     """
     if len(events) == 0:
         return dict(success=False, reason="no events qualified")
     pooled = pd.concat(events)
     arr_d = pooled["days_since_event"].values.astype(float)
     arr_y = pooled["LE"].values
+
+    if verbose:
+        print(f"    pooled: {len(pooled)} 日, LE 範囲 [{arr_y.min():.1f}, {arr_y.max():.1f}], "
+              f"median={np.median(arr_y):.1f}")
 
     # LE_∞ 推定: pooled の d ≥ 7 中央値、または分位点
     le_inf = le_inf_inferred
@@ -342,13 +385,12 @@ def compute_pseudo_tau(events, le_inf_inferred=None):
             # フォールバック: 全 pooled の p25
             le_inf = float(np.percentile(arr_y, 25))
             n_inf = -1  # フォールバックを示す
+    if verbose:
+        print(f"    LE_∞ = {le_inf:.2f} W/m² (n_tail={n_inf})")
 
-    # LE_0 floor は le_inf より下げる(Oran cereal は低めなので)
-    le_0_floor = max(LE_0_FLOOR, le_inf + 5)
-    le_0_floor = min(le_0_floor, 80)  # ただし 80 以上にはしない
-
+    # 適応的境界(fit_2param 内で計算)
     res = fit_2param(arr_d, arr_y, le_inf,
-                      min_per_bin=MIN_PER_BIN, le_0_floor=le_0_floor)
+                      min_per_bin=MIN_PER_BIN, le_0_floor=None, verbose=verbose)
     if res is None:
         return dict(success=False, reason="fit failed",
                     n_events=len(events), n_data=len(pooled),
@@ -503,7 +545,7 @@ def main():
     tara_tau = tara_res["tau"] if tara_res else 3.33
     print(f"  Tarazona τ = {tara_tau:.3f} d  LE_∞ = {le_inf_t:.2f}")
 
-    # Tarazona Bootstrap
+    # Tarazona Bootstrap (Tarazona は LE 高いので固定 floor=100 でOK)
     print(f"  Tarazona bootstrap (n_boot={args.n_boot})...")
     tara_boot, _ = bootstrap_tau(arr_d_t, arr_y_t, le_inf_t,
                                   n_boot=args.n_boot, le_0_floor=100)
@@ -539,16 +581,14 @@ def main():
         print(f"  R²    = {oran_res['r2']:.3f}")
         print(f"  Events used: {oran_res['n_events']}, data points: {oran_res['n_data']}")
 
-        # Oran bootstrap
-        print(f"\n  Oran bootstrap (n_boot={args.n_boot})...")
+        # Oran bootstrap (適応的境界、低 LE 対応)
+        print(f"\n  Oran bootstrap (n_boot={args.n_boot}, 適応境界)...")
         pooled = pd.concat(oran_events)
         arr_d_o = pooled["days_since_event"].values.astype(float)
         arr_y_o = pooled["LE"].values
-        le_0_floor_o = max(LE_0_FLOOR, oran_res["le_inf"] + 5)
-        le_0_floor_o = min(le_0_floor_o, 80)
         oran_boot, n_fail_o = bootstrap_tau(arr_d_o, arr_y_o, oran_res["le_inf"],
                                              n_boot=args.n_boot,
-                                             le_0_floor=le_0_floor_o)
+                                             le_0_floor=None)
         if len(oran_boot) > 100:
             oran_lo, oran_hi = np.percentile(oran_boot, CI_PCT)
             print(f"    iid CI: [{oran_lo:.2f}, {oran_hi:.2f}]  (失敗 {n_fail_o})")
