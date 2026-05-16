@@ -133,15 +133,17 @@ def load_oran_daily_master(path_no_ext):
 
 
 def detect_columns(df):
-    """日付/LE/雨 の列名を auto-detect"""
+    """日付/LE/雨/ET の列名を auto-detect"""
     candidates = {
         "date": ["date","Date","DATE","TIMESTAMP","timestamp","datetime","TIMESTAMP_START"],
         "LE"  : ["LE_corr","LE","LE_F_MDS","LE_F","LE_mean","LE_daily","Latent"],
+        "ET"  : ["Eddy_ET_mm_d","ET_mm_d","ET_mm","ET","ET_F","ET_daily","ET_avg","ET_sum"],
         "rain": ["Rain_mm","P_mm","Precip_mm","P","P_F","P_F_MDS","Rain","precip","PRECIP","Precipitation"],
         # 補助列(あれば)
-        "swc":  ["SWC","SWC_mean","SWC_avg","SWC_F_MDS_1","SWC_1"],
-        "vpd":  ["VPD","VPD_F","VPD_mean","VPD_kPa"],
+        "swc":  ["SWC_avg_mean","SWC","SWC_mean","SWC_avg","SWC_F_MDS_1","SWC_1"],
+        "vpd":  ["Eddy_VPD_mean_kPa","VPD","VPD_F","VPD_mean","VPD_kPa"],
         "h":    ["H_corr","H","H_F_MDS","H_F"],
+        "n_obs_le": ["n_obs_le", "n_obs_LE"],   # 品質フラグ
     }
     found = {}
     for key, opts in candidates.items():
@@ -153,26 +155,53 @@ def detect_columns(df):
 
 
 def standardize_oran_daily(df, cols):
-    """検出列を使って standardized DataFrame を作る"""
+    """検出列を使って standardized DataFrame を作る。
+    LE が直接ない場合は ET から変換する(LE = ET × 28.36 W/m² per mm/d)
+    """
     if "date" not in cols:
         sys.exit(f"[ERROR] date 列が見つかりません: {list(df.columns)}")
-    if "LE" not in cols:
-        sys.exit(f"[ERROR] LE 列が見つかりません: {list(df.columns)}")
     if "rain" not in cols:
         sys.exit(f"[ERROR] rain 列が見つかりません: {list(df.columns)}")
 
     out = pd.DataFrame()
     out["date"] = pd.to_datetime(df[cols["date"]], errors="coerce")
-    out["LE"]   = pd.to_numeric(df[cols["LE"]], errors="coerce")
     out["Rain_mm"] = pd.to_numeric(df[cols["rain"]], errors="coerce")
+
+    # LE 直接 or ET から変換
+    if "LE" in cols:
+        out["LE"] = pd.to_numeric(df[cols["LE"]], errors="coerce")
+        le_source = f"LE 直接 ({cols['LE']})"
+    elif "ET" in cols:
+        # ET (mm/day) → LE (W/m²)
+        # LE = ET × λ / 86400 where λ = 2.45e6 J/kg
+        et_mmd = pd.to_numeric(df[cols["ET"]], errors="coerce")
+        out["LE"] = et_mmd * 2.45e6 / 86400.0  # ≈ ET × 28.36
+        out["ET_mm_d"] = et_mmd
+        le_source = f"ET → LE 変換 ({cols['ET']} × 28.36)"
+    else:
+        sys.exit(f"[ERROR] LE / ET 列ともに見つかりません: {list(df.columns)}")
+
+    # 品質フィルタ: n_obs_le がある場合は十分な観測がある日のみ
+    if "n_obs_le" in cols:
+        n_obs = pd.to_numeric(df[cols["n_obs_le"]], errors="coerce")
+        # 半時間データの 50% 以上があれば OK (24 以上)
+        ok_mask = n_obs.fillna(0) >= 24
+        n_before = out["LE"].notna().sum()
+        out.loc[~ok_mask, "LE"] = np.nan
+        n_after = out["LE"].notna().sum()
+        print(f"  品質フィルタ ({cols['n_obs_le']}>=24): {n_before} → {n_after} 日")
+
     out = out.dropna(subset=["date"]).drop_duplicates("date").sort_values("date")
     out = out.reset_index(drop=True)
 
+    print(f"  LE source: {le_source}")
     print(f"  期間: {out['date'].min().date()} 〜 {out['date'].max().date()}")
     print(f"  LE 有効: {out['LE'].notna().sum()}/{len(out)} 日")
+    print(f"  LE 統計: median={out['LE'].median():.1f}, max={out['LE'].max():.1f} W/m²")
     print(f"  Rain 有効: {out['Rain_mm'].notna().sum()}/{len(out)} 日")
     print(f"  Rain 総量: {out['Rain_mm'].fillna(0).sum():.1f} mm")
     print(f"  Rain > 3mm の日: {(out['Rain_mm'].fillna(0) > 3.0).sum()}")
+    print(f"  Rain > 5mm の日: {(out['Rain_mm'].fillna(0) > 5.0).sum()}")
     return out
 
 
