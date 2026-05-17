@@ -101,14 +101,7 @@ def parse_args():
     p.add_argument("--max-window", type=int, default=10,
                    help="post-event window in days (default 10; 8-14 typical)")
     p.add_argument("--bin-hours", type=float, default=6.0,
-                   help="days_since_event bin width in hours (only used "
-                        "when --aggregate raw)")
-    p.add_argument("--aggregate", choices=["noon", "daymax", "raw"],
-                   default="noon",
-                   help=("noon: daily mean over 10:00-14:00 UTC -> one obs "
-                         "per integer day per event (cancels diurnal cycle, "
-                         "recommended). daymax: daily max LE. raw: pool all "
-                         "30-min obs (dominated by diurnal cycle, low R^2)."))
+                   help="days_since_event bin width in hours (default 6h)")
     p.add_argument("--max-events", type=int, default=0,
                    help="cap events per site (0 = no cap)")
     p.add_argument("--daytime-only", action="store_true",
@@ -258,30 +251,6 @@ def estimate_le_inf(pooled: pd.DataFrame, tail_d: float = 7.0) -> float:
     return float(np.median(tail.dropna()))
 
 
-def aggregate_per_day(pool: pd.DataFrame, mode: str) -> pd.DataFrame:
-    """Collapse 30-min observations to one obs per (event, integer day).
-
-    mode='noon'   : mean LE over 10:00-14:00 UTC  (peak transpiration window)
-    mode='daymax' : daily max LE within the integer day
-    mode='raw'    : return pool unchanged (caller does the binning)
-    """
-    if mode == "raw":
-        return pool
-    df = pool.copy()
-    df["day"] = np.floor(df["days_since_event"]).astype(int)
-    if mode == "noon":
-        df = df[df["ts"].dt.hour.between(10, 13)]
-        agg = (df.groupby(["event_start", "day"])
-                  ["LE"].mean().reset_index())
-    elif mode == "daymax":
-        agg = (df.groupby(["event_start", "day"])
-                  ["LE"].max().reset_index())
-    else:
-        return pool
-    agg = agg.rename(columns={"day": "days_since_event"})
-    return agg
-
-
 # ================================================================
 # MAIN per-site driver
 # ================================================================
@@ -410,7 +379,7 @@ def main():
         base, oran_water, "Rain_mm", RAIN_THRESHOLD, "Oran",
         indices, args.max_window, args.max_events, args.daytime_only)
 
-    print(f"\n=== 4) aggregating per (event,day) with mode={args.aggregate!r} ===")
+    print("\n=== 4) fitting sub-daily τ ===")
     fits = {}
     for site in SITES:
         pool = pool_by_site[site]
@@ -418,19 +387,14 @@ def main():
             fits[site] = dict(valid=False, reason="empty pool", n_events=0)
             print(f"  -- {site} -- [invalid] empty pool")
             continue
-        agg = aggregate_per_day(pool, args.aggregate)
-        n_events = agg["event_start"].nunique() if "event_start" in agg else \
-                       pool["event_start"].nunique()
-        n_obs = len(agg)
-        # bin width: integer-day for noon/daymax, sub-daily for raw
-        eff_bin_d = 1.0 if args.aggregate in ("noon", "daymax") else bin_d
-        le_inf = estimate_le_inf(agg)
-        print(f"  -- {site} -- n_events={n_events}, n_obs={n_obs}, "
-               f"le_inf={le_inf:.1f} W/m²  "
-               f"(LE range: {agg['LE'].min():.1f} → {agg['LE'].max():.1f})")
+        pool = pool.rename(columns={"LE": "LE"})
+        # treat pool as raw observations; fit median-per-bin
+        le_inf = estimate_le_inf(pool)
+        n_events = pool["event_start"].nunique()
+        n_obs = len(pool)
         res = fit_subdaily_tau(
-            agg["days_since_event"].values.astype(float),
-            agg["LE"].values, le_inf, eff_bin_d)
+            pool["days_since_event"].values.astype(float),
+            pool["LE"].values, le_inf, bin_d)
         if res is None:
             fits[site] = dict(valid=False,
                                 reason="fit returned None",
@@ -452,8 +416,8 @@ def main():
                        n_events=n_events, n_obs=n_obs, n_bins=res["n_bins"])
         if valid:
             boot = bootstrap_subdaily(
-                agg["days_since_event"].values.astype(float),
-                agg["LE"].values, le_inf, eff_bin_d, n_boot=args.n_boot)
+                pool["days_since_event"].values.astype(float),
+                pool["LE"].values, le_inf, bin_d, n_boot=args.n_boot)
             if len(boot) >= 50:
                 out["ci_lo"], out["ci_hi"] = np.percentile(boot, CI_PCT)
                 out["tau_se"] = float(np.std(boot))
