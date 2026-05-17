@@ -432,6 +432,23 @@ Phase C  (satellite cross-check)
 
 → いずれもデータ取得 (申請、Sentinel-2 download) で対応可能。**論文後の続編研究**として位置付ける。
 
+### H9: 衛星 ET だけで τ を測れるか — **否定** (analysis_B v1-v4)
+
+仮説: 解析A の τ ≈ 3-4 d を、EC を使わず satellite ET だけから独立検証できるはず (もし algorithm が表層水分パルスに応答していれば)。
+
+実行 4 通り:
+
+| 試行 | 入力 | 結果 | 失敗理由 |
+|---|---|---|---|
+| **v1** MOD16A2 daily | 500 m, 8-day composite | τ=0.50 d (floor), R²=−0.82 | 8-day 窓内で 3-4 d decay が平滑化 |
+| **v2** METv3 daily sum | 5 km, 48×30-min sum | τ=0.50 d (floor), R²=−0.02, amp=1 W/m² | night zero が振幅を希釈 |
+| **v3** EC − METv3 bias decay | per-event window, daily | TzM τ=4.57 d ✓ EC τ=3.36 d  | **bias は EC dynamics を継承** |
+| **v4** METv3 30-min noon-mean | per-event, 10:00-14:00 UTC | τ pegged, R²=0.18, amp=12 W/m² | event-to-event 天候変動 ≫ 表層 SWC 信号 |
+
+**重要な発見**: τ は EC との bias でのみ検出可能。これは「TzM では METv3 LE 信号がほぼ flat で、bias 動態は EC LE 動態をそのまま反映する」帰結。逆に Oran rainfed では bias_τ = 0.83 d < EC_τ = 2.82 d で、これは「METv3 は雨後の LST 冷却で部分応答するため bias が速く減衰」を示し、drip vs rainfed の物理コントラストの直接観測になる。
+
+→ 論文 3.9 節と Limitations に反映済み。続編で他 satellite (GLEAM 0.25°, SSEBop 1km) でも bias decay τ を測れば製品依存性を確認できる。
+
 ---
 
 ## 8. 次のステップと展望
