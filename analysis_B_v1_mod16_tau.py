@@ -74,11 +74,15 @@ SITES = {
     "Tarazona": {"lat": 39.266,  "lon": -1.9397},
 }
 
-# MOD16A2 (collection 6/6.1) scale factor: stored × 0.1 = kg/m²/8day
-MOD16_SCALE = 0.1
-# 1 mm/day → 28.36 W/m² (λ × ρ_w / 86400 s/day ≈ 28.36)
+# MOD16A2 scale handling.
+#   - Raw HDF / SDS: stored x 0.1 = kg/m^2/8day, fill values 32760+
+#   - GEE-exported GeoTIFF: scale ALREADY applied (values in mm/8day,
+#     fills NaN-coded), so use 1.0
+# Set --scale 0.1 on the CLI if the file is the raw unscaled product.
+DEFAULT_MOD16_SCALE = 1.0
+# 1 mm/day -> 28.36 W/m^2 (lambda * rho_w / 86400 s/day ~ 28.36)
 LE_PER_MM = 28.36
-# MOD16 fill values (Mu et al. 2011)
+# MOD16 fill values (only relevant if raw unscaled)
 MOD16_FILL = {32767, 32766, 32765, 32764, 32763, 32762, 32761}
 
 # Event thresholds (consistent with analysis A v27)
@@ -105,6 +109,9 @@ def parse_args():
                            "daily_classified_v4.parquet")
     p.add_argument("--out", default="./output_analysis_B_v1")
     p.add_argument("--n-boot", type=int, default=2000)
+    p.add_argument("--scale", type=float, default=DEFAULT_MOD16_SCALE,
+                   help="MOD16 multiplier. Use 1.0 for GEE-exported TIFFs "
+                        "(scale already applied) or 0.1 for raw HDF.")
     p.add_argument("--quick", action="store_true",
                    help="n_boot=300, plots only essential")
     p.add_argument("--no-plots", action="store_true")
@@ -115,7 +122,8 @@ def parse_args():
 # GeoTIFF reader
 # ================================================================
 
-def read_mod16_tif(tif_path: Path, start_date: str, cadence_days: int) -> pd.DataFrame:
+def read_mod16_tif(tif_path: Path, start_date: str, cadence_days: int,
+                    scale: float = DEFAULT_MOD16_SCALE) -> pd.DataFrame:
     """Open the MOD16A2 multi-band GeoTIFF and extract the time series
     at each site (nearest pixel).
 
@@ -200,11 +208,13 @@ def read_mod16_tif(tif_path: Path, start_date: str, cadence_days: int) -> pd.Dat
             assert len(vals) == src.count, f"expected {src.count} got {len(vals)}"
 
             for d, v in zip(band_dates, vals):
-                # filter MOD16 fill values
-                if int(v) in MOD16_FILL or not np.isfinite(v):
+                # filter MOD16 fill values (raw HDF) and NaN (GEE exports)
+                if not np.isfinite(v):
+                    et_8day = np.nan
+                elif scale == 0.1 and int(v) in MOD16_FILL:
                     et_8day = np.nan
                 else:
-                    et_8day = v * MOD16_SCALE   # kg/m²/8day
+                    et_8day = v * scale         # kg/m^2/8day
                 et_per_day = et_8day / 8.0      # mm/day
                 rows.append({
                     "date": d, "site": site,
@@ -429,12 +439,25 @@ def main():
 
     # ── 1) GeoTIFF → 8-day pixel time series ─────────────────────────────
     print("\n=== 1) reading MOD16A2 GeoTIFF ===")
-    sat_8day = read_mod16_tif(Path(args.tif), args.start_date, args.cadence)
+    print(f"  scale = {args.scale} (use 1.0 for GEE, 0.1 for raw HDF)")
+    sat_8day = read_mod16_tif(Path(args.tif), args.start_date, args.cadence,
+                                scale=args.scale)
     if sat_8day.empty:
         sys.exit("[FATAL] no satellite data extracted")
     print(f"  extracted {len(sat_8day)} (band x site) rows")
     print(f"  non-null  : {sat_8day['ET_mm_per_day'].notna().sum()}")
     print(sat_8day.groupby("site")["ET_mm_per_day"].describe().round(3))
+    # sanity-check the magnitude
+    mean_et = sat_8day.groupby("site")["ET_mm_per_day"].mean()
+    for site, m in mean_et.items():
+        if not np.isfinite(m):
+            continue
+        if site == "Tarazona" and m < 0.5:
+            print(f"  [WARN] {site} mean ET = {m:.3f} mm/d looks low "
+                  "(expect 1-4). Try --scale 0.1 or check TIFF units.")
+        if site == "Oran" and m > 5:
+            print(f"  [WARN] {site} mean ET = {m:.3f} mm/d looks high "
+                  "(expect 0.5-2). Try --scale 1.0 or check TIFF units.")
 
     # ── 2) forward-fill 8-day → daily ────────────────────────────────────
     sat_daily = expand_to_daily(sat_8day)
