@@ -2,247 +2,274 @@
 analysis_B_v1_mod16_tau.py
 ==========================
 
-解析B v1: 衛星 ET (MOD16A2) で 解析A の τ ≈ 3-4 d を独立検証する。
+解析B v1: 衛星 ET (MOD16A2 v061) で 解析A の τ ≈ 3-4 d を独立検証する。
+旧 v1 の 2 つの問題を修正:
+  (1) スケール過剰適用 → AppEEARS CSV は raw int (要 *0.1)、
+                          GEE TIFF は scale 適用済み (要 *1.0)
+                          → --scale フラグで明示制御 + magnitude sanity-check
+  (2) 旧 TIFF は 2018-2021 のみ → 新 AppEEARS CSV は 2018-2024 フルカバー
 
 入力:
-  /mnt/hdd/Dataset/MOD16A2_ET_Oran_TzM_2018_2024.tif
-    GeoTIFF, 各バンドが 8-day composite (MOD16A2 標準)
-    バンドの time-stamp は GDAL metadata から復元するか、
-    --start-date と --cadence 8 で構築
+  --csv : NASA AppEEARS Sample 抽出 CSV
+          /mnt/hdd/Dataset/MOD16A2_2018_2024_Oran_TzM/
+            MOD16A2-2018-2024-Oran-TzM-MOD16A2-061-results.csv
 
-  解析A の event 定義に必要な水入力データ:
-    Tarazona: /home/shion-nagamine/Dataset/Eddy data in Spain/
-              Daily_Summary_Filtered_forPred_ActEne26.csv  (Irrig_mm)
-    Oran:     /home/shion-nagamine/Dataset/Eddy data in Spain/
-              Oran_EddyDaily_MASTER_2018_2020_correct.csv  (Rain_mm)
+          想定カラム (AppEEARS 標準):
+            ID                            : サイト名 (Oran / Tarazona, etc.)
+            Latitude, Longitude
+            Date                          : YYYY-MM-DD
+            MOD16A2_061_ET_500m           : raw ET (要 *0.1 で kg/m^2/8day)
+            MOD16A2_061_ET_QC_500m        : QC bit-field
+            MOD16A2_061_PET_500m          : PET (使わない)
 
-  EC 比較用 (解析A の τ と並べる):
-    /home/shion-nagamine/bakanposs/analysis_A/daily_classified_v4.parquet
+  --tara-csv :  Tarazona EC daily CSV (要 Irrig_mm)
+  --oran-csv :  Oran     EC daily CSV (要 Rain_mm)
 
-サイト座標:
-  Oran     : lat 38.82,   lon -1.86
-  Tarazona : lat 39.266,  lon -1.9397
+  EC reference (解析A v27 の τ をベタ書き、比較用):
+    Oran     : τ = 2.82 d (SE 0.90)
+    Tarazona : τ = 3.36 d (SE 0.62)
 
 処理:
-  1) GeoTIFF を rasterio で開く
-  2) Oran / Tarazona の nearest pixel から daily 時系列を抽出
-     (MOD16A2 は 8-day、各 timestep の値を期間内 daily に forward-fill)
-  3) 単位変換: MOD16A2 ET は kg/m²/8day (scale 0.1) → mm/day
-     LE [W/m²] = ET [mm/day] × 28.36 (latent heat conversion)
-  4) Tarazona/Oran それぞれで:
-     - 解析A と同じ event 検出 (Irrig>0.5 または Rain>3.0)
-     - 解析A v27 の fit_pooled_tau / bootstrap_taus を import して使う
-  5) 出力: τ_satellite vs τ_EC, amplitude 比較, 図 3 枚
+  1) AppEEARS CSV 読込 → サイト別に長表に
+  2) 単位変換: raw * scale / 8.0 = mm/day, LE = ET * 28.36 [W/m^2]
+     - --scale 0.1 で AppEEARS raw を補正 (デフォルト)
+     - QC で品質悪 (cloud / fill) をマスク
+  3) Magnitude sanity-check: Tarazona summer mean が < 0.5 なら WARN
+  4) 8-day → daily forward-fill (上限 7 日)
+  5) Water-input (Irrig / Rain) を読み event 検出
+  6) 自前の inline 指数減衰 fit + bootstrap
+  7) τ_satellite vs τ_EC pairwise 比較
+  8) 出力: CSV 1 + 図 3 枚
 
 出力先: ./output_analysis_B_v1/
-  v1_satellite_tau_summary.csv
   v1_satellite_vs_ec_tau.csv
-  fig01_pixel_extraction.png       # サイトと nearest pixel の関係
-  fig02_satellite_timeseries.png   # 抽出した 8-day ET 時系列
-  fig03_satellite_recovery.png     # event 後の τ-fit カーブ
-  fig04_tau_comparison.png         # 衛星 τ vs EC τ pairwise
+  v1_mod16_8day_pixel_series.csv
+  v1_mod16_daily_expanded.csv
+  fig01_satellite_timeseries.png
+  fig02_satellite_recovery.png
+  fig03_tau_comparison.png
 
 Usage:
-  python analysis_B_v1_mod16_tau.py
-  python analysis_B_v1_mod16_tau.py --start-date 2018-01-01 --cadence 8
-  python analysis_B_v1_mod16_tau.py --quick     # 確認用 (n_boot=300)
+  python3 analysis_B_v1_mod16_tau.py
+  python3 analysis_B_v1_mod16_tau.py --quick
+  python3 analysis_B_v1_mod16_tau.py --scale 0.1   # AppEEARS raw (default)
+  python3 analysis_B_v1_mod16_tau.py --scale 1.0   # already-scaled file
 """
 
 from __future__ import annotations
 import argparse
 import sys
+import warnings
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from scipy.optimize import curve_fit
 
-# Reuse analysis A v27 fit logic
-sys.path.insert(0, str(Path(__file__).parent))
-from analysis_A_v27 import (
-    fit_pooled_tau, bootstrap_taus, is_fit_valid,
-    detect_events, estimate_le_inf, fit_with_validation,
-    TAU_FLOOR, TAU_CEIL, R2_MIN_VALID,
-)
+warnings.filterwarnings("ignore")
+
 
 # ================================================================
-# CLI + paths
+# CONFIG
 # ================================================================
 
+# サイト座標 (Oran rainfed / Tarazona drip-irrigated almond)
 SITES = {
     "Oran":     {"lat": 38.82,   "lon": -1.86},
     "Tarazona": {"lat": 39.266,  "lon": -1.9397},
 }
 
-# MOD16A2 scale handling.
-#   - Raw HDF / SDS: stored x 0.1 = kg/m^2/8day, fill values 32760+
-#   - GEE-exported GeoTIFF: scale ALREADY applied (values in mm/8day,
-#     fills NaN-coded), so use 1.0
-# Set --scale 0.1 on the CLI if the file is the raw unscaled product.
-DEFAULT_MOD16_SCALE = 1.0
-# 1 mm/day -> 28.36 W/m^2 (lambda * rho_w / 86400 s/day ~ 28.36)
+# Site name aliases (AppEEARS ID column may differ in case/format)
+SITE_ALIASES = {
+    "Oran":     ["Oran", "oran", "ORAN"],
+    "Tarazona": ["Tarazona", "TzM", "tzm", "TARAZONA", "tarazona",
+                 "Tarazona_de_la_Mancha", "TarazonaDeLaMancha",
+                 "Tarazona-de-la-Mancha"],
+}
+
+# AppEEARS で raw → mm/8day に変換するスケール (HDF native = 0.1)
+# GEE 経由ですでに 0.1 適用済みなら 1.0 に
+DEFAULT_MOD16_SCALE = 0.1
+
+# kg/m^2/day = mm/day  →  W/m^2 (λρw / 86400 ≈ 28.36)
 LE_PER_MM = 28.36
-# MOD16 fill values (only relevant if raw unscaled)
+
+# AppEEARS は QC を生 bit-field の int で渡す。MOD16 ET QA の下位 2 bit が
+# Mandatory QC: 0=good, 1=marginal, 2=cloud, 3=missing
+MOD16_QA_GOOD = {0, 1}    # 1 は marginal だが運用上採用 (NASA 推奨)
+
+# fill values (raw int)
 MOD16_FILL = {32767, 32766, 32765, 32764, 32763, 32762, 32761}
 
-# Event thresholds (consistent with analysis A v27)
-IRRIG_THRESHOLD = 0.5    # mm/day
-RAIN_THRESHOLD  = 3.0    # mm/day
+# Event thresholds (解析A v27 と整合)
+IRRIG_THRESHOLD = 0.5    # mm/day  → Tarazona drip event
+RAIN_THRESHOLD  = 3.0    # mm/day  → Oran rain event
+
+# τ fit constraints
+TAU_FLOOR = 0.5
+TAU_CEIL  = 60.0
+TAU_PEG_RATIO = 0.9
+R2_MIN_VALID = 0.30
+N_EVENTS_MIN_VALID = 3
+MIN_PER_BIN = 3
+CI_PCT = (2.5, 97.5)
+
+# 解析A v27 の最終 τ (このスクリプトと並べる)
+EC_TAU_REFERENCE = {
+    "Oran":     {"tau": 2.82, "se": 0.90,
+                 "source": "analysis A v27 (active pool, n=9 rain events)"},
+    "Tarazona": {"tau": 3.36, "se": 0.62,
+                 "source": "analysis A v27 (Jun-Sep, n=41 irrig events)"},
+}
 
 
 def parse_args():
-    p = argparse.ArgumentParser(description="解析B v1 — MOD16A2 で τ 再現")
-    p.add_argument("--tif",
-                   default="/mnt/hdd/Dataset/MOD16A2_ET_Oran_TzM_2018_2024.tif")
-    p.add_argument("--start-date", default="2018-01-01",
-                   help="first band date (ISO format)")
-    p.add_argument("--cadence", type=int, default=8,
-                   help="days between bands (default 8 = MOD16A2 standard)")
+    p = argparse.ArgumentParser(
+        description="解析B v1 — MOD16A2 (AppEEARS CSV) で τ 独立検証",
+    )
+    p.add_argument("--csv",
+                   default="/mnt/hdd/Dataset/MOD16A2_2018_2024_Oran_TzM/"
+                           "MOD16A2-2018-2024-Oran-TzM-MOD16A2-061-results.csv",
+                   help="AppEEARS results CSV (point sample export)")
     p.add_argument("--tara-csv",
                    default="/home/shion-nagamine/Dataset/Eddy data in Spain/"
                            "Daily_Summary_Filtered_forPred_ActEne26.csv")
     p.add_argument("--oran-csv",
                    default="/home/shion-nagamine/Dataset/Eddy data in Spain/"
                            "Oran_EddyDaily_MASTER_2018_2020_correct.csv")
-    p.add_argument("--ec-parquet",
-                   default="/home/shion-nagamine/bakanposs/analysis_A/"
-                           "daily_classified_v4.parquet")
     p.add_argument("--out", default="./output_analysis_B_v1")
-    p.add_argument("--n-boot", type=int, default=2000)
     p.add_argument("--scale", type=float, default=DEFAULT_MOD16_SCALE,
-                   help="MOD16 multiplier. Use 1.0 for GEE-exported TIFFs "
-                        "(scale already applied) or 0.1 for raw HDF.")
+                   help=("MOD16 ET scale. 0.1 for AppEEARS raw int (default), "
+                         "1.0 if values are already in mm/8day."))
+    p.add_argument("--no-qc-filter", action="store_true",
+                   help="skip QC masking even if QC column exists")
+    p.add_argument("--n-boot", type=int, default=2000)
     p.add_argument("--quick", action="store_true",
-                   help="n_boot=300, plots only essential")
+                   help="n_boot=300, faster sanity-check run")
     p.add_argument("--no-plots", action="store_true")
     return p.parse_args()
 
 
 # ================================================================
-# GeoTIFF reader
+# AppEEARS CSV reader
 # ================================================================
 
-def read_mod16_tif(tif_path: Path, start_date: str, cadence_days: int,
-                    scale: float = DEFAULT_MOD16_SCALE) -> pd.DataFrame:
-    """Open the MOD16A2 multi-band GeoTIFF and extract the time series
-    at each site (nearest pixel).
+def _find_col(df: pd.DataFrame, candidates: list[str]) -> str | None:
+    """Case-insensitive lookup of the first column whose name matches any
+    candidate (substring match)."""
+    lower = {c.lower(): c for c in df.columns}
+    for cand in candidates:
+        if cand.lower() in lower:
+            return lower[cand.lower()]
+    # substring fallback
+    for cand in candidates:
+        for lc, orig in lower.items():
+            if cand.lower() in lc:
+                return orig
+    return None
 
-    Returns long-format DataFrame:
-      date, site, ET_mm_per_day, LE_Wm2
-    """
-    try:
-        import rasterio
-        from rasterio.transform import rowcol
-    except ImportError as e:
-        sys.exit(f"rasterio not installed: {e}\n  pip install rasterio")
 
-    if not tif_path.exists():
-        sys.exit(f"[FATAL] TIFF not found: {tif_path}")
+def _resolve_site(label: str) -> str | None:
+    """Map AppEEARS ID label to one of SITES keys."""
+    if not isinstance(label, str):
+        return None
+    for canonical, aliases in SITE_ALIASES.items():
+        for a in aliases:
+            if a.lower() == label.strip().lower():
+                return canonical
+    return None
 
-    rows = []
-    with rasterio.open(tif_path) as src:
-        print(f"opened {tif_path.name}")
-        print(f"  bands : {src.count}")
-        print(f"  size  : {src.width} x {src.height}")
-        print(f"  CRS   : {src.crs}")
-        print(f"  bounds: {src.bounds}")
 
-        # Try to read band dates from GDAL metadata first
-        band_dates = []
-        for b in range(1, src.count + 1):
-            tags = src.tags(b)
-            date_str = (tags.get("system:time_start") or tags.get("date")
-                         or tags.get("DATE") or tags.get("BAND_DATE"))
-            if date_str:
-                # GEE epoch-ms support
-                try:
-                    if str(date_str).isdigit() and len(str(date_str)) >= 12:
-                        ts = pd.Timestamp(int(date_str), unit="ms")
-                    else:
-                        ts = pd.Timestamp(date_str)
-                    band_dates.append(ts)
-                    continue
-                except Exception:
-                    pass
-            band_dates.append(None)
+def read_mod16_appeears(csv_path: Path, scale: float,
+                          apply_qc: bool) -> pd.DataFrame:
+    """Read NASA AppEEARS point-sample CSV → long DataFrame (date, site,
+    ET_mm_per_day, LE_Wm2, qc, raw_value)."""
+    if not csv_path.exists():
+        sys.exit(f"[FATAL] CSV not found: {csv_path}")
 
-        if any(d is None for d in band_dates):
-            # fall back to evenly spaced from start_date
-            n_missing = sum(d is None for d in band_dates)
-            print(f"  [info] {n_missing}/{src.count} bands missing date metadata; "
-                  f"reconstructing from --start-date={start_date} "
-                  f"--cadence={cadence_days}")
-            base = pd.Timestamp(start_date)
-            band_dates = [base + pd.Timedelta(days=cadence_days * i)
-                          for i in range(src.count)]
+    df = pd.read_csv(csv_path)
+    print(f"opened {csv_path.name}")
+    print(f"  raw rows  : {len(df):,}")
+    print(f"  raw cols  : {list(df.columns)[:6]}{'...' if len(df.columns) > 6 else ''}")
 
-        print(f"  date range: {min(band_dates).date()} -> {max(band_dates).date()}")
+    id_col   = _find_col(df, ["ID", "Sample", "Name"])
+    date_col = _find_col(df, ["Date"])
+    et_col   = _find_col(df, ["MOD16A2_061_ET_500m", "ET_500m",
+                                "MOD16A2_006_ET_500m"])
+    qc_col   = _find_col(df, ["MOD16A2_061_ET_QC_500m", "ET_QC_500m"])
 
-        # transformer to convert lat/lon -> pixel row/col
-        # if CRS is geographic (EPSG:4326), can use lat/lon directly
-        # otherwise need to transform
-        from rasterio.warp import transform
-        for site, coords in SITES.items():
-            lat, lon = coords["lat"], coords["lon"]
-            if src.crs and src.crs.to_string() != "EPSG:4326":
-                xs, ys = transform("EPSG:4326", src.crs, [lon], [lat])
-                x, y = xs[0], ys[0]
-            else:
-                x, y = lon, lat
-            try:
-                row, col = src.index(x, y)
-            except Exception as e:
-                print(f"  [warn] {site}: site outside raster bounds ({e})")
-                continue
+    if not all([id_col, date_col, et_col]):
+        sys.exit(f"[FATAL] required cols missing: "
+                 f"id={id_col}, date={date_col}, et={et_col}\n"
+                 f"  columns present: {list(df.columns)}")
+    print(f"  using cols: id={id_col!r}, date={date_col!r}, "
+          f"et={et_col!r}, qc={qc_col!r}")
 
-            print(f"  {site}: lat={lat}, lon={lon} -> pixel (row={row}, col={col})")
+    df = df.rename(columns={id_col: "raw_id", date_col: "raw_date",
+                              et_col: "raw_et"})
+    df["date"] = pd.to_datetime(df["raw_date"], errors="coerce")
+    df["site"] = df["raw_id"].map(_resolve_site)
+    df = df.dropna(subset=["date", "site"])
 
-            # bounds check
-            if row < 0 or row >= src.height or col < 0 or col >= src.width:
-                print(f"    [skip] pixel out of bounds")
-                continue
+    # date range diagnostic
+    print(f"  date range : {df['date'].min().date()} → "
+          f"{df['date'].max().date()}")
+    print(f"  site counts: "
+          f"{dict(df['site'].value_counts())}")
 
-            # read the time-series at that one pixel
-            window = ((row, row + 1), (col, col + 1))
-            vals = src.read(window=window).astype(float).flatten()
-            assert len(vals) == src.count, f"expected {src.count} got {len(vals)}"
+    # value processing
+    raw = pd.to_numeric(df["raw_et"], errors="coerce")
+    et_mask = raw.isin(MOD16_FILL) | raw.isna()
+    et_8day = raw * scale                # raw → mm/8day (or already, if scale=1.0)
+    et_8day = et_8day.where(~et_mask, np.nan)
 
-            for d, v in zip(band_dates, vals):
-                # filter MOD16 fill values (raw HDF) and NaN (GEE exports)
-                if not np.isfinite(v):
-                    et_8day = np.nan
-                elif scale == 0.1 and int(v) in MOD16_FILL:
-                    et_8day = np.nan
-                else:
-                    et_8day = v * scale         # kg/m^2/8day
-                et_per_day = et_8day / 8.0      # mm/day
-                rows.append({
-                    "date": d, "site": site,
-                    "ET_mm_per_day": et_per_day,
-                    "LE_Wm2": et_per_day * LE_PER_MM,
-                    "raw_value": v,
-                })
+    # QC masking
+    if qc_col and apply_qc:
+        qc = pd.to_numeric(df[qc_col], errors="coerce")
+        qa_main = (qc.astype("Int64") & 0b11).astype("Int64")
+        bad = ~qa_main.isin(MOD16_QA_GOOD)
+        nbad = int(bad.fillna(True).sum())
+        et_8day = et_8day.where(~bad.fillna(True), np.nan)
+        print(f"  QC masked  : {nbad}/{len(df)} obs flagged")
+    else:
+        if qc_col:
+            print(f"  [note] QC column present but --no-qc-filter set")
 
-    df = pd.DataFrame(rows)
-    return df
+    out = pd.DataFrame({
+        "date": df["date"].values,
+        "site": df["site"].values,
+        "ET_mm_per_day": et_8day.values / 8.0,
+        "LE_Wm2":        et_8day.values / 8.0 * LE_PER_MM,
+        "raw_value":     raw.values,
+    })
+
+    # dedup on (date,site): AppEEARS may have multiple lat/lons per site
+    out = (out.sort_values(["site", "date"])
+              .drop_duplicates(subset=["site", "date"])
+              .reset_index(drop=True))
+
+    print(f"  retained   : {len(out):,} (site,date) rows  "
+          f"valid ET: {out['ET_mm_per_day'].notna().sum():,}")
+    print("  per-site summary (mm/day):")
+    print(out.groupby("site")["ET_mm_per_day"].describe().round(3))
+    return out
 
 
 def expand_to_daily(eight_day_df: pd.DataFrame) -> pd.DataFrame:
-    """Forward-fill the 8-day MOD16 composite to a daily time series.
-
-    Each composite represents the 8-day period STARTING on its band date,
-    so we propagate the value forward up to (cadence-1) days.
-    """
+    """8-day composite を 8 日間 forward-fill (上限 7 日)。
+    各 composite はその開始日からの 8 日間値とみなす。"""
     pieces = []
     for site, sub in eight_day_df.groupby("site"):
         sub = sub.sort_values("date").reset_index(drop=True)
         if sub.empty:
             continue
         idx = pd.date_range(sub["date"].min(),
-                             sub["date"].max() + pd.Timedelta(days=7),
-                             freq="D")
+                              sub["date"].max() + pd.Timedelta(days=7),
+                              freq="D")
         s = sub.set_index("date").reindex(idx)
-        # forward-fill ET / LE for up to 7 days within the composite window
         for col in ["ET_mm_per_day", "LE_Wm2"]:
             s[col] = s[col].ffill(limit=7)
         s["site"] = site
@@ -252,60 +279,222 @@ def expand_to_daily(eight_day_df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ================================================================
-# water-input loaders (event detection inputs)
+# Water-input loaders (event detection inputs)
 # ================================================================
 
-def load_tara_irrig(tara_csv: Path) -> pd.DataFrame:
-    df = pd.read_csv(tara_csv)
-    df["date"] = pd.to_datetime(df["date"], errors="coerce")
-    if "Irrig_mm" not in df.columns:
-        sys.exit(f"Irrig_mm missing in {tara_csv}")
-    return (df[["date", "Irrig_mm"]].dropna(subset=["date"])
-            .drop_duplicates("date").sort_values("date").reset_index(drop=True))
-
-
-def load_oran_rain(oran_csv: Path) -> pd.DataFrame:
-    df = pd.read_csv(oran_csv)
-    date_col = next((c for c in ["Date", "date", "TIMESTAMP"] if c in df.columns), None)
-    rain_col = next((c for c in ["Rain_mm", "P_mm", "Precip_mm"]
-                     if c in df.columns), None)
-    if not all([date_col, rain_col]):
-        sys.exit(f"date/rain cols missing in {oran_csv}")
+def load_tara_irrig(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        print(f"  [warn] Tarazona water CSV missing: {path}")
+        return pd.DataFrame(columns=["date", "Irrig_mm"])
+    df = pd.read_csv(path)
+    date_col = _find_col(df, ["date", "Date", "TIMESTAMP"])
+    irr_col  = _find_col(df, ["Irrig_mm", "Irrigation_mm", "Irrig"])
+    if not all([date_col, irr_col]):
+        print(f"  [warn] Tarazona Irrig cols missing in {path}")
+        return pd.DataFrame(columns=["date", "Irrig_mm"])
     out = pd.DataFrame({
-        "date": pd.to_datetime(df[date_col], errors="coerce"),
+        "date":     pd.to_datetime(df[date_col], errors="coerce"),
+        "Irrig_mm": pd.to_numeric(df[irr_col], errors="coerce"),
+    }).dropna(subset=["date"]).drop_duplicates("date").sort_values("date")
+    return out.reset_index(drop=True)
+
+
+def load_oran_rain(path: Path) -> pd.DataFrame:
+    if not path.exists():
+        print(f"  [warn] Oran water CSV missing: {path}")
+        return pd.DataFrame(columns=["date", "Rain_mm"])
+    df = pd.read_csv(path)
+    date_col = _find_col(df, ["Date", "date", "TIMESTAMP"])
+    rain_col = _find_col(df, ["Rain_mm", "P_mm", "Precip_mm", "Precipitation"])
+    if not all([date_col, rain_col]):
+        print(f"  [warn] Oran rain cols missing in {path}")
+        return pd.DataFrame(columns=["date", "Rain_mm"])
+    out = pd.DataFrame({
+        "date":    pd.to_datetime(df[date_col], errors="coerce"),
         "Rain_mm": pd.to_numeric(df[rain_col], errors="coerce"),
     }).dropna(subset=["date"]).drop_duplicates("date").sort_values("date")
     return out.reset_index(drop=True)
 
 
 # ================================================================
-# τ-fit at one site (uses analysis_A_v27 functions)
+# Inline exponential decay fit (mirrors analysis_A_v27 logic)
 # ================================================================
 
-def fit_satellite_tau(sat_daily: pd.DataFrame, water_df: pd.DataFrame,
-                      site: str, water_col: str, threshold: float,
-                      n_boot: int = 2000) -> dict:
-    """Run the v27 event detection + fit on satellite-derived LE."""
+def exp_model_2p(d, le0, tau, le_inf_fixed):
+    return le_inf_fixed + (le0 - le_inf_fixed) * np.exp(-d / tau)
+
+
+def fit_pooled_tau(arr_d, arr_y, le_inf_fixed,
+                    min_per_bin: int = MIN_PER_BIN):
+    """Median-per-day NLS fit with τ ∈ [TAU_FLOOR, TAU_CEIL]."""
+    df = pd.DataFrame({"d": arr_d, "y": arr_y}).dropna()
+    if df.empty:
+        return None
+    g = df.groupby("d")["y"].agg(["median", "count"]).reset_index()
+    g = g[g["count"] >= min_per_bin]
+    if len(g) < 3:
+        return None
+    x = g["d"].values.astype(float)
+    y = g["median"].values
+    le0_floor = max(le_inf_fixed + 1, 10.0)
+    le0_ceil  = max(y.max() * 1.5, 350)
+
+    def model(d, le0, tau):
+        return exp_model_2p(d, le0, tau, le_inf_fixed)
+
+    for p0 in [[y.max(), 5.0],
+               [y.max() * 1.1, 3.0],
+               [(y.max() + le_inf_fixed) / 2, 7.0]]:
+        try:
+            popt, _ = curve_fit(model, x, y, p0=p0,
+                                  bounds=([le0_floor, TAU_FLOOR],
+                                          [le0_ceil, TAU_CEIL]),
+                                  maxfev=8000)
+            yp = model(x, *popt)
+            sse = float(np.sum((y - yp) ** 2))
+            r2 = (float(1 - sse / np.sum((y - y.mean()) ** 2))
+                  if np.var(y) > 0 else np.nan)
+            return dict(le0=popt[0], tau=popt[1], r2=r2, sse=sse,
+                          n_bins=len(g),
+                          amplitude=popt[0] - le_inf_fixed)
+        except Exception:
+            continue
+    return None
+
+
+def bootstrap_taus(arr_d, arr_y, le_inf, n_boot=2000, seed=42):
+    rng = np.random.default_rng(seed)
+    n = len(arr_d)
+    taus = []
+    for _ in range(n_boot):
+        idx = rng.integers(0, n, size=n)
+        res = fit_pooled_tau(arr_d[idx], arr_y[idx], le_inf)
+        if res is None:
+            continue
+        if res["tau"] >= TAU_CEIL * TAU_PEG_RATIO:
+            continue
+        if res["tau"] <= TAU_FLOOR * 1.5:
+            continue
+        if res["r2"] < R2_MIN_VALID:
+            continue
+        taus.append(res["tau"])
+    return np.array(taus)
+
+
+def is_fit_valid(res, n_events):
+    if n_events < N_EVENTS_MIN_VALID:
+        return False, f"insufficient n_events ({n_events} < {N_EVENTS_MIN_VALID})"
+    if res is None:
+        return False, "fit returned None"
+    if np.isnan(res.get("tau", np.nan)):
+        return False, "tau is NaN"
+    tau = res["tau"]
+    if tau >= TAU_CEIL * TAU_PEG_RATIO:
+        return False, f"tau={tau:.1f} pegged at ceiling ({TAU_CEIL})"
+    if tau <= TAU_FLOOR * 1.5:
+        return False, f"tau={tau:.2f} pegged at floor ({TAU_FLOOR})"
+    if res.get("r2", -np.inf) < R2_MIN_VALID:
+        return False, f"R2={res['r2']:.3f} < {R2_MIN_VALID}"
+    return True, "OK"
+
+
+def detect_events(df, water_col, threshold, min_window=4, max_window=14):
+    df = df.sort_values("date").reset_index(drop=True).copy()
+    event_dates = df[df[water_col].fillna(0) > threshold]["date"].values
+    events = []
+    for i, ed in enumerate(event_dates):
+        ed = pd.Timestamp(ed)
+        if i + 1 < len(event_dates):
+            next_ed = pd.Timestamp(event_dates[i + 1])
+            window_end = min(next_ed - pd.Timedelta(days=1),
+                               ed + pd.Timedelta(days=max_window))
+        else:
+            window_end = ed + pd.Timedelta(days=max_window)
+        if (window_end - ed).days < min_window:
+            continue
+        evd = df[(df["date"] >= ed) & (df["date"] <= window_end)].copy()
+        evd["days_since_event"] = (evd["date"] - ed).dt.days
+        evd = evd[evd["LE"].notna()]
+        if len(evd) < min_window:
+            continue
+        events.append(dict(
+            event_start=ed, data=evd,
+            pulse_mm=float(df.loc[df["date"] == ed, water_col].iloc[0]),
+        ))
+    return events
+
+
+def estimate_le_inf(events, tail_threshold=7):
+    if not events:
+        return np.nan
+    pooled = pd.concat([ev["data"] for ev in events])
+    mask = pooled["days_since_event"] >= tail_threshold
+    if mask.sum() < 5:
+        return float(np.percentile(pooled["LE"], 25))
+    return float(np.median(pooled.loc[mask, "LE"]))
+
+
+def fit_with_validation(events, le_inf, n_boot=2000):
+    if len(events) < N_EVENTS_MIN_VALID:
+        return dict(valid=False, success=False,
+                     reason=f"n_events={len(events)} < {N_EVENTS_MIN_VALID}",
+                     n_events=len(events), n_data=0,
+                     tau=np.nan, le0=np.nan, amplitude=np.nan, r2=np.nan,
+                     le_inf=le_inf,
+                     ci_lo=np.nan, ci_hi=np.nan, tau_se=np.nan,
+                     n_boot_valid=0)
+    pooled = pd.concat([ev["data"] for ev in events])
+    arr_d = pooled["days_since_event"].values.astype(float)
+    arr_y = pooled["LE"].values
+
+    res = fit_pooled_tau(arr_d, arr_y, le_inf)
+    is_valid, reason = is_fit_valid(res, len(events))
+    out = dict(n_events=len(events), n_data=len(pooled), le_inf=le_inf,
+                tau=res["tau"] if res else np.nan,
+                le0=res["le0"] if res else np.nan,
+                amplitude=res["amplitude"] if res else np.nan,
+                r2=res["r2"] if res else np.nan,
+                valid=is_valid, reason=reason)
+    if is_valid:
+        boot_taus = bootstrap_taus(arr_d, arr_y, le_inf, n_boot=n_boot)
+        if len(boot_taus) >= 100:
+            out["ci_lo"], out["ci_hi"] = np.percentile(boot_taus, CI_PCT)
+            out["tau_se"] = float(np.std(boot_taus))
+            out["n_boot_valid"] = len(boot_taus)
+        else:
+            out["ci_lo"] = out["ci_hi"] = out["tau_se"] = np.nan
+            out["n_boot_valid"] = len(boot_taus)
+    else:
+        out["ci_lo"] = out["ci_hi"] = out["tau_se"] = np.nan
+        out["n_boot_valid"] = 0
+    return out
+
+
+# ================================================================
+# Per-site driver
+# ================================================================
+
+def fit_satellite_tau(sat_daily, water_df, site, water_col, threshold,
+                       n_boot=2000):
     if sat_daily.empty:
         return dict(site=site, valid=False, reason="empty satellite series")
-
-    df = sat_daily[sat_daily["site"] == site][["date", "LE_Wm2"]].copy()
-    df = df.rename(columns={"LE_Wm2": "LE"})
-    df = df.merge(water_df, on="date", how="left")
+    df = (sat_daily[sat_daily["site"] == site][["date", "LE_Wm2"]]
+            .rename(columns={"LE_Wm2": "LE"}))
+    if water_df is not None and not water_df.empty:
+        df = df.merge(water_df, on="date", how="left")
+    if water_col not in df.columns:
+        df[water_col] = 0.0
     df[water_col] = df[water_col].fillna(0)
 
     events = detect_events(df, water_col=water_col, threshold=threshold,
-                            min_window=4, max_window=14)
+                             min_window=4, max_window=14)
     if not events:
-        return dict(site=site, valid=False, reason="no events found")
-
+        return dict(site=site, valid=False, reason="no events found",
+                     n_events=0)
     le_inf = estimate_le_inf(events)
     res = fit_with_validation(events, le_inf, n_boot=n_boot)
-    res["site"] = site
-    res["n_events"] = len(events)
-    res["le_inf"] = le_inf
-    res["water_col"] = water_col
-    res["threshold"] = threshold
+    res.update(site=site, n_events=len(events), le_inf=le_inf,
+                 water_col=water_col, threshold=threshold)
     return res
 
 
@@ -313,113 +502,99 @@ def fit_satellite_tau(sat_daily: pd.DataFrame, water_df: pd.DataFrame,
 # Figures
 # ================================================================
 
-def fig_timeseries(sat_8day: pd.DataFrame, water_dfs: dict,
-                    out_path: Path) -> None:
+def fig_timeseries(sat_8day, water_dfs, out_path):
     fig, axes = plt.subplots(2, 1, figsize=(13, 6), sharex=True)
-    for ax, (site, _) in zip(axes, SITES.items()):
+    for ax, site in zip(axes, SITES):
         sub = sat_8day[sat_8day["site"] == site].sort_values("date")
         ax.plot(sub["date"], sub["ET_mm_per_day"], "o-", ms=3,
-                color="tab:purple", label=f"MOD16A2 ET ({site})")
+                 color="tab:purple", label=f"MOD16A2 ET ({site})")
         ax.set_ylabel("ET [mm/day]")
         ax.set_title(f"{site}: MOD16A2 ET (8-day composite)")
         ax.grid(alpha=0.3)
-
-        # overlay water events
         wcol = "Irrig_mm" if site == "Tarazona" else "Rain_mm"
-        threshold = IRRIG_THRESHOLD if site == "Tarazona" else RAIN_THRESHOLD
+        thr  = IRRIG_THRESHOLD if site == "Tarazona" else RAIN_THRESHOLD
         wdf = water_dfs.get(site)
-        if wdf is not None:
-            ev = wdf[wdf[wcol] > threshold]
+        if wdf is not None and not wdf.empty and wcol in wdf.columns:
+            ev = wdf[wdf[wcol] > thr]
             ax2 = ax.twinx()
             ax2.bar(ev["date"], ev[wcol], width=1, alpha=0.4,
-                     color="tab:blue", label=f"{wcol}")
+                      color="tab:blue", label=wcol)
             ax2.set_ylabel(f"{wcol} [mm/day]", color="tab:blue")
         ax.legend(loc="upper left")
     axes[-1].set_xlabel("date")
-    fig.suptitle("MOD16A2 ET time series with detected water events",
-                  fontsize=12)
+    fig.suptitle("MOD16A2 ET time series with water events", fontsize=12)
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
 
 
-def fig_recovery(sat_daily: pd.DataFrame, water_dfs: dict,
-                  fit_results: dict, out_path: Path) -> None:
+def fig_recovery(sat_daily, water_dfs, fit_results, out_path):
     fig, axes = plt.subplots(1, 2, figsize=(13, 5))
     for ax, site in zip(axes, ["Oran", "Tarazona"]):
         res = fit_results.get(site, {})
         wcol = "Irrig_mm" if site == "Tarazona" else "Rain_mm"
-        threshold = IRRIG_THRESHOLD if site == "Tarazona" else RAIN_THRESHOLD
-        df = sat_daily[sat_daily["site"] == site][["date", "LE_Wm2"]].copy()
-        df = df.rename(columns={"LE_Wm2": "LE"})
+        thr  = IRRIG_THRESHOLD if site == "Tarazona" else RAIN_THRESHOLD
+        df = (sat_daily[sat_daily["site"] == site][["date", "LE_Wm2"]]
+                .rename(columns={"LE_Wm2": "LE"}))
         wdf = water_dfs.get(site)
-        if wdf is not None:
+        if wdf is not None and not wdf.empty:
             df = df.merge(wdf, on="date", how="left")
-            df[wcol] = df[wcol].fillna(0)
-        events = detect_events(df, water_col=wcol, threshold=threshold,
-                                min_window=4, max_window=14)
-
-        # plot all events overlaid
+        if wcol not in df.columns:
+            df[wcol] = 0.0
+        df[wcol] = df[wcol].fillna(0)
+        events = detect_events(df, water_col=wcol, threshold=thr,
+                                 min_window=4, max_window=14)
         for ev in events:
-            ev_d = ev["data"]
-            ax.plot(ev_d["days_since_event"], ev_d["LE"], "o", ms=4,
+            evd = ev["data"]
+            ax.plot(evd["days_since_event"], evd["LE"], "o", ms=4,
                      alpha=0.4, color="gray")
-
-        # fit curve if valid
-        if res.get("valid") and not np.isnan(res.get("tau", np.nan)):
+        if res.get("valid") and np.isfinite(res.get("tau", np.nan)):
             tau, le0, le_inf = res["tau"], res["le0"], res["le_inf"]
             xx = np.linspace(0, 14, 200)
             yy = le_inf + (le0 - le_inf) * np.exp(-xx / tau)
             ax.plot(xx, yy, "-", color="tab:red", lw=2,
-                     label=f"fit: τ={tau:.2f}d, LE_0={le0:.1f}, "
-                           f"LE_inf={le_inf:.1f}\namp={res['amplitude']:.1f}, "
-                           f"n={res['n_events']} events, R²={res['r2']:.2f}")
+                     label=(f"fit: τ={tau:.2f} d, LE0={le0:.1f}, "
+                            f"LE∞={le_inf:.1f}\n"
+                            f"amp={res['amplitude']:.1f} W/m², "
+                            f"n_ev={res['n_events']}, R²={res['r2']:.2f}"))
         else:
-            reason = res.get("reason", "no fit")
-            ax.text(0.05, 0.95, f"[no valid fit]\n{reason}",
+            ax.text(0.05, 0.95,
+                     f"[no valid fit]\n{res.get('reason', '?')}",
                      transform=ax.transAxes, va="top")
-        ax.set_xlabel("days since event")
-        ax.set_ylabel("LE [W/m²] (satellite)")
-        ax.set_title(f"{site}")
+        ax.set_xlabel("days since water event")
+        ax.set_ylabel("LE [W/m²] (satellite-derived)")
+        ax.set_title(site)
         ax.grid(alpha=0.3)
         ax.legend(loc="upper right")
-    fig.suptitle("MOD16A2 ET recovery after water events", fontsize=12)
+    fig.suptitle("MOD16A2 LE recovery curves", fontsize=12)
     fig.tight_layout()
     fig.savefig(out_path, dpi=150)
     plt.close(fig)
 
 
-def fig_tau_compare(satellite_fits: dict, ec_taus: dict, out_path: Path) -> None:
-    """Side-by-side comparison: EC τ vs satellite τ at each site."""
+def fig_tau_compare(sat_fits, ec_taus, out_path):
     fig, ax = plt.subplots(figsize=(8, 5))
-    sites = list(SITES.keys())
+    sites = list(SITES)
     x = np.arange(len(sites))
-    width = 0.35
-
-    ec_vals = [ec_taus.get(s, {}).get("tau", np.nan) for s in sites]
-    ec_ses  = [ec_taus.get(s, {}).get("se",  np.nan) for s in sites]
-    sat_vals = [satellite_fits.get(s, {}).get("tau", np.nan) for s in sites]
-    sat_ses  = [satellite_fits.get(s, {}).get("tau_se", np.nan) for s in sites]
-
-    ax.bar(x - width/2, ec_vals, width, yerr=ec_ses, capsize=4,
-           color="tab:blue", alpha=0.8, label="EC tower (analysis A v27)")
-    ax.bar(x + width/2, sat_vals, width, yerr=sat_ses, capsize=4,
-           color="tab:purple", alpha=0.8, label="MOD16A2 satellite (this work)")
-
-    for i, (e, s) in enumerate(zip(ec_vals, sat_vals)):
+    w = 0.35
+    ec_v = [ec_taus.get(s, {}).get("tau", np.nan) for s in sites]
+    ec_e = [ec_taus.get(s, {}).get("se",  np.nan) for s in sites]
+    sat_v = [sat_fits.get(s, {}).get("tau",   np.nan) for s in sites]
+    sat_e = [sat_fits.get(s, {}).get("tau_se", np.nan) for s in sites]
+    ax.bar(x - w/2, ec_v, w, yerr=ec_e, capsize=4,
+            color="tab:blue", alpha=0.8, label="EC tower (analysis A v27)")
+    ax.bar(x + w/2, sat_v, w, yerr=sat_e, capsize=4,
+            color="tab:purple", alpha=0.8, label="MOD16A2 satellite (this work)")
+    for i, (e, s) in enumerate(zip(ec_v, sat_v)):
         if np.isfinite(e):
-            ax.text(i - width/2, e + 0.3, f"{e:.2f}",
-                     ha="center", fontsize=10)
+            ax.text(i - w/2, e + 0.3, f"{e:.2f}", ha="center", fontsize=10)
         if np.isfinite(s):
-            ax.text(i + width/2, s + 0.3, f"{s:.2f}",
-                     ha="center", fontsize=10)
-
-    ax.set_xticks(x)
-    ax.set_xticklabels(sites)
+            ax.text(i + w/2, s + 0.3, f"{s:.2f}", ha="center", fontsize=10)
+    ax.set_xticks(x); ax.set_xticklabels(sites)
     ax.set_ylabel("τ [days]")
-    ax.set_title("Recovery time τ: EC tower vs MOD16A2 satellite")
+    ax.set_title("Recovery time τ : EC tower vs MOD16A2 satellite")
     ax.axhspan(3.0, 4.0, color="green", alpha=0.1,
-                label="analysis A target: τ ≈ 3-4 d")
+                 label="analysis A target: τ ≈ 3-4 d")
     ax.legend()
     ax.grid(axis="y", alpha=0.3)
     fig.tight_layout()
@@ -437,128 +612,125 @@ def main():
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    # ── 1) GeoTIFF → 8-day pixel time series ─────────────────────────────
-    print("\n=== 1) reading MOD16A2 GeoTIFF ===")
-    print(f"  scale = {args.scale} (use 1.0 for GEE, 0.1 for raw HDF)")
-    sat_8day = read_mod16_tif(Path(args.tif), args.start_date, args.cadence,
-                                scale=args.scale)
+    # 1) AppEEARS CSV → site x date long table
+    print("\n=== 1) reading MOD16A2 (AppEEARS CSV) ===")
+    print(f"  scale = {args.scale}  "
+          f"(0.1 = AppEEARS raw int, 1.0 = pre-scaled)")
+    sat_8day = read_mod16_appeears(Path(args.csv),
+                                       scale=args.scale,
+                                       apply_qc=not args.no_qc_filter)
     if sat_8day.empty:
-        sys.exit("[FATAL] no satellite data extracted")
-    print(f"  extracted {len(sat_8day)} (band x site) rows")
-    print(f"  non-null  : {sat_8day['ET_mm_per_day'].notna().sum()}")
-    print(sat_8day.groupby("site")["ET_mm_per_day"].describe().round(3))
-    # sanity-check the magnitude
+        sys.exit("[FATAL] no satellite rows extracted")
+
+    # magnitude sanity-check
     mean_et = sat_8day.groupby("site")["ET_mm_per_day"].mean()
     for site, m in mean_et.items():
         if not np.isfinite(m):
             continue
         if site == "Tarazona" and m < 0.5:
-            print(f"  [WARN] {site} mean ET = {m:.3f} mm/d looks low "
-                  "(expect 1-4). Try --scale 0.1 or check TIFF units.")
+            print(f"  [WARN] Tarazona mean ET = {m:.3f} mm/d looks low. "
+                   f"Expected 1-4 mm/d. Try --scale 0.1 (currently {args.scale}).")
+        if site == "Tarazona" and m > 8:
+            print(f"  [WARN] Tarazona mean ET = {m:.3f} mm/d looks high. "
+                   f"Try --scale 1.0 (currently {args.scale}).")
         if site == "Oran" and m > 5:
-            print(f"  [WARN] {site} mean ET = {m:.3f} mm/d looks high "
-                  "(expect 0.5-2). Try --scale 1.0 or check TIFF units.")
+            print(f"  [WARN] Oran mean ET = {m:.3f} mm/d looks high. "
+                   f"Expected 0.3-2 mm/d.")
 
-    # ── 2) forward-fill 8-day → daily ────────────────────────────────────
+    # 2) 8-day → daily ffill
     sat_daily = expand_to_daily(sat_8day)
     print(f"  daily-expanded: {len(sat_daily):,} rows")
 
-    # ── 3) load water-input series for event detection ───────────────────
+    # 3) water-input series
     print("\n=== 2) loading water-input series ===")
-    tara_irrig = load_tara_irrig(Path(args.tara_csv))
-    oran_rain  = load_oran_rain(Path(args.oran_csv))
+    tara_water = load_tara_irrig(Path(args.tara_csv))
+    oran_water = load_oran_rain(Path(args.oran_csv))
     print(f"  Tarazona Irrig events (>{IRRIG_THRESHOLD}): "
-          f"{(tara_irrig['Irrig_mm'] > IRRIG_THRESHOLD).sum()}")
+          f"{(tara_water.get('Irrig_mm', pd.Series([], dtype=float)) > IRRIG_THRESHOLD).sum()}")
     print(f"  Oran     Rain  events (>{RAIN_THRESHOLD}):  "
-          f"{(oran_rain['Rain_mm'] > RAIN_THRESHOLD).sum()}")
-    water_dfs = {"Tarazona": tara_irrig, "Oran": oran_rain}
+          f"{(oran_water.get('Rain_mm', pd.Series([], dtype=float)) > RAIN_THRESHOLD).sum()}")
+    water_dfs = {"Tarazona": tara_water, "Oran": oran_water}
 
-    # ── 4) fit τ on satellite-derived LE at each site ────────────────────
+    # 4) τ-fit per site
     print("\n=== 3) fitting τ on satellite LE ===")
     sat_fits = {}
     for site in SITES:
         wcol = "Irrig_mm" if site == "Tarazona" else "Rain_mm"
-        threshold = IRRIG_THRESHOLD if site == "Tarazona" else RAIN_THRESHOLD
-        print(f"  -- {site} ({wcol} > {threshold}) --")
+        thr  = IRRIG_THRESHOLD if site == "Tarazona" else RAIN_THRESHOLD
+        print(f"  -- {site} ({wcol} > {thr}) --")
         res = fit_satellite_tau(sat_daily, water_dfs[site], site,
-                                 wcol, threshold, n_boot=n_boot)
+                                  wcol, thr, n_boot=n_boot)
         sat_fits[site] = res
         if res.get("valid"):
             print(f"    τ = {res['tau']:.2f} d  "
-                  f"CI [{res['ci_lo']:.2f}, {res['ci_hi']:.2f}]  "
-                  f"amp = {res['amplitude']:.1f} W/m²  "
-                  f"R² = {res['r2']:.3f}  "
-                  f"n_events = {res['n_events']}")
+                   f"CI [{res['ci_lo']:.2f}, {res['ci_hi']:.2f}]  "
+                   f"amp = {res['amplitude']:.1f} W/m²  "
+                   f"R² = {res['r2']:.3f}  "
+                   f"n_events = {res['n_events']}")
         else:
             print(f"    [invalid] {res.get('reason', 'unknown')}")
 
-    # ── 5) (optional) compare with EC τ from analysis A ──────────────────
-    ec_taus = {
-        "Oran":     {"tau": 2.82, "se": 0.90, "source": "analysis A v27 (active pool)"},
-        "Tarazona": {"tau": 3.36, "se": 0.62, "source": "analysis A v27 (Jun-Sep)"},
-    }
-    print("\n=== 4) EC reference (from analysis A v27) ===")
-    for s, v in ec_taus.items():
+    # 5) EC reference + summary
+    print("\n=== 4) EC reference (analysis A v27) ===")
+    for s, v in EC_TAU_REFERENCE.items():
         print(f"  {s}: τ = {v['tau']:.2f} d (SE {v['se']:.2f}) — {v['source']}")
 
-    # ── 6) write summary CSVs ────────────────────────────────────────────
     rows = []
     for site in SITES:
         sf = sat_fits[site]
-        ef = ec_taus[site]
-        # MDE-style comparison
-        if sf.get("valid"):
-            se1 = ef["se"]
-            se2 = sf.get("tau_se", np.nan)
-            mde = 1.96 * np.sqrt(se1**2 + se2**2) if np.isfinite(se2) else np.nan
-            diff = abs(ef["tau"] - sf["tau"])
-            sig = (diff > mde) if np.isfinite(mde) else None
-            rows.append({
-                "site": site,
-                "tau_ec":       ef["tau"], "se_ec":  ef["se"],
-                "tau_sat":      sf["tau"], "se_sat": sf.get("tau_se", np.nan),
-                "ci_lo_sat":    sf.get("ci_lo", np.nan),
-                "ci_hi_sat":    sf.get("ci_hi", np.nan),
-                "n_events_sat": sf.get("n_events", 0),
-                "amp_sat":      sf.get("amplitude", np.nan),
-                "le_inf_sat":   sf.get("le_inf", np.nan),
-                "r2_sat":       sf.get("r2", np.nan),
-                "diff":         diff,
-                "MDE":          mde,
-                "significant_diff":  sig,
-            })
+        ef = EC_TAU_REFERENCE[site]
+        row = dict(
+            site=site,
+            tau_ec=ef["tau"], se_ec=ef["se"],
+            tau_sat=sf.get("tau", np.nan),
+            tau_se_sat=sf.get("tau_se", np.nan),
+            ci_lo_sat=sf.get("ci_lo", np.nan),
+            ci_hi_sat=sf.get("ci_hi", np.nan),
+            n_events_sat=sf.get("n_events", 0),
+            amp_sat=sf.get("amplitude", np.nan),
+            le_inf_sat=sf.get("le_inf", np.nan),
+            r2_sat=sf.get("r2", np.nan),
+            valid_sat=sf.get("valid", False),
+            reason=sf.get("reason", ""),
+        )
+        if sf.get("valid") and np.isfinite(sf.get("tau_se", np.nan)):
+            mde = 1.96 * np.sqrt(ef["se"]**2 + sf["tau_se"]**2)
+            row["MDE"] = mde
+            row["diff"] = abs(ef["tau"] - sf["tau"])
+            row["significant_diff"] = row["diff"] > mde
         else:
-            rows.append({
-                "site": site,
-                "tau_ec": ef["tau"], "se_ec": ef["se"],
-                "tau_sat": np.nan, "se_sat": np.nan,
-                "n_events_sat": sf.get("n_events", 0),
-                "reason": sf.get("reason", "no fit"),
-            })
+            row["MDE"] = np.nan
+            row["diff"] = np.nan
+            row["significant_diff"] = None
+        rows.append(row)
     summary = pd.DataFrame(rows)
-    summary.to_csv(out_dir / "v1_satellite_vs_ec_tau.csv", index=False)
-    pd.set_option("display.float_format", "{:+.3f}".format)
-    print("\n=== SUMMARY ===")
-    print(summary.to_string(index=False))
-    print(f"\nwrote {out_dir / 'v1_satellite_vs_ec_tau.csv'}")
 
-    # also save raw satellite series
+    summary.to_csv(out_dir / "v1_satellite_vs_ec_tau.csv", index=False)
     sat_8day.to_csv(out_dir / "v1_mod16_8day_pixel_series.csv", index=False)
     sat_daily.to_csv(out_dir / "v1_mod16_daily_expanded.csv", index=False)
 
-    # ── 7) figures ───────────────────────────────────────────────────────
+    pd.set_option("display.float_format", "{:+.3f}".format)
+    print("\n=== SUMMARY ===")
+    cols_show = ["site", "tau_ec", "se_ec", "tau_sat", "tau_se_sat",
+                  "n_events_sat", "amp_sat", "r2_sat",
+                  "MDE", "diff", "significant_diff", "reason"]
+    print(summary[cols_show].to_string(index=False))
+    print(f"\nwrote {out_dir / 'v1_satellite_vs_ec_tau.csv'}")
+
     if args.no_plots:
         print("[skipped plots --no-plots]")
         return
 
     print("\n=== 5) generating figures ===")
-    fig_timeseries(sat_8day, water_dfs, out_dir / "fig02_satellite_timeseries.png")
-    print(f"  wrote fig02_satellite_timeseries.png")
+    fig_timeseries(sat_8day, water_dfs,
+                     out_dir / "fig01_satellite_timeseries.png")
+    print("  wrote fig01_satellite_timeseries.png")
     fig_recovery(sat_daily, water_dfs, sat_fits,
-                  out_dir / "fig03_satellite_recovery.png")
-    print(f"  wrote fig03_satellite_recovery.png")
-    fig_tau_compare(sat_fits, ec_taus, out_dir / "fig04_tau_comparison.png")
-    print(f"  wrote fig04_tau_comparison.png")
+                   out_dir / "fig02_satellite_recovery.png")
+    print("  wrote fig02_satellite_recovery.png")
+    fig_tau_compare(sat_fits, EC_TAU_REFERENCE,
+                      out_dir / "fig03_tau_comparison.png")
+    print("  wrote fig03_tau_comparison.png")
 
     print(f"\n[DONE] outputs in {out_dir.absolute()}")
 
