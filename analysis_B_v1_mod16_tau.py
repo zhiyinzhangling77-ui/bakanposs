@@ -90,9 +90,10 @@ SITE_ALIASES = {
                  "Tarazona-de-la-Mancha"],
 }
 
-# AppEEARS で raw → mm/8day に変換するスケール (HDF native = 0.1)
-# GEE 経由ですでに 0.1 適用済みなら 1.0 に
-DEFAULT_MOD16_SCALE = 0.1
+# NASA AppEEARS は HDF の scale_factor (=0.1) を内部で適用済み。
+# CSV 値はすでに mm/8day (= kg/m^2/8day)。よってデフォルト 1.0。
+# 生 HDF を直接読む場合のみ 0.1 を渡す。
+DEFAULT_MOD16_SCALE = 1.0
 
 # kg/m^2/day = mm/day  →  W/m^2 (λρw / 86400 ≈ 28.36)
 LE_PER_MM = 28.36
@@ -142,8 +143,9 @@ def parse_args():
                            "Oran_EddyDaily_MASTER_2018_2020_correct.csv")
     p.add_argument("--out", default="./output_analysis_B_v1")
     p.add_argument("--scale", type=float, default=DEFAULT_MOD16_SCALE,
-                   help=("MOD16 ET scale. 0.1 for AppEEARS raw int (default), "
-                         "1.0 if values are already in mm/8day."))
+                   help=("MOD16 ET scale. 1.0 for AppEEARS CSV (default; "
+                         "scale_factor already applied). 0.1 only if reading "
+                         "raw HDF integers directly."))
     p.add_argument("--no-qc-filter", action="store_true",
                    help="skip QC masking even if QC column exists")
     p.add_argument("--n-boot", type=int, default=2000)
@@ -253,6 +255,15 @@ def read_mod16_appeears(csv_path: Path, scale: float,
 
     print(f"  retained   : {len(out):,} (site,date) rows  "
           f"valid ET: {out['ET_mm_per_day'].notna().sum():,}")
+    # raw-value diagnostic (helps choose the right --scale)
+    raw_valid = pd.to_numeric(out["raw_value"], errors="coerce").dropna()
+    raw_valid = raw_valid[~raw_valid.isin(MOD16_FILL)]
+    if len(raw_valid):
+        print(f"  raw values : min={raw_valid.min():.2f}, "
+              f"median={raw_valid.median():.2f}, "
+              f"max={raw_valid.max():.2f}")
+        print(f"               (typical AppEEARS post-scale: 0-80 mm/8day; "
+              f"raw HDF int: 0-3000)")
     print("  per-site summary (mm/day):")
     print(out.groupby("site")["ET_mm_per_day"].describe().round(3))
     return out
@@ -622,20 +633,32 @@ def main():
     if sat_8day.empty:
         sys.exit("[FATAL] no satellite rows extracted")
 
-    # magnitude sanity-check
+    # magnitude sanity-check  (annual mean, mixed pixel; MOD16 known to underestimate irrig)
     mean_et = sat_8day.groupby("site")["ET_mm_per_day"].mean()
     for site, m in mean_et.items():
         if not np.isfinite(m):
             continue
-        if site == "Tarazona" and m < 0.5:
-            print(f"  [WARN] Tarazona mean ET = {m:.3f} mm/d looks low. "
-                   f"Expected 1-4 mm/d. Try --scale 0.1 (currently {args.scale}).")
+        if site == "Tarazona" and m < 0.2:
+            print(f"  [WARN] Tarazona mean ET = {m:.3f} mm/d looks too low. "
+                   f"Expected 0.5-2 mm/d. Check --scale "
+                   f"(currently {args.scale}; AppEEARS=1.0, raw HDF=0.1).")
         if site == "Tarazona" and m > 8:
             print(f"  [WARN] Tarazona mean ET = {m:.3f} mm/d looks high. "
-                   f"Try --scale 1.0 (currently {args.scale}).")
+                   f"Check --scale (currently {args.scale}).")
         if site == "Oran" and m > 5:
             print(f"  [WARN] Oran mean ET = {m:.3f} mm/d looks high. "
                    f"Expected 0.3-2 mm/d.")
+
+    # data-overlap check  (Oran EC ends 2020-06; Tarazona starts 2020-06)
+    date_max = sat_8day["date"].max()
+    date_min = sat_8day["date"].min()
+    if date_min > pd.Timestamp("2020-06-01"):
+        print(f"  [WARN] satellite data starts {date_min.date()}. "
+               f"Oran EC ends 2020-06 — no Oran overlap possible. "
+               f"Re-request AppEEARS with start_date=2018-01-01 to recover Oran.")
+    if date_max < pd.Timestamp("2024-01-01"):
+        print(f"  [WARN] satellite data ends {date_max.date()}. "
+               f"Tarazona EC runs through 2024-10.")
 
     # 2) 8-day → daily ffill
     sat_daily = expand_to_daily(sat_8day)
