@@ -61,6 +61,12 @@ from analysis_B_v1_mod16_tau import (
     load_tara_irrig, load_oran_rain,
 )
 
+# Sub-daily unit conversion:
+#   ET [mm/h]  ×  λρ_w/3600  =  LE [W/m²]
+#   λ ≈ 2.45e6 J/kg, ρ_w = 1000 kg/m³  →  680.6 W/m² per (mm/h)
+# (= 24 × daily LE_PER_MM, because 1 mm/h sustained for 24h = 24 mm/day)
+LE_PER_MM_PER_HOUR = 24.0 * LE_PER_MM   # ≈ 680.6 W/m² per (mm/h)
+
 warnings.filterwarnings("ignore")
 
 
@@ -265,7 +271,7 @@ def collect_events(base: Path, water_df: pd.DataFrame, water_col: str,
         if win.empty:
             continue
         win["days_since_event"] = (win["ts"] - ed).dt.total_seconds() / 86400.0
-        win["LE"] = win["ET_mm_per_h"].clip(lower=0) * LE_PER_MM
+        win["LE"] = win["ET_mm_per_h"].clip(lower=0) * LE_PER_MM_PER_HOUR
         if daytime_only:
             win = win[win["ts"].dt.hour.between(9, 14)]
         win["event_start"] = ed
