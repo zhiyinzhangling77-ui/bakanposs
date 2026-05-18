@@ -36,7 +36,7 @@ SITES = {
 
 # Probable variable names inside MSG MGPP NetCDFs (LSA SAF naming varies).
 # We try them in order. Override here if your files use a different name.
-GPP_VAR_CANDIDATES = ["MGPP", "GPP", "gpp"]
+GPP_VAR_CANDIDATES = ["GPP 10D", "MGPP", "GPP", "gpp"]
 QFLAG_CANDIDATES   = ["quality_flag", "qflag", "QF", "QC"]
 
 
@@ -99,12 +99,18 @@ def process_year(year: int, indices: dict | None) -> tuple[pd.DataFrame, dict]:
         with xr.open_dataset(files[0], engine="h5netcdf") as ds0:
             indices = find_nearest_indices(ds0)
             var_g = pick_var(ds0, GPP_VAR_CANDIDATES)
-            print(f"  GPP variable: {var_g}"
+            print(f"  GPP variable: {var_g!r}"
                   f"  (available: {list(ds0.data_vars)})")
             if var_g is None:
                 raise RuntimeError(
                     f"None of {GPP_VAR_CANDIDATES} found in {files[0].name}. "
                     f"Edit GPP_VAR_CANDIDATES in this script.")
+            attrs = ds0[var_g].attrs
+            print(f"  attrs: units={attrs.get('units')!r} "
+                  f"scale_factor={attrs.get('scale_factor')} "
+                  f"add_offset={attrs.get('add_offset')} "
+                  f"_FillValue={attrs.get('_FillValue')} "
+                  f"missing_value={attrs.get('missing_value')}")
 
     rows = []
     t0 = time.time()
