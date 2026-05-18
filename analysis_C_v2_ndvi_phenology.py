@@ -80,6 +80,33 @@ BOOTSTRAP_N = 2000
 RNG = np.random.default_rng(20260518)
 
 
+def _smooth_ndvi_by_year(ndvi_df, window=5, poly=2):
+    """年境界で切って Savitzky-Golay を掛ける.
+
+    v1 の `smooth_ndvi` は `asfreq("16D")` で MOD13Q1 の年境界 (12/19→1/1 は
+    13 日ギャップ) と噛み合わず 2 年目以降ほぼ全 NaN → median 埋めで定数化、
+    結果として phenology metric が 0 件になっていた. 本関数は年単位で切って
+    smoother を掛けるので年境界の不整合を起こさない.
+    """
+    if ndvi_df is None or len(ndvi_df) == 0:
+        return pd.DataFrame(columns=["date", "NDVI", "NDVI_sg"])
+    df = ndvi_df.copy()
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date", "NDVI"]).sort_values("date").reset_index(drop=True)
+    df["year"] = df["date"].dt.year
+    parts = []
+    for _, g in df.groupby("year"):
+        g = g.sort_values("date").reset_index(drop=True).copy()
+        if len(g) >= window:
+            g["NDVI_sg"] = savgol_filter(g["NDVI"].values, window, poly)
+        else:
+            g["NDVI_sg"] = g["NDVI"].values
+        parts.append(g[["date", "NDVI", "NDVI_sg"]])
+    if not parts:
+        return pd.DataFrame(columns=["date", "NDVI", "NDVI_sg"])
+    return pd.concat(parts, ignore_index=True)
+
+
 # ===========================================================================
 # 1. NDVI フェノロジー指標抽出 (SOS / Peak / EOS)
 # ===========================================================================
@@ -90,16 +117,23 @@ def extract_phenology_metrics(ndvi_sg, ndvi_threshold=NDVI_THR_ACTIVE):
     Peak: その年の NDVI 最大日 (smoothed)
     EOS (End of Season):    SOS 以降に NDVI が最後に threshold を越えていた日
     """
+    if ndvi_sg is None or len(ndvi_sg) == 0:
+        return pd.DataFrame()
     df = ndvi_sg.copy()
-    df["year"] = pd.to_datetime(df["date"]).dt.year
-    df = df.dropna(subset=["NDVI_sg"]).sort_values("date").reset_index(drop=True)
+    if "NDVI_sg" not in df.columns:
+        df["NDVI_sg"] = df.get("NDVI", np.nan)
+    df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df = df.dropna(subset=["date", "NDVI_sg"]).sort_values("date").reset_index(drop=True)
+    if df.empty:
+        return pd.DataFrame()
+    df["year"] = df["date"].dt.year
 
     out = []
     for year, g in df.groupby("year"):
         g = g.sort_values("date").reset_index(drop=True)
         if len(g) < 5:
             continue
-        above = g["NDVI_sg"] >= ndvi_threshold
+        above = (g["NDVI_sg"] >= ndvi_threshold).reset_index(drop=True)
         if not above.any():
             continue
         first_above = above.idxmax()
@@ -589,15 +623,15 @@ def run_site_C2(site, ec_df, ndvi_path):
     ndvi_raw = load_ndvi_csv(ndvi_path, site_name=site,
                                 site_id_in_csv=SITE_ID_IN_CSV[site],
                                 reliability_max=1)
-    ndvi_sg = smooth_ndvi(ndvi_raw, window=5, poly=2)
-    # smooth_ndvi は date + NDVI_sg を返す
-    # merge: ndvi_raw に NDVI_sg を結合してから match
-    ndvi_full = ndvi_raw.merge(ndvi_sg, on="date", how="left")
+    # v2: 年境界を跨がない smoother (v1 の asfreq("16D") は年境界で破綻する)
+    ndvi_full = _smooth_ndvi_by_year(ndvi_raw, window=5, poly=2)
     merged = match_ndvi(ec_df, ndvi_full, max_days=10)
 
-    pheno = extract_phenology_metrics(ndvi_sg, ndvi_threshold=NDVI_THR_ACTIVE)
+    pheno = extract_phenology_metrics(ndvi_full, ndvi_threshold=NDVI_THR_ACTIVE)
     print(f"  [{site}] phenology metrics extracted for "
-            f"{len(pheno)} year(s)")
+            f"{len(pheno)} year(s)  "
+            f"(NDVI_sg range=[{ndvi_full['NDVI_sg'].min():.2f}, "
+            f"{ndvi_full['NDVI_sg'].max():.2f}])")
     if not pheno.empty:
         for _, r in pheno.iterrows():
             print(f"    year {int(r['year'])}: SOS={pd.Timestamp(r['sos_date']).date()}  "
@@ -710,8 +744,8 @@ def main():
                 print(f"    {int(r['year'])}: IoU={r['iou']:.2f}  "
                         f"ndvi∩assumed/ndvi={r['ndvi_in_assumed_pct']:.0f}%  "
                         f"ndvi∩assumed/assumed={r['assumed_in_ndvi_pct']:.0f}%")
-    val_df = pd.concat([v for v in validation.values() if not v.empty],
-                         ignore_index=True) if validation else pd.DataFrame()
+    val_nonempty = [v for v in validation.values() if not v.empty]
+    val_df = pd.concat(val_nonempty, ignore_index=True) if val_nonempty else pd.DataFrame()
     if not val_df.empty:
         fp = SAVE_DIR / "v2_active_period_validation.csv"
         val_df.to_csv(fp, index=False)
