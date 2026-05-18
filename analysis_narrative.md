@@ -408,15 +408,25 @@ Phase C  (satellite cross-check)
 | TzM_summer_d4-7 | 75 | +0.35 | +0.01 | +0.13 |
 | TzM_summer_d8+ | 44 | +0.61 | -0.00 | +0.18 |
 
-**主要結論**:
+**主要結論** (SMAP の 9 km スケールを踏まえて再評価):
 
-1. **rainfed Oran spring (n=203) で SMAP は完全代替可能**: r = +0.80、SDS が小数点 2 桁まで in-situ と一致 (両方 +0.43)。これは「SMAP root-zone を使えば EC タワーがなくても SDS を計算できる」ことを意味し、**広域 SDS マッピング (H7) の道を開く**。
+1. **rainfed Oran spring (n=203) で SMAP は in-situ と一致**: r = +0.80、SDS が小数点 2 桁まで in-situ と一致 (両方 +0.43)。Oran は 9 km pixel 内が一様な rainfed cereal なので sub-pixel mixing が小さい → SMAP root-zone が in-situ 表層 SWC を tracking している。**広域 SDS マッピング (H7) の道は rainfed では開く**が、drip irrigated 農地では同じ手法は使えない (sub-pixel mixing が支配的)。
 
-2. **drip 灌漑下では SMAP と in-situ SWC が脱結合**: TzM summer 全体で r = 0.16、灌漑直後 (d0-3) では r = **-0.19 (負の相関！)**、d8+ で r = +0.61 に再結合。
+2. **drip 灌漑下では SMAP と in-situ SWC が脱結合**: TzM summer 全体で r = +0.16、灌漑直後 (d0-3) では r = **−0.19 (負の相関、p ≈ 0.001、n=281)**、d8+ で r = +0.61 に再結合。
 
-3. **TzM d0-3 の負相関は wet-bulb メカニズムの直接的観測証拠**: 表層 5 cm の SWC は灌漑表面流出で「乾く方向に動く」一方、深さ ~1 m の SMAP root-zone は wet-bulb の伝播で「濡れる方向に動く」 → **両者が同時に逆方向に変化する**ことが負相関として現れる。これまで間接的にしか示せなかった wet-bulb 仮説が、**SMAP × in-situ × days_since_irrig の三軸で初めて直接観測**された。
+3. **負相関 r = −0.19 は "consistent with" であって "direct observation" ではない** (重要訂正):
+   - SMAP 9 km × 9 km = 81 km² 内で TzM orchard 自体が < 10 %、drip wet-bulb は < 0.1 % の面積
+   - SMAP L4 root-zone は **NASA CLSM モデル状態**を 0-5 cm L-band assimilation から伝播したもので、深層の直接観測ではない
+   - 同じ負相関は (a) sub-pixel mixing (灌漑 / dryland 混合)、(b) VOD effect at L-band retrieval、(c) CLSM の同化挙動でも機械的に生成されうる
+   - したがって「TzM under drip では surface と root-zone compartment が rainfed と異なるパターンで動く」(Oran +0.80 ↔ TzM −0.19 の **contrast** は robust) までしか言えない
+   - 提案された 10-30 cm wet-bulb の depth-resolved verification は **in-situ 5/15/30/50 cm profile sensor** または **Sentinel-1 SAR (~10 m) sub-pixel retrieval** が必要
 
-4. **論文 §4.1 の Mechanism 議論に追加すべき**: 「Drip irrigation creates a depth-dependent SWC inversion: the 5 cm surface dries (post-event runoff and surface evaporation) while the ~1 m root-zone wets (wet-bulb propagation), producing the observed negative correlation between in-situ surface SWC and SMAP root-zone in the d0–3 bucket (r = −0.19, n = 281). The two soil moisture observations therefore probe physically distinct compartments, neither of which captures the active 10–30 cm wet bulb directly. This is consistent with our hypothesis that satellite ET retrievals driven by either the surface (LST, SMAP_surface) or the deeper root-zone (SMAP_rootzone) systematically miss the actual transpiration source."
+4. **論文 §3.7 / §4.1 / §5 に反映済み** (commit ad39ab5 以降):
+   - §3.7: "depth inversion is directly observable" → "sign reversal is *consistent with* a depth inversion"
+   - §4.1: 二段構造化 — Step 1 (decoupling は直接観測) + Step 2 (wet-bulb は best soil-physics explanation)
+   - §5 Limitations: SMAP 9 km scale + L4 model-derived caveat + Sentinel-1 SAR を follow-up に明記
+
+5. **主張は依然として強い**: τ ≈ 4 d の bias correction (RMSE −65 %)、deep-root 仮説の反証、days_since_irrig の AIC 優位性 (ΔAIC = −66 〜 −153) は全て揺るがない。SMAP の役割を「decisive evidence」から「consistent with」に格下げするだけで、メイン claim は変わらない。むしろ peer-review robustness が向上 (scale 問題は確実に reviewer 指摘事項なので先回り対応)。
 
 ---
 
