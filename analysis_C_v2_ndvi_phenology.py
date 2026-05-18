@@ -186,25 +186,55 @@ def _oran_rain_from_raw(filepath):
     """Oran AmeriFlux 生 CSV から日次積算降水量を抽出.
 
     `load_oran_ec_clean` は降水を捨てているので、event 検出のためだけに
-    raw を読み直す. AmeriFlux 命名規約で P, P_RAIN, PRECIP_TOT を試す.
+    raw を読み直す. AmeriFlux で precip を表しうる名前 (P, P_F, P_RAIN_1_1_1,
+    PRECIP, RAIN, ...) を幅広く拾い、診断ログで「どの列を使ったか」「sentinel
+    後に何 mm 残ったか」を必ず print する.
+
+    一致候補が無ければ None を返す (呼び出し側はその診断を見て対処).
     """
     df = pd.read_csv(filepath, low_memory=False)
     src_col = "TIMESTAMP" if "TIMESTAMP" in df.columns else "DateTime"
     dt = pd.to_datetime(df[src_col].astype(str).str.strip(),
                           format="mixed", errors="coerce")
     df = df.assign(datetime=dt).dropna(subset=["datetime"])
-    rain_candidates = [c for c in df.columns
-                        if c.upper() in ("P", "P_RAIN", "P_RAIN_1_1_1",
-                                          "PRECIP", "PRECIP_TOT", "RAIN")]
+
+    cols_u = {c: c.upper() for c in df.columns}
+    rain_candidates = []
+    for c, cu in cols_u.items():
+        if cu == "P" or cu == "P_F":
+            rain_candidates.append(c)
+        elif "RAIN" in cu or "PRECIP" in cu:
+            rain_candidates.append(c)
+        elif cu.startswith("P_") and cu.split("_")[-1].isdigit():
+            # AmeriFlux 位置記号 (P_1_1_1 等)
+            rain_candidates.append(c)
+
+    print(f"  [_oran_rain_from_raw] rain candidates found: {rain_candidates}")
     if not rain_candidates:
+        # 何が無いのかを伝えるため、P を含む列の一覧を出す
+        p_like = [c for c in df.columns if "P" in c.upper()][:30]
+        print(f"  [_oran_rain_from_raw] no rain column. P-like columns: {p_like}")
         return None
+
+    # 最初の候補を採用
     col = rain_candidates[0]
-    s = pd.to_numeric(df[col], errors="coerce")
-    s = s.where(s > -9000, np.nan)  # sentinel
+    raw = pd.to_numeric(df[col], errors="coerce")
+    n_raw_valid = int(raw.notna().sum())
+    s = raw.where(raw > -9000, np.nan)  # sentinel
+    n_post = int(s.notna().sum())
+    print(f"  [_oran_rain_from_raw] using col='{col}'  "
+            f"raw_valid={n_raw_valid}  post_sentinel={n_post}  "
+            f"sum={s.sum():.1f}  max={s.max():.2f}  "
+            f"frac>0={float((s > 0).mean()):.3f}")
+
     df["_p"] = s
     df["date"] = df["datetime"].dt.normalize()
     daily = df.groupby("date", as_index=False)["_p"].sum(min_count=1)
     daily = daily.rename(columns={"_p": "Rain_mm"})
+    n_days_wet = int((daily["Rain_mm"] > 0).sum())
+    n_days_event = int((daily["Rain_mm"] > 3.0).sum())
+    print(f"  [_oran_rain_from_raw] daily n_days={len(daily)}  "
+            f"wet>0 days={n_days_wet}  event(>3mm) days={n_days_event}")
     return daily
 
 
@@ -385,7 +415,13 @@ def bootstrap_tau_ci(pool, le_col="LE", B=BOOTSTRAP_N,
 # 4. NDVI peak window で τ 再計算
 # ===========================================================================
 def filter_events_by_ndvi_peak(events, pheno, window=PEAK_WINDOW_DAYS):
-    """各 event を、その年の NDVI peak から ±window 日に入っていれば残す."""
+    """各 event を、その年の NDVI peak から ±window 日に入っていれば残す.
+
+    NDVI peak window は「最も活発に光合成している瞬間」を切り出すが、
+    Tarazona 灌漑 (Apr-May = canopy ramp-up) と peak transpiration (Jun-Sep)
+    が ~6 週ずれるため、この狭い窓は τ fit に向かないことがある.
+    SOS-EOS window (filter_events_by_ndvi_season) と併用するのが安全.
+    """
     if pheno.empty:
         return pd.DatetimeIndex([])
     peak_by_year = {int(r["year"]): pd.Timestamp(r["peak_date"])
@@ -397,6 +433,29 @@ def filter_events_by_ndvi_peak(events, pheno, window=PEAK_WINDOW_DAYS):
         if pk is None:
             continue
         if abs((ev - pk).days) <= window:
+            keep.append(ev)
+    return pd.DatetimeIndex(sorted(set(keep)))
+
+
+def filter_events_by_ndvi_season(events, pheno):
+    """各 event をその年の SOS–EOS に入っていれば残す (NDVI で定義する active period).
+
+    plan §4.2 で本来意図されていた「NDVI-defined active で τ を fit」はこちら.
+    """
+    if pheno.empty:
+        return pd.DatetimeIndex([])
+    season_by_year = {
+        int(r["year"]): (pd.Timestamp(r["sos_date"]),
+                          pd.Timestamp(r["eos_date"]))
+        for _, r in pheno.iterrows()
+    }
+    keep = []
+    for ev in events:
+        ev = pd.Timestamp(ev)
+        rng = season_by_year.get(int(ev.year))
+        if rng is None:
+            continue
+        if rng[0] <= ev <= rng[1]:
             keep.append(ev)
     return pd.DatetimeIndex(sorted(set(keep)))
 
@@ -530,54 +589,61 @@ def plot_ndvi_seasonal(per_site_merged, per_site_pheno, save_dir):
     print(f"  saved: {fp}")
 
 
-def plot_tau_at_peak(tau_results, save_dir):
-    """解析A v27 結果と NDVI peak window τ を並べた forest plot."""
-    fig, ax = plt.subplots(figsize=(9, 4.5))
+def plot_tau_forest(tau_results, save_dir):
+    """解析A v27 結果と NDVI window τ (season + peak) を並べた forest plot."""
+    fig, ax = plt.subplots(figsize=(10, 5.5))
     rows = []
-    # 解析A v27 (validated, from ANALYSIS_A_FINAL.md)
+    # 解析A v27 baseline
     for label, key in [("Oran (A v27, Nov–Jun pool)", "Oran_active"),
                           ("Tarazona (A v27, Jun–Sep pool)", "Tarazona_active")]:
         d = A_RESULTS[key]
         rows.append({"label": label, "tau": d["tau"],
-                      "lo": d["ci"][0], "hi": d["ci"][1], "n": d["n"],
-                      "source": "A_v27"})
-    # NDVI peak window τ
-    for site, res in tau_results.items():
-        if res is None or not res.get("valid"):
-            rows.append({"label": f"{site} (C v2, NDVI peak ±{PEAK_WINDOW_DAYS}d)",
-                          "tau": np.nan, "lo": np.nan, "hi": np.nan,
-                          "n": res.get("n_events", 0) if res else 0,
-                          "source": "C_v2"})
-            continue
-        rows.append({"label": f"{site} (C v2, NDVI peak ±{PEAK_WINDOW_DAYS}d)",
-                      "tau": res["tau_med"],
-                      "lo": res["tau_ci"][0], "hi": res["tau_ci"][1],
-                      "n": res.get("n_events", res["n_valid"]),
-                      "source": "C_v2"})
+                      "lo": d["ci"][0], "hi": d["ci"][1],
+                      "n": d["n"], "src": "A_v27"})
+    # NDVI window τ (season → peak の順で並べる)
+    for site in ("Oran", "Tarazona"):
+        by_wt = tau_results.get(site, {}) or {}
+        for wt, suffix in [("season", "NDVI SOS–EOS"),
+                              ("peak",   f"NDVI peak ±{PEAK_WINDOW_DAYS}d")]:
+            r = by_wt.get(wt)
+            label = f"{site} (C v2, {suffix})"
+            if r is None or not r.get("valid"):
+                rows.append({"label": label, "tau": np.nan, "lo": np.nan,
+                              "hi": np.nan,
+                              "n": (r.get("n_events", 0) if r else 0),
+                              "src": "C_v2"})
+                continue
+            rows.append({"label": label, "tau": r["tau_med"],
+                          "lo": r["tau_ci"][0], "hi": r["tau_ci"][1],
+                          "n": r.get("n_events", r["n_valid"]),
+                          "src": "C_v2"})
     df = pd.DataFrame(rows)
     yy = np.arange(len(df))[::-1]
-    colors = ["steelblue" if s == "A_v27" else "darkorange"
-                for s in df["source"]]
-    for y, (_, r), c in zip(yy, df.iterrows(), colors):
+    color_map = {"A_v27": "steelblue", "C_v2": "darkorange"}
+    for y, (_, r) in zip(yy, df.iterrows()):
+        c = color_map[r["src"]]
         if not np.isfinite(r["tau"]):
-            ax.text(0.5, y, "fit failed (n insufficient or τ at boundary)",
+            ax.text(0.3, y, f"fit failed (n_events={r['n_events'] if 'n_events' in r else r['n']})",
                      va="center", fontsize=8, color="red")
             continue
         ax.plot([r["lo"], r["hi"]], [y, y], color=c, lw=2.5)
         ax.plot(r["tau"], y, "o", color=c, ms=8)
-        ax.text(r["hi"] + 0.3, y, f"τ={r['tau']:.2f}d, n={r['n']}",
+        ax.text(min(r["hi"], 60) + 0.3, y,
+                  f"τ={r['tau']:.2f}d  n={r['n']}",
                   va="center", fontsize=8)
     ax.axvspan(3.0, 3.8, color="green", alpha=0.10,
                  label="A v27 universal band 3.0–3.8 d")
     ax.set_yticks(yy)
     ax.set_yticklabels(df["label"], fontsize=9)
     ax.set_xlabel("τ [days]  (95% bootstrap CI)")
-    ax.set_xlim(0, max(df["hi"].max(skipna=True) + 2, 8))
-    ax.set_title("Fig 03: τ at NDVI-peak window vs Analysis-A v27 (universal band shaded)",
+    finite_hi = df["hi"].dropna()
+    upper = float(finite_hi.max()) if len(finite_hi) else 8.0
+    ax.set_xlim(0, max(upper + 2, 8))
+    ax.set_title("Fig 03: τ at NDVI windows vs Analysis-A v27 (universal band shaded)",
                    fontsize=10)
     ax.legend(loc="lower right", fontsize=8)
     fig.tight_layout()
-    fp = save_dir / "fig03_ndvi_peak_tau.png"
+    fp = save_dir / "fig03_ndvi_window_tau.png"
     fig.savefig(fp, dpi=160, bbox_inches="tight")
     plt.close(fig)
     print(f"  saved: {fp}")
@@ -640,45 +706,61 @@ def run_site_C2(site, ec_df, ndvi_path):
     return merged, ndvi_full, pheno
 
 
-def run_tau_at_peak(site, ec_df, pheno, oran_raw_path=None):
-    """site の EC データから event 検出 → NDVI peak window で filter → τ fit."""
+def run_tau_window(site, ec_df, pheno, window_type, oran_raw_path=None):
+    """event 検出 → NDVI window で filter → τ fit. window_type は 'season' か 'peak'."""
     events_all = detect_events(ec_df, site, oran_raw_path=oran_raw_path)
-    print(f"\n  [{site}] all events detected: n={len(events_all)}")
+    print(f"\n  [{site} | {window_type}] all events detected: n={len(events_all)}")
     if len(events_all) == 0:
         return None
 
-    events_at_peak = filter_events_by_ndvi_peak(events_all, pheno,
+    if window_type == "season":
+        events_w = filter_events_by_ndvi_season(events_all, pheno)
+        label = "NDVI SOS–EOS"
+    elif window_type == "peak":
+        events_w = filter_events_by_ndvi_peak(events_all, pheno,
                                                   window=PEAK_WINDOW_DAYS)
-    print(f"  [{site}] events within NDVI peak ±{PEAK_WINDOW_DAYS}d: "
-            f"n={len(events_at_peak)} / {len(events_all)}")
+        label = f"NDVI peak ±{PEAK_WINDOW_DAYS}d"
+    else:
+        raise ValueError(f"unknown window_type={window_type}")
 
-    pool = build_event_pool(events_at_peak, ec_df, le_col="LE",
+    print(f"  [{site} | {window_type}] events in {label}: "
+            f"n={len(events_w)} / {len(events_all)}")
+
+    pool = build_event_pool(events_w, ec_df, le_col="LE",
                               window=EVENT_WINDOW_DAYS)
-    print(f"  [{site}] pooled (event, day) obs: n={len(pool)}")
+    print(f"  [{site} | {window_type}] pooled (event, day) obs: n={len(pool)}")
     if pool.empty or pool["event_id"].nunique() < 3:
-        print(f"  [{site}] ⚠️ events too few for tau fit")
-        return {"valid": False, "n_events": pool["event_id"].nunique()
-                                                if not pool.empty else 0}
+        print(f"  [{site} | {window_type}] ⚠️ events too few for tau fit")
+        return {"valid": False, "window_type": window_type,
+                 "n_events": pool["event_id"].nunique()
+                                if not pool.empty else 0}
 
-    # point estimate fit
     fit_point = fit_recovery(pool["d"].values, pool["LE"].values)
     if fit_point and fit_point.get("success"):
-        print(f"  [{site}] point fit: τ={fit_point['tau']:.2f}d  "
+        print(f"  [{site} | {window_type}] point fit: τ={fit_point['tau']:.2f}d  "
                 f"LE0={fit_point['le0']:.1f}  LE∞={fit_point['le_inf']:.1f}  "
                 f"R²={fit_point['r2']:.2f}  "
                 f"{'at-boundary' if fit_point['at_boundary'] else 'OK'}")
 
-    # bootstrap CI
     boot = bootstrap_tau_ci(pool, le_col="LE", B=BOOTSTRAP_N,
                               le_inf=fit_point["le_inf"] if fit_point else None)
-    if boot and boot.get("valid"):
-        boot["n_events"] = int(pool["event_id"].nunique())
-        print(f"  [{site}] bootstrap τ = {boot['tau_med']:.2f} "
+    if boot is None:
+        boot = {"valid": False}
+    boot["window_type"] = window_type
+    boot["n_events"] = int(pool["event_id"].nunique())
+    boot["n_pool_obs"] = int(len(pool))
+    if fit_point and fit_point.get("success"):
+        boot["fit_point"] = fit_point
+    if boot.get("valid"):
+        print(f"  [{site} | {window_type}] bootstrap τ = {boot['tau_med']:.2f} "
                 f"[{boot['tau_ci'][0]:.2f}, {boot['tau_ci'][1]:.2f}] d  "
                 f"(n_valid={boot['n_valid']}/{BOOTSTRAP_N}, "
                 f"R²_med={boot['r2_med']:.2f})")
     else:
-        print(f"  [{site}] ⚠️ bootstrap failed: {boot}")
+        print(f"  [{site} | {window_type}] ⚠️ bootstrap insufficient: "
+                f"n_valid={boot.get('n_valid', 0)}/{BOOTSTRAP_N}, "
+                f"excluded={boot.get('n_excluded', '?')} "
+                f"(fits hitting boundary or R²<0.30)")
     return boot
 
 
@@ -751,50 +833,56 @@ def main():
         val_df.to_csv(fp, index=False)
         print(f"  saved: {fp}")
 
-    # --- 出力3: NDVI peak window τ ---
-    print("\n[STEP 4] τ at NDVI peak window (±{}d)".format(PEAK_WINDOW_DAYS))
-    tau_results = {}
+    # --- 出力3: NDVI active window τ (SOS–EOS primary, peak ±30d secondary) ---
+    print("\n[STEP 4] τ at NDVI active window")
+    tau_results = {site: {} for site in ["Oran", "Tarazona"]}
     for site, ec in [("Oran", oran_ec), ("Tarazona", tara_ec)]:
         pheno = per_site_pheno.get(site, pd.DataFrame())
         if pheno.empty:
-            tau_results[site] = None
             continue
         raw = A_PATHS["oran_ec"] if site == "Oran" else None
-        tau_results[site] = run_tau_at_peak(site, ec, pheno, oran_raw_path=raw)
+        for wt in ("season", "peak"):
+            tau_results[site][wt] = run_tau_window(
+                site, ec, pheno, window_type=wt, oran_raw_path=raw,
+            )
 
-    # CSV 出力
+    # CSV 出力 (window_type 行を持つ long-form)
     rows = []
-    for site, r in tau_results.items():
+    for site, by_wt in tau_results.items():
         a = A_RESULTS.get(f"{site}_active", {})
-        if r and r.get("valid"):
-            row = {
-                "site": site,
-                "n_events_peak_window": r.get("n_events"),
-                "n_bootstrap_valid": r["n_valid"],
-                "tau_C_v2": r["tau_med"],
-                "tau_C_v2_lo": r["tau_ci"][0],
-                "tau_C_v2_hi": r["tau_ci"][1],
-                "tau_C_v2_se": r["tau_se"],
-                "le0_C_v2": r["le0_med"],
-                "r2_med": r["r2_med"],
-                "tau_A_v27": a.get("tau"),
-                "tau_A_v27_lo": a.get("ci", (None, None))[0],
-                "tau_A_v27_hi": a.get("ci", (None, None))[1],
-                "se_A_v27": a.get("se"),
-            }
-            # MDE for C_v2 vs A_v27
-            if a.get("se") is not None:
-                mde = 1.96 * np.sqrt(r["tau_se"] ** 2 + a["se"] ** 2)
-                row["MDE"] = float(mde)
-                row["obs_diff"] = float(abs(r["tau_med"] - a["tau"]))
-                row["significant"] = row["obs_diff"] > mde
+        for wt, r in by_wt.items():
+            row = {"site": site, "window_type": wt}
+            if r and r.get("valid"):
+                row.update({
+                    "n_events": r.get("n_events"),
+                    "n_pool_obs": r.get("n_pool_obs"),
+                    "n_bootstrap_valid": r["n_valid"],
+                    "tau_C_v2": r["tau_med"],
+                    "tau_C_v2_lo": r["tau_ci"][0],
+                    "tau_C_v2_hi": r["tau_ci"][1],
+                    "tau_C_v2_se": r["tau_se"],
+                    "le0_C_v2": r["le0_med"],
+                    "r2_med": r["r2_med"],
+                    "tau_A_v27": a.get("tau"),
+                    "tau_A_v27_lo": a.get("ci", (None, None))[0],
+                    "tau_A_v27_hi": a.get("ci", (None, None))[1],
+                    "se_A_v27": a.get("se"),
+                    "fit_status": "ok",
+                })
+                if a.get("se") is not None:
+                    mde = 1.96 * np.sqrt(r["tau_se"] ** 2 + a["se"] ** 2)
+                    row["MDE"] = float(mde)
+                    row["obs_diff"] = float(abs(r["tau_med"] - a["tau"]))
+                    row["significant"] = row["obs_diff"] > mde
+            else:
+                row.update({
+                    "n_events": (r.get("n_events", 0) if r else 0),
+                    "n_pool_obs": (r.get("n_pool_obs", 0) if r else 0),
+                    "fit_status": "failed",
+                })
             rows.append(row)
-        else:
-            rows.append({"site": site, "n_events_peak_window":
-                            r.get("n_events", 0) if r else 0,
-                          "tau_C_v2": None, "fit_status": "failed"})
     if rows:
-        fp = SAVE_DIR / "v2_ndvi_peak_tau.csv"
+        fp = SAVE_DIR / "v2_ndvi_active_tau.csv"
         pd.DataFrame(rows).to_csv(fp, index=False)
         print(f"\n  saved: {fp}")
 
@@ -835,7 +923,7 @@ def main():
     print("\n[STEP 6] 図を生成")
     plot_ndvi_seasonal(per_site_merged, per_site_pheno, SAVE_DIR)
     plot_phenology_overlap(per_site_pheno, validation, SAVE_DIR)
-    plot_tau_at_peak(tau_results, SAVE_DIR)
+    plot_tau_forest(tau_results, SAVE_DIR)
     plot_ndvi_le_lag(per_site_lag, SAVE_DIR)
 
     # --- 最終サマリ ---
@@ -848,21 +936,25 @@ def main():
             continue
         print(f"  {site}: mean IoU = {v['iou'].mean():.2f} "
                 f"(n_years={len(v)})")
-    print("\n[Q2] NDVI peak window τ (compared to Analysis-A v27):")
-    for site, r in tau_results.items():
+    print("\n[Q2] τ at NDVI windows (compared to Analysis-A v27):")
+    for site, by_wt in tau_results.items():
         a = A_RESULTS.get(f"{site}_active", {})
-        if r and r.get("valid"):
-            mde_str = ""
-            if a.get("se") is not None:
-                mde = 1.96 * np.sqrt(r["tau_se"] ** 2 + a["se"] ** 2)
-                diff = abs(r["tau_med"] - a["tau"])
-                sig = "SIG" if diff > mde else "NS (consistent)"
-                mde_str = f"  |Δτ|={diff:.2f}d vs MDE={mde:.2f}d → {sig}"
-            print(f"  {site}: τ_C_v2={r['tau_med']:.2f}d "
-                    f"[{r['tau_ci'][0]:.2f}, {r['tau_ci'][1]:.2f}]  "
-                    f"vs τ_A_v27={a.get('tau','?')}d{mde_str}")
-        else:
-            print(f"  {site}: fit failed")
+        for wt, r in by_wt.items():
+            tag = f"{site} [{wt}]"
+            if r and r.get("valid"):
+                mde_str = ""
+                if a.get("se") is not None:
+                    mde = 1.96 * np.sqrt(r["tau_se"] ** 2 + a["se"] ** 2)
+                    diff = abs(r["tau_med"] - a["tau"])
+                    sig = "SIG (different)" if diff > mde else "NS (consistent)"
+                    mde_str = f"  |Δτ|={diff:.2f}d vs MDE={mde:.2f}d → {sig}"
+                print(f"  {tag}: τ_C_v2={r['tau_med']:.2f}d "
+                        f"[{r['tau_ci'][0]:.2f}, {r['tau_ci'][1]:.2f}]  "
+                        f"n_ev={r.get('n_events','?')}  "
+                        f"vs τ_A_v27={a.get('tau','?')}d{mde_str}")
+            else:
+                n_ev = r.get("n_events", 0) if r else 0
+                print(f"  {tag}: fit failed (n_events={n_ev})")
     print("\n[Q3] NDVI–LE lag (max |r|):")
     for site, d in per_site_lag.items():
         if d.empty:
