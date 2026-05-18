@@ -18,6 +18,7 @@ import matplotlib.dates as mdates
 
 REPO = Path(__file__).parent.parent
 CSV = REPO / "data" / "master_full_v2.csv"
+MGPP_CSV = REPO / "data" / "mgpp_decadal_all.csv"
 OUT_DIR = REPO / "figures" / "poster"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -30,6 +31,7 @@ SITE_LABEL = {
 C_EC      = "#1a1a1a"
 C_EC_RAW  = "#c8c8c8"
 C_METV3   = "#d1493c"
+C_MGPP    = "#2a8c63"
 SHADE     = "#f6e7b8"   # spring growing-season tint
 GRID      = "#dddddd"
 
@@ -50,6 +52,9 @@ def shade_springs(ax, date_min, date_max):
 
 def main() -> None:
     df = pd.read_csv(CSV, parse_dates=["date"])
+    mgpp = pd.read_csv(MGPP_CSV, parse_dates=["date"])
+    # drop fill/bad values
+    mgpp = mgpp[(mgpp["GPP_mgpp"] > 0) & (mgpp["GPP_mgpp"] < 30)].copy()
 
     fig, axes = plt.subplots(
         2, 2, figsize=(13.5, 6.4),
@@ -58,13 +63,19 @@ def main() -> None:
 
     for j, site in enumerate(SITES):
         sub = df[df["site"] == site].sort_values("date").copy()
+        msub = mgpp[mgpp["site"] == site].sort_values("date").copy()
         d0, d1 = sub["date"].min(), sub["date"].max()
+        # clip MGPP to EC window for fair visual comparison
+        msub = msub[(msub["date"] >= d0) & (msub["date"] <= d1)]
 
         # ---- Row 1: GPP ----
         ax = axes[0, j]
         shade_springs(ax, d0, d1)
         ax.plot(sub["date"], sub["GPP_gC_m2_d"], color=C_EC_RAW,
                 lw=0.6, alpha=0.9, zorder=1)
+        ax.plot(msub["date"], msub["GPP_mgpp"],
+                "-o", color=C_MGPP, lw=1.2, ms=3.6, mec="white", mew=0.5,
+                alpha=0.95, zorder=2, label="Meteosat MGPP (10-d)")
         ax.plot(sub["date"], smooth(sub["GPP_gC_m2_d"]),
                 color=C_EC, lw=1.7, zorder=3, label="EC tower (7-d)")
         ax.set_ylabel(r"GPP (gC m$^{-2}$ d$^{-1}$)", fontsize=10.5)
@@ -105,7 +116,8 @@ def main() -> None:
     # Footer note about shading
     fig.text(0.5, 0.005,
              "Shaded band: Mar–Jun (typical Mediterranean growing season). "
-             "Meteosat ETv3 = LSA SAF DMET v3, 0.05°.",
+             "Meteosat ETv3 = LSA SAF DMET v3; Meteosat MGPP = LSA SAF "
+             "10-day GPP composite (0.05°).",
              ha="center", fontsize=8.8, style="italic", color="#555555")
 
     out_png = OUT_DIR / "overview.png"
