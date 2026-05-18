@@ -299,16 +299,22 @@ def plot_mde_analysis(comparisons, out_dir):
     ], fontsize=10)
 
 <<<<<<< HEAD
+<<<<<<< HEAD
     # X-axis
     ax.set_xlabel("τ difference [days]", fontsize=13, fontweight="bold")
     ax.set_title("Fig 5. MDE analysis — observed |Δτ| vs detection threshold\n"
                   "★ MDE >> observed difference across all pairs → 'no detectable difference' is statistically well-powered",
 =======
+=======
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
     ax.set_xlabel(r"$\tau$ difference [days]", fontsize=13, fontweight="bold")
     ax.set_title("Fig 5. MDE analysis — observed " + r"$|\Delta\tau|$"
                   " vs detection threshold\n"
                   "All pairs: MDE >> observed difference "
                   "(no-difference claim is power-supported)",
+<<<<<<< HEAD
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
+=======
 >>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
                   fontsize=13, fontweight="bold", pad=12)
     ax.set_xlim(-0.2, max(c["mde"] for c in comparisons) * 1.5)
@@ -319,9 +325,15 @@ def plot_mde_analysis(comparisons, out_dir):
     legend_elements = [
         plt.scatter([], [], s=200, c=OBS_COL, edgecolors="black", marker="D",
 <<<<<<< HEAD
+<<<<<<< HEAD
                     label="Observed |Δτ| (Actual difference in timescale)"),
         plt.scatter([], [], s=200, c=MDE_COL, edgecolors="black", marker="o",
                     label="MDE = 1.96 × √(SE₁²+SE₂²) "),
+=======
+                    label=r"Observed $|\Delta\tau|$" + " (actual difference)"),
+        plt.scatter([], [], s=200, c=MDE_COL, edgecolors="black", marker="o",
+                    label=r"MDE = 1.96 $\times \sqrt{SE_1^2 + SE_2^2}$"),
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
 =======
                     label=r"Observed $|\Delta\tau|$" + " (actual difference)"),
         plt.scatter([], [], s=200, c=MDE_COL, edgecolors="black", marker="o",
@@ -331,6 +343,7 @@ def plot_mde_analysis(comparisons, out_dir):
     ax.legend(handles=legend_elements, loc="lower right", fontsize=11,
                framealpha=0.95, edgecolor="black")
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     concept_text = (
         "★ MDE (Minimum Detectable\n"
@@ -362,6 +375,10 @@ def plot_mde_analysis(comparisons, out_dir):
 =======
     # Concept box (left side) — English
     concept_text = (
+=======
+    # Concept box (left side) — English
+    concept_text = (
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
         "[ What is MDE? ]\n"
         "--------------------------\n\n"
         "Minimum Detectable Effect:\n"
@@ -463,6 +480,7 @@ def plot_mde_analysis(comparisons, out_dir):
 #     ax.text(0.3, 1.1, "obs diff = 0.5\np = 0.4 (NS)",
  
 def plot_concept_diagram(out_dir):
+<<<<<<< HEAD
     """Supplementary figure: Visualizing the MDE concept"""
     fig, axes = plt.subplots(1, 2, figsize=(15, 6), facecolor=FIG_BG)
     fig.suptitle("MDE Conceptual Diagram: Requirements for claiming 'No Difference'",
@@ -472,6 +490,10 @@ def plot_concept_diagram(out_dir):
 def plot_concept_diagram(out_dir):
     """補助図: MDE の概念を視覚化(supplementary、figure text は英語)"""
     fig, axes = plt.subplots(1, 2, figsize=(15, 6), facecolor=FIG_BG)
+=======
+    """補助図: MDE の概念を視覚化(supplementary、figure text は英語)"""
+    fig, axes = plt.subplots(1, 2, figsize=(15, 6), facecolor=FIG_BG)
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
     fig.suptitle("MDE concept — why power must be quantified for "
                   "'no difference' claims",
                  fontsize=14, fontweight="bold")
@@ -480,6 +502,9 @@ def plot_concept_diagram(out_dir):
     ax = axes[0]
     ax.set_title("(a) p > 0.05 alone is NOT sufficient",
                   fontsize=12, fontweight="bold")
+<<<<<<< HEAD
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
+=======
 >>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
     x = np.linspace(-3, 3, 200)
 
@@ -493,6 +518,7 @@ def plot_concept_diagram(out_dir):
     sd = 1.5
     y1 = np.exp(-(x-0.0)**2 / (2*sd**2))
     y2 = np.exp(-(x-0.5)**2 / (2*sd**2))
+<<<<<<< HEAD
 <<<<<<< HEAD
     
     ax.fill_between(x, y1, alpha=0.3, color=OBS_COL, label="Group 1 (Large SE)")
@@ -513,6 +539,8 @@ def plot_concept_diagram(out_dir):
     ax.set_xlim(-3, 3)
     ax.set_ylim(-0.5, 1.3)
 =======
+=======
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
     ax.fill_between(x, y1, alpha=0.3, color=OBS_COL, label="Group 1 (large SE)")
     ax.fill_between(x, y2, alpha=0.3, color=MDE_COL, label="Group 2 (large SE)")
     ax.axvline(0.0, color=OBS_COL, ls="--", lw=1.5)
@@ -526,11 +554,15 @@ def plot_concept_diagram(out_dir):
              "-> Cannot conclude anything.",
              ha="center", fontsize=10, color="gray")
     ax.set_xlim(-3, 3); ax.set_ylim(-0.55, 1.3)
+<<<<<<< HEAD
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
+=======
 >>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
     ax.set_yticks([])
     ax.legend(loc="upper right")
     ax.grid(alpha=0.2)
 
+<<<<<<< HEAD
 <<<<<<< HEAD
     # -------------------------------------------------------------------------
     # Right: Scenario B (With MDE, "no difference" can be justified)
@@ -556,11 +588,23 @@ def plot_concept_diagram(out_dir):
     ax.fill_between(x, y1b, alpha=0.3, color=OBS_COL, label="Group 1 (small SE)")
     ax.fill_between(x, y2b, alpha=0.3, color=MDE_COL, label="Group 2 (small SE)")
 >>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
+=======
+    # (b) With MDE: 'no difference' claim becomes valid
+    ax = axes[1]
+    ax.set_title("(b) MDE-controlled: 'no difference' claim is valid",
+                  fontsize=12, fontweight="bold")
+    sd2 = 0.5
+    y1b = np.exp(-(x-0.0)**2 / (2*sd2**2))
+    y2b = np.exp(-(x-0.5)**2 / (2*sd2**2))
+    ax.fill_between(x, y1b, alpha=0.3, color=OBS_COL, label="Group 1 (small SE)")
+    ax.fill_between(x, y2b, alpha=0.3, color=MDE_COL, label="Group 2 (small SE)")
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
     ax.axvline(0.0, color=OBS_COL, ls="--", lw=1.5)
     ax.axvline(0.5, color=MDE_COL, ls="--", lw=1.5)
     
     mde_val = 1.96 * np.sqrt(2) * sd2
     ax.axvspan(-mde_val, mde_val, alpha=0.15, color=PASS_COL,
+<<<<<<< HEAD
 <<<<<<< HEAD
                label=f"MDE = ±{mde_val:.2f}")
     
@@ -577,6 +621,8 @@ def plot_concept_diagram(out_dir):
     ax.set_xlim(-3, 3)
     ax.set_ylim(-0.5, 1.3)
 =======
+=======
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
                 label=f"MDE = +/- {mde_val:.2f}")
     ax.text(0.3, 1.1, f"obs diff = 0.5 < MDE\n-> 'could have detected,\n   but no diff. found'",
              ha="center", fontsize=11,
@@ -587,6 +633,9 @@ def plot_concept_diagram(out_dir):
              "we would have detected it.",
              ha="center", fontsize=10, color=PASS_COL, fontweight="bold")
     ax.set_xlim(-3, 3); ax.set_ylim(-0.55, 1.3)
+<<<<<<< HEAD
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
+=======
 >>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
     ax.set_yticks([])
     ax.legend(loc="upper right")
