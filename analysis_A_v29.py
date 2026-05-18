@@ -56,6 +56,10 @@ import matplotlib.patches as mpatches
 from matplotlib.patches import FancyArrowPatch
 from scipy.optimize import curve_fit
 
+# Force ASCII-safe font for figures (avoid square boxes from missing CJK glyphs)
+matplotlib.rcParams["font.family"] = "DejaVu Sans"
+matplotlib.rcParams["axes.unicode_minus"] = False
+
 warnings.filterwarnings("ignore")
 
 
@@ -236,39 +240,33 @@ def fit_and_bootstrap(events, le_inf, n_boot=5000, seed=42):
 def plot_mde_analysis(comparisons, out_dir):
     """
     Horizontal dot-plot showing observed |Δτ| vs MDE for each pair.
-    NS (MDE > obs) = green checkmark
-    Significant (MDE < obs) = red x
+    (図中のテキストは全て英語表示で文字化けを回避)
     """
     fig = plt.figure(figsize=(14, 9), facecolor=FIG_BG)
-    # Main panel for MDE comparison + side panel for explanation
     ax = fig.add_axes([0.36, 0.18, 0.60, 0.72])
 
     n_comp = len(comparisons)
     y_pos = np.arange(n_comp)
 
-    # 描画: 各 pair に対し obs と MDE の点 + 矢印
     for i, c in enumerate(comparisons):
         obs = c["obs_diff"]
         mde = c["mde"]
         ns = obs < mde
 
-        # 横線(0 から MDE まで)
         ax.plot([0, max(obs, mde) * 1.05], [i, i], color="lightgray", lw=1, zorder=1)
 
-        # MDE 点 (青)
         ax.scatter(mde, i, s=350, c=MDE_COL, edgecolors="black", lw=2,
-                    marker="o", zorder=5, label="MDE (検出可能限界)" if i == 0 else "")
+                    marker="o", zorder=5,
+                    label="MDE (detection threshold)" if i == 0 else "")
         ax.text(mde, i + 0.32, f"MDE = {mde:.2f} d",
                  ha="center", fontsize=10, fontweight="bold", color=MDE_COL)
 
-        # Observed |Δτ| 点 (赤)
         ax.scatter(obs, i, s=350, c=OBS_COL, edgecolors="black", lw=2,
                     marker="D", zorder=6,
-                    label="観測 |Δτ|" if i == 0 else "")
-        ax.text(obs, i - 0.32, f"|Δτ| = {obs:.2f} d",
+                    label=r"Observed $|\Delta\tau|$" if i == 0 else "")
+        ax.text(obs, i - 0.32, r"$|\Delta\tau|$" + f" = {obs:.2f} d",
                  ha="center", va="top", fontsize=10, fontweight="bold", color=OBS_COL)
 
-        # 矢印で headroom を示す
         if ns:
             ax.annotate("", xy=(mde, i), xytext=(obs, i),
                          arrowprops=dict(arrowstyle="->", color=PASS_COL, lw=2.5,
@@ -279,46 +277,61 @@ def plot_mde_analysis(comparisons, out_dir):
                      ha="center", va="bottom", fontsize=9, style="italic",
                      color=PASS_COL)
 
-        # 判定マーク
         verdict_x = max(obs, mde) * 1.15
         if ns:
-            ax.text(verdict_x, i, "✓ NS", ha="left", va="center",
-                     fontsize=14, fontweight="bold", color=PASS_COL,
+            ax.text(verdict_x, i, "NS (no diff.)", ha="left", va="center",
+                     fontsize=13, fontweight="bold", color=PASS_COL,
                      bbox=dict(boxstyle="round,pad=0.3", fc="white",
                                ec=PASS_COL, lw=2))
         else:
-            ax.text(verdict_x, i, "✗ Significant", ha="left", va="center",
-                     fontsize=14, fontweight="bold", color=FAIL_COL,
+            ax.text(verdict_x, i, "Significant", ha="left", va="center",
+                     fontsize=13, fontweight="bold", color=FAIL_COL,
                      bbox=dict(boxstyle="round,pad=0.3", fc="white",
                                ec=FAIL_COL, lw=2))
 
-    # Y-axis labels (with τ values)
+    # Y-axis labels — replace Japanese arrows with English
     ax.set_yticks(y_pos)
     ax.set_yticklabels([
-        f"{c['label']}\nτ_1={c['tau1']:.2f}, τ_2={c['tau2']:.2f}\n(SE_1={c['se1']:.2f}, SE_2={c['se2']:.2f})"
+        f"{c['label'].replace(chr(10),' ')}\n"
+        + r"$\tau_1$" + f"={c['tau1']:.2f}, " + r"$\tau_2$" + f"={c['tau2']:.2f}\n"
+        + f"(SE_1={c['se1']:.2f}, SE_2={c['se2']:.2f})"
         for c in comparisons
     ], fontsize=10)
 
+<<<<<<< HEAD
     # X-axis
     ax.set_xlabel("τ difference [days]", fontsize=13, fontweight="bold")
     ax.set_title("Fig 5. MDE analysis — observed |Δτ| vs detection threshold\n"
                   "★ MDE >> observed difference across all pairs → 'no detectable difference' is statistically well-powered",
+=======
+    ax.set_xlabel(r"$\tau$ difference [days]", fontsize=13, fontweight="bold")
+    ax.set_title("Fig 5. MDE analysis — observed " + r"$|\Delta\tau|$"
+                  " vs detection threshold\n"
+                  "All pairs: MDE >> observed difference "
+                  "(no-difference claim is power-supported)",
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
                   fontsize=13, fontweight="bold", pad=12)
     ax.set_xlim(-0.2, max(c["mde"] for c in comparisons) * 1.5)
     ax.set_ylim(-0.6, n_comp - 0.4)
     ax.grid(axis="x", alpha=0.3, lw=0.7)
     ax.spines[["top","right"]].set_visible(False)
 
-    # 凡例
     legend_elements = [
         plt.scatter([], [], s=200, c=OBS_COL, edgecolors="black", marker="D",
+<<<<<<< HEAD
                     label="Observed |Δτ| (Actual difference in timescale)"),
         plt.scatter([], [], s=200, c=MDE_COL, edgecolors="black", marker="o",
                     label="MDE = 1.96 × √(SE₁²+SE₂²) "),
+=======
+                    label=r"Observed $|\Delta\tau|$" + " (actual difference)"),
+        plt.scatter([], [], s=200, c=MDE_COL, edgecolors="black", marker="o",
+                    label=r"MDE = 1.96 $\times \sqrt{SE_1^2 + SE_2^2}$"),
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
     ]
     ax.legend(handles=legend_elements, loc="lower right", fontsize=11,
                framealpha=0.95, edgecolor="black")
 
+<<<<<<< HEAD
     concept_text = (
         "★ MDE (Minimum Detectable\n"
         "    Effect)\n"
@@ -346,12 +359,41 @@ def plot_mde_analysis(comparisons, out_dir):
         "universality."
     )    
 
+=======
+    # Concept box (left side) — English
+    concept_text = (
+        "[ What is MDE? ]\n"
+        "--------------------------\n\n"
+        "Minimum Detectable Effect:\n"
+        "the smallest true difference\n"
+        "this design could detect at\n"
+        "95% confidence.\n\n"
+        "MDE = 1.96 x sqrt(SE1^2+SE2^2)\n"
+        "        ^             ^\n"
+        "      alpha=0.05   bootstrap\n"
+        "                      SE\n\n"
+        "--------------------------\n"
+        "Decision rule:\n"
+        "  obs < MDE -> NS\n"
+        "    = no diff. (power OK)\n\n"
+        "  obs > MDE -> Significant\n"
+        "    = detected real diff.\n\n"
+        "--------------------------\n"
+        "Why MDE matters?\n\n"
+        "p > 0.05 alone means\n"
+        " 'failed to detect'\n"
+        " NOT 'no difference'.\n\n"
+        "MDE proves we COULD have\n"
+        "detected if a real diff.\n"
+        "existed -> universality\n"
+        "claim is supported."
+    )
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
     fig.text(0.03, 0.92, concept_text, fontsize=9, family="monospace",
               va="top", ha="left",
               bbox=dict(boxstyle="round,pad=0.6", fc="#F0F4F8",
                         ec="black", lw=1.5))
 
-    # Save
     out_dir.mkdir(parents=True, exist_ok=True)
     for ext in ["png", "pdf"]:
         fp = out_dir / f"fig05_mde_analysis.{ext}"
@@ -361,6 +403,7 @@ def plot_mde_analysis(comparisons, out_dir):
     plt.close(fig)
 
 
+<<<<<<< HEAD
 # def plot_concept_diagram(out_dir):
 #     """Supplementary figure: Visualizing the MDE concept"""
 #     fig, axes = plt.subplots(1, 2, figsize=(15, 6), facecolor=FIG_BG)
@@ -425,6 +468,19 @@ def plot_concept_diagram(out_dir):
     fig.suptitle("MDE Conceptual Diagram: Requirements for claiming 'No Difference'",
                  fontsize=14, fontweight="bold")
     
+=======
+def plot_concept_diagram(out_dir):
+    """補助図: MDE の概念を視覚化(supplementary、figure text は英語)"""
+    fig, axes = plt.subplots(1, 2, figsize=(15, 6), facecolor=FIG_BG)
+    fig.suptitle("MDE concept — why power must be quantified for "
+                  "'no difference' claims",
+                 fontsize=14, fontweight="bold")
+
+    # (a) Without MDE: p>0.05 alone is insufficient
+    ax = axes[0]
+    ax.set_title("(a) p > 0.05 alone is NOT sufficient",
+                  fontsize=12, fontweight="bold")
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
     x = np.linspace(-3, 3, 200)
 
     # -------------------------------------------------------------------------
@@ -437,6 +493,7 @@ def plot_concept_diagram(out_dir):
     sd = 1.5
     y1 = np.exp(-(x-0.0)**2 / (2*sd**2))
     y2 = np.exp(-(x-0.5)**2 / (2*sd**2))
+<<<<<<< HEAD
     
     ax.fill_between(x, y1, alpha=0.3, color=OBS_COL, label="Group 1 (Large SE)")
     ax.fill_between(x, y2, alpha=0.3, color=MDE_COL, label="Group 2 (Large SE)")
@@ -455,10 +512,26 @@ def plot_concept_diagram(out_dir):
     
     ax.set_xlim(-3, 3)
     ax.set_ylim(-0.5, 1.3)
+=======
+    ax.fill_between(x, y1, alpha=0.3, color=OBS_COL, label="Group 1 (large SE)")
+    ax.fill_between(x, y2, alpha=0.3, color=MDE_COL, label="Group 2 (large SE)")
+    ax.axvline(0.0, color=OBS_COL, ls="--", lw=1.5)
+    ax.axvline(0.5, color=MDE_COL, ls="--", lw=1.5)
+    ax.text(0.3, 1.1, "obs diff = 0.5\np = 0.4 (NS)",
+             ha="center", fontsize=11,
+             bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="black"))
+    ax.text(0.5, -0.35,
+             "Failed to detect, BUT could have missed\n"
+             "a true diff. of 2 as well.\n"
+             "-> Cannot conclude anything.",
+             ha="center", fontsize=10, color="gray")
+    ax.set_xlim(-3, 3); ax.set_ylim(-0.55, 1.3)
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
     ax.set_yticks([])
     ax.legend(loc="upper right")
     ax.grid(alpha=0.2)
 
+<<<<<<< HEAD
     # -------------------------------------------------------------------------
     # Right: Scenario B (With MDE, "no difference" can be justified)
     # -------------------------------------------------------------------------
@@ -472,11 +545,23 @@ def plot_concept_diagram(out_dir):
     
     ax.fill_between(x, y1b, alpha=0.3, color=OBS_COL, label="Group 1 (Small SE)")
     ax.fill_between(x, y2b, alpha=0.3, color=MDE_COL, label="Group 2 (Small SE)")
+=======
+    # (b) With MDE: 'no difference' claim becomes valid
+    ax = axes[1]
+    ax.set_title("(b) MDE-controlled: 'no difference' claim is valid",
+                  fontsize=12, fontweight="bold")
+    sd2 = 0.5
+    y1b = np.exp(-(x-0.0)**2 / (2*sd2**2))
+    y2b = np.exp(-(x-0.5)**2 / (2*sd2**2))
+    ax.fill_between(x, y1b, alpha=0.3, color=OBS_COL, label="Group 1 (small SE)")
+    ax.fill_between(x, y2b, alpha=0.3, color=MDE_COL, label="Group 2 (small SE)")
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
     ax.axvline(0.0, color=OBS_COL, ls="--", lw=1.5)
     ax.axvline(0.5, color=MDE_COL, ls="--", lw=1.5)
     
     mde_val = 1.96 * np.sqrt(2) * sd2
     ax.axvspan(-mde_val, mde_val, alpha=0.15, color=PASS_COL,
+<<<<<<< HEAD
                label=f"MDE = ±{mde_val:.2f}")
     
     ax.text(0.3, 1.1, f"Observed diff = 0.5 < MDE\n→ No difference despite power to detect",
@@ -491,6 +576,18 @@ def plot_concept_diagram(out_dir):
     
     ax.set_xlim(-3, 3)
     ax.set_ylim(-0.5, 1.3)
+=======
+                label=f"MDE = +/- {mde_val:.2f}")
+    ax.text(0.3, 1.1, f"obs diff = 0.5 < MDE\n-> 'could have detected,\n   but no diff. found'",
+             ha="center", fontsize=11,
+             bbox=dict(boxstyle="round,pad=0.3", fc="white", ec=PASS_COL, lw=2))
+    ax.text(0.5, -0.35,
+             "Valid evidence of equality.\n"
+             "If true diff. > MDE existed,\n"
+             "we would have detected it.",
+             ha="center", fontsize=10, color=PASS_COL, fontweight="bold")
+    ax.set_xlim(-3, 3); ax.set_ylim(-0.55, 1.3)
+>>>>>>> 0a3ec924645338a47602cfbd967d831ad6c33b75
     ax.set_yticks([])
     ax.legend(loc="upper right")
     ax.grid(alpha=0.2)
@@ -555,10 +652,10 @@ def main():
     # 4 pairwise comparisons
     print(f"\n--- 4 pairwise MDE ---")
     pairs_def = [
-        ("Oran winter\n↔ Oran summer", fit_o_win, fit_o_sum),
-        ("Oran winter\n↔ Tarazona active", fit_o_win, fit_t_act),
-        ("Oran summer\n↔ Tarazona active", fit_o_sum, fit_t_act),
-        ("Oran active\n↔ Tarazona active", fit_o_act, fit_t_act),
+        ("Oran winter\nvs. Oran summer", fit_o_win, fit_o_sum),
+        ("Oran winter\nvs. Tarazona active", fit_o_win, fit_t_act),
+        ("Oran summer\nvs. Tarazona active", fit_o_sum, fit_t_act),
+        ("Oran active\nvs. Tarazona active", fit_o_act, fit_t_act),
     ]
     comparisons = []
     for label, f1, f2 in pairs_def:
