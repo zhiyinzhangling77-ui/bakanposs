@@ -593,7 +593,7 @@ def plot_asymptote_sensitivity(asym_df, pooled_tau, out):
 
 
 def plot_model_comparison(model_results, grouped, le_inf, out):
-    """fig04: 4 モデル AIC + curve overlay + raw scatter"""
+    """fig04: 4 Models AIC + curve overlay + raw scatter"""
     if model_results is None: return
     fig, axes = plt.subplots(1, 2, figsize=(16, 6))
     fig.patch.set_facecolor(FIG_BG)
@@ -642,7 +642,7 @@ def plot_model_comparison(model_results, grouped, le_inf, out):
             if delta > 0:
                 ax.text(0, bar.get_y()+bar.get_height()/2, f"ΔAIC={delta:.2f}",
                          va="center", ha="left", fontsize=9, color="white", fontweight="bold")
-    _ax(ax, "fig04b — AIC ranking\n指数モデルが ΔAIC>2 で勝てば τ 概念は justified",
+    _ax(ax, "Fig 4b — AIC ranking\nIf exponential model wins by ΔAIC > 2, the τ concept is validated",
         "AIC (lower = better)", "")
 
     plt.tight_layout()

@@ -57,11 +57,12 @@ from scipy.optimize import curve_fit
 warnings.filterwarnings("ignore")
 
 
-# ================================================================
-# CONFIG
-# ================================================================
+# 修正前：
+# INPUT_DIR       = Path("./")
+# PARQUET         = INPUT_DIR / "daily_classified_v4.parquet"
 
-INPUT_DIR       = Path("./")
+# 修正後：
+INPUT_DIR       = Path("/home/shion-nagamine/bakanposs/analysis_A")
 PARQUET         = INPUT_DIR / "daily_classified_v4.parquet"
 TARA_DAILY_CSV  = Path(
     "/home/shion-nagamine/Dataset/Eddy data in Spain/"

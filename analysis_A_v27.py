@@ -421,7 +421,9 @@ def plot_phenology_active(pheno_df, out):
             ax.errorbar(i, row["tau"],
                          yerr=[[row["tau"]-row["ci_lo"]],[row["ci_hi"]-row["tau"]]],
                          color="black", capsize=12, lw=2)
-            ax.text(i, row["tau"]+0.3,
+            
+            x_pos =i + 0.12
+            ax.text(x_pos, row["tau"]+0.3,
                      f"τ={row['tau']:.2f}d\n[{row['ci_lo']:.2f},{row['ci_hi']:.2f}]\n"
                      f"SE={row['tau_se']:.2f}, n_evt={int(row['n_events'])}",
                      ha="center", va="bottom", fontsize=10, fontweight="bold")
@@ -432,7 +434,7 @@ def plot_phenology_active(pheno_df, out):
     ax.set_xticks([0, 1])
     ax.set_xticklabels(pheno_df["label"], fontsize=10, rotation=10)
     _ax(ax, "fig02 — Phenology-matched: Oran active (Nov-Jun) vs Tarazona active (Jun-Sep)\n"
-            "両者とも植物 active growing 状態", "", "τ [days]")
+            "Both during active growing plant growth", "", "τ [days]")
 
     # Verdict
     valid = pheno_df[pheno_df["valid"]]
@@ -445,15 +447,15 @@ def plot_phenology_active(pheno_df, out):
         ci_hi = valid["ci_hi"].values
         ci_overlap = not (ci_hi[0] < ci_lo[1] or ci_hi[1] < ci_lo[0])
         if obs_diff < mde and ci_overlap:
-            verdict = (f"★ 差 {obs_diff:.2f}d < MDE {mde:.2f}d, CI 重なる\n"
-                       f"→ 区別不能 (≡ universality 支持)")
+            verdict = (f"★Gap {obs_diff:.2f}d < MDE {mde:.2f}d, CIs overlap\n"
+                        f"→ Indistinguishable (≡ consistent with universality)")
             vc = "#1D9E75"
         elif obs_diff > mde and not ci_overlap:
-            verdict = (f"⚠ 差 {obs_diff:.2f}d > MDE {mde:.2f}d, CI 重ならず\n"
-                       f"→ 有意に異なる (universality 棄却)")
+            verdict = (f"⚠ Gap {obs_diff:.2f}d > MDE {mde:.2f}d, CIs don't overlap\n"
+                       f"→ Significantly different (universality rejected)")
             vc = "#E85D04"
         else:
-            verdict = f"△ 差 {obs_diff:.2f}d, MDE {mde:.2f}d → 部分的"
+            verdict = f"△ Gap {obs_diff:.2f}d, MDE {mde:.2f}d → Partial"
             vc = "#FFA000"
         ax.text(0.5, 0.97, verdict, transform=ax.transAxes, ha="center", va="top",
                  fontsize=11, fontweight="bold", color=vc,
@@ -485,7 +487,7 @@ def plot_power_analysis(strata_df, mde_df, out):
     if len(valid) > 0:
         ref_const = valid["tau_se"].values[0] * np.sqrt(valid["n_events"].values[0])
         ax.plot(n_grid, ref_const / np.sqrt(n_grid), "k--", alpha=0.5, lw=1,
-                label="∝ 1/√n (理想)")
+                label="∝ 1/√n (reference)")
     ax.set_xscale("log"); ax.set_yscale("log")
     ax.legend(fontsize=9)
     _ax(ax, "fig03a — Per-stratum SE vs n_events", "n events", "τ Standard Error [days]")

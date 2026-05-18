@@ -1,0 +1,3 @@
+site,tau_ec,se_ec,tau_sat,tau_se_sat,ci_lo_sat,ci_hi_sat,n_events,n_obs,amp_sat,le_inf,r2,valid,reason,MDE,diff,significant_diff
+Oran,2.82,0.9,59.99999999992189,,,,10,100,3.9043224764136255,87.71748,-0.0008194704458053259,False,R2=-0.001 <0.3 or tau=60.00 pegged,,,
+Tarazona,3.36,0.62,0.5000000000000001,,,,10,100,12.531327466319624,98.65026,0.18308054474210556,False,R2=0.183 <0.3 or tau=0.50 pegged,,,

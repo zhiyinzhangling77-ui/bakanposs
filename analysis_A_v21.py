@@ -443,7 +443,7 @@ def plot_per_year_tau_ci(year_results_df, tau_all, out):
 
 
 def plot_bin_samples(grouped, out):
-    """fig04: ビンごとのサンプル数(透明性)"""
+    """fig04: bin samples"""
     if grouped is None or len(grouped)<2: return
     fig, ax = plt.subplots(figsize=(11, 5.5))
     fig.patch.set_facecolor(FIG_BG)
@@ -456,8 +456,8 @@ def plot_bin_samples(grouped, out):
     ax.set_xticks(x)
     ax.axhline(5, color="red", ls="--", lw=1, alpha=0.6, label="min ≥5")
     ax.legend(fontsize=9)
-    _ax(ax, f"fig04 — ビンごとのサンプル数 (全 {n.sum()} 日)\n"
-            "ビン中央値の安定性 ∝ サンプル数",
+    _ax(ax, f"fig04 — bin sample ({n.sum()} days)\n"
+            "satability of bin medians ∝ sample size",
         "Days since last irrigation", "Number of daily observations")
     plt.tight_layout()
     fp = out/"fig04_bin_samples.png"

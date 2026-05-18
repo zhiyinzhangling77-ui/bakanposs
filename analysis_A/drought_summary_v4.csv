@@ -1,0 +1,17 @@
+site,drought_type,n_days,LE_corr_mean,H_corr_mean,EF_corr,Bowen_corr,VPD_mean,SWC_mean,GPP_mean,season
+Oran,atm dry,28,30.697,112.433,0.225,5.581,357.96,9.639,-0.002,non-growing
+Oran,compound,99,19.794,106.84,0.157,-1.516,31.075,5.906,0.017,non-growing
+Oran,normal,162,31.599,56.629,0.38,2.572,14.628,15.282,-0.024,non-growing
+Oran,soil dry,28,16.77,106.013,0.158,13.998,20.07,5.801,-0.005,non-growing
+Oran,atm dry,92,76.872,46.482,0.586,1.655,20.218,21.645,0.113,growing
+Oran,compound,149,48.526,95.136,0.351,4.147,80.681,12.33,0.039,growing
+Oran,normal,270,33.665,24.315,0.495,0.765,7.758,22.127,0.022,growing
+Oran,soil dry,92,20.008,30.037,0.094,1.729,6.006,14.322,0.016,growing
+Tarazona,atm dry,24,65.51,64.633,0.472,1.304,453.399,0.156,1.141,non-growing
+Tarazona,compound,10,64.782,66.847,0.353,3.831,580.827,0.137,2.065,non-growing
+Tarazona,normal,27,91.08,58.747,0.627,0.717,90.202,0.178,3.578,non-growing
+Tarazona,soil dry,24,23.339,27.674,0.352,4.171,176.289,0.134,1.31,non-growing
+Tarazona,atm dry,185,204.303,15.458,0.9,0.133,1856.472,0.194,3.706,growing
+Tarazona,compound,188,191.191,24.706,0.892,0.196,1879.582,0.149,3.555,growing
+Tarazona,normal,375,102.438,41.321,0.638,0.656,608.808,0.216,1.679,growing
+Tarazona,soil dry,186,96.285,46.338,0.635,0.636,745.454,0.144,2.499,growing

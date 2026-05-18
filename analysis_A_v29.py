@@ -302,7 +302,7 @@ def plot_mde_analysis(comparisons, out_dir):
     # X-axis
     ax.set_xlabel("τ difference [days]", fontsize=13, fontweight="bold")
     ax.set_title("Fig 5. MDE analysis — observed |Δτ| vs detection threshold\n"
-                  "★ 全 pair で MDE >> 観測差 → 'no detectable difference' は power 担保済",
+                  "★ MDE >> observed difference across all pairs → 'no detectable difference' is statistically well-powered",
                   fontsize=13, fontweight="bold", pad=12)
     ax.set_xlim(-0.2, max(c["mde"] for c in comparisons) * 1.5)
     ax.set_ylim(-0.6, n_comp - 0.4)
@@ -312,39 +312,40 @@ def plot_mde_analysis(comparisons, out_dir):
     # 凡例
     legend_elements = [
         plt.scatter([], [], s=200, c=OBS_COL, edgecolors="black", marker="D",
-                    label="Observed |Δτ| (実際の差)"),
+                    label="Observed |Δτ| (Actual difference in timescale)"),
         plt.scatter([], [], s=200, c=MDE_COL, edgecolors="black", marker="o",
-                    label="MDE = 1.96 × √(SE₁²+SE₂²) (検出可能限界)"),
+                    label="MDE = 1.96 × √(SE₁²+SE₂²) "),
     ]
     ax.legend(handles=legend_elements, loc="lower right", fontsize=11,
                framealpha=0.95, edgecolor="black")
 
-    # 概念ボックス(左サイド)
     concept_text = (
         "★ MDE (Minimum Detectable\n"
-        "    Effect) とは?\n"
+        "    Effect)\n"
         "─────────────────\n\n"
-        "「もし真の差が X 以上あれば\n"
-        " 95% の確率で検出できる」の X\n\n"
+        "The threshold 'X' where:\n"
+        "\"If a true difference ≥ X exists,\n"
+        " we detect it with 95% probability\"\n\n"
         "MDE = 1.96 × √(SE₁² + SE₂²)\n"
         "       ↑              ↑\n"
-        "    α=0.05      bootstrap SE\n\n"
+        "    α=0.05      Bootstrap SE\n\n"
         "─────────────────\n"
-        "判定:\n"
+        "Decision Criteria:\n"
         "  obs < MDE → 'NS'\n"
-        "    = 検出可能なのに差なし\n"
-        "    = 真に同等の証拠\n\n"
+        "    = No diff, despite power to detect\n"
+        "    = Evidence of true equivalence\n\n"
         "  obs > MDE → 'Significant'\n"
-        "    = 有意差検出\n\n"
+        "    = Significant diff detected\n\n"
         "─────────────────\n"
-        "なぜ MDE が必要?\n\n"
-        "通常の p>0.05 は\n"
-        "「差を見つけられなかった」\n"
-        "≠ 「差がない」\n\n"
-        "MDE で 'power 不足ではない'\n"
-        "ことを証明 → universality\n"
-        "主張の根拠"
-    )
+        "Why MDE matters:\n\n"
+        "Standard p > 0.05 only means:\n"
+        "\"Failed to find a difference\"\n"
+        "≠ \"No difference exists\"\n\n"
+        "MDE proves 'not underpowered',\n"
+        "validating the claim of\n"
+        "universality."
+    )    
+
     fig.text(0.03, 0.92, concept_text, fontsize=9, family="monospace",
               va="top", ha="left",
               bbox=dict(boxstyle="round,pad=0.6", fc="#F0F4F8",
@@ -360,63 +361,148 @@ def plot_mde_analysis(comparisons, out_dir):
     plt.close(fig)
 
 
-def plot_concept_diagram(out_dir):
-    """補助図: MDE の概念を視覚化(supplementary)"""
-    fig, axes = plt.subplots(1, 2, figsize=(15, 6), facecolor=FIG_BG)
-    fig.suptitle("MDE 概念図: '差がない' を主張するときに必要な根拠",
-                 fontsize=14, fontweight="bold")
+# def plot_concept_diagram(out_dir):
+#     """Supplementary figure: Visualizing the MDE concept"""
+#     fig, axes = plt.subplots(1, 2, figsize=(15, 6), facecolor=FIG_BG)
+#     fig.suptitle("MDE Conceptual Diagram: Requirements for claiming 'No Difference'",
+#                  fontsize=14, fontweight="bold")
 
-    # 左: シナリオ A (p>0.05 だけだと不十分)
-    ax = axes[0]
-    ax.set_title("(a) p > 0.05 だけでは不十分", fontsize=12, fontweight="bold")
-    # 2 つの分布(平均ほぼ同じ、SE 大)
+#     # 左: シナリオ A (p>0.05 だけだと不十分)
+#     ax = axes[0]
+#     ax.set_title("(a) p > 0.05 alone is insufficient", fontsize=12, fontweight="bold")
+#              ha="center", fontsize=11,
+#              bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="black"))
+#     ax.text(0.5, -0.3,
+#              "→ 「差を見つけられなかった」\n  しかし真の差が 2 でも検出できなかったかも\n  = 結論できない",
+#              ha="center", fontsize=10, color="gray")
+#     ax.set_xlim(-3, 3); ax.set_ylim(-0.5, 1.3)
+#     ax.set_yticks([])
+#     ax.legend(loc="upper right"); ax.grid(alpha=0.2)
+
+#     # 右: シナリオ B (MDE 込みなら "no difference" 言える)
+#     ax = axes[1]
+#     ax.set_title("(b) MDE 込みなら 'no difference' 主張可能", fontsize=12, fontweight="bold")
+#     sd2 = 0.5
+#     y1b = np.exp(-(x-0.0)**2 / (2*sd2**2))
+#     y2b = np.exp(-(x-0.5)**2 / (2*sd2**2))
+#     ax.fill_between(x, y1b, alpha=0.3, color=OBS_COL, label="Group 1 (Small SE)")
+#     ax.fill_between(x, y2b, alpha=0.3, color=MDE_COL, label="Group 2 (Small SE)")
+#     ax.axvline(0.0, color=OBS_COL, ls="--", lw=1.5)
+#     ax.axvline(0.5, color=MDE_COL, ls="--", lw=1.5)
+#     mde_val = 1.96 * np.sqrt(2) * sd2
+#     ax.axvspan(-mde_val, mde_val, alpha=0.15, color=PASS_COL,
+#                 label=f"MDE = ±{mde_val:.2f}")
+#     ax.text(0.3, 1.1, f"Observed diff = 0.5\np = 0.4 (NS)",
+#              ha="center", fontsize=11,
+#              bbox=dict(boxstyle="round,pad=0.3", fc="white", ec=PASS_COL, lw=2))
+#     ax.text(0.5, -0.3,
+#             "→ 'Failed to find a difference'\n"
+#             "   However, a true difference of 2.0 could still go undetected.\n"
+#             "   = Inconclusive (Underpowered)",
+#              ha="center", fontsize=10, color=PASS_COL, fontweight="bold")
+#     ax.set_xlim(-3, 3); ax.set_ylim(-0.5, 1.3)
+#     ax.set_yticks([])
+#     ax.legend(loc="upper right"); ax.grid(alpha=0.2)
+
+#     plt.tight_layout()
+#     fp = out_dir / "fig05_concept_diagram.png"
+#     fig.savefig(fp, dpi=200, bbox_inches="tight", facecolor=FIG_BG)
+#     plt.close(fig)
+#     print(f"  [save] {fp}")   # 2 つの分布(平均ほぼ同じ、SE 大)
+#     x = np.linspace(-3, 3, 200)
+#     sd = 1.5
+#     y1 = np.exp(-(x-0.0)**2 / (2*sd**2))
+#     y2 = np.exp(-(x-0.5)**2 / (2*sd**2))
+#     ax.fill_between(x, y1, alpha=0.3, color=OBS_COL, label="Group 1 (Large SE)")
+#     ax.fill_between(x, y2, alpha=0.3, color=MDE_COL, label="Group 2 (Large SE)")
+#     ax.axvline(0.0, color=OBS_COL, ls="--", lw=1.5)
+#     ax.axvline(0.5, color=MDE_COL, ls="--", lw=1.5)
+#     ax.text(0.3, 1.1, "obs diff = 0.5\np = 0.4 (NS)",
+ 
+def plot_concept_diagram(out_dir):
+    """Supplementary figure: Visualizing the MDE concept"""
+    fig, axes = plt.subplots(1, 2, figsize=(15, 6), facecolor=FIG_BG)
+    fig.suptitle("MDE Conceptual Diagram: Requirements for claiming 'No Difference'",
+                 fontsize=14, fontweight="bold")
+    
     x = np.linspace(-3, 3, 200)
+
+    # -------------------------------------------------------------------------
+    # Left: Scenario A (p > 0.05 alone is insufficient)
+    # -------------------------------------------------------------------------
+    ax = axes[0]
+    ax.set_title("(a) p > 0.05 alone is insufficient", fontsize=12, fontweight="bold")
+    
+    # Large SE distributions
     sd = 1.5
     y1 = np.exp(-(x-0.0)**2 / (2*sd**2))
     y2 = np.exp(-(x-0.5)**2 / (2*sd**2))
-    ax.fill_between(x, y1, alpha=0.3, color=OBS_COL, label="Group 1 (SE 大)")
-    ax.fill_between(x, y2, alpha=0.3, color=MDE_COL, label="Group 2 (SE 大)")
+    
+    ax.fill_between(x, y1, alpha=0.3, color=OBS_COL, label="Group 1 (Large SE)")
+    ax.fill_between(x, y2, alpha=0.3, color=MDE_COL, label="Group 2 (Large SE)")
     ax.axvline(0.0, color=OBS_COL, ls="--", lw=1.5)
     ax.axvline(0.5, color=MDE_COL, ls="--", lw=1.5)
-    ax.text(0.3, 1.1, "obs diff = 0.5\np = 0.4 (NS)",
-             ha="center", fontsize=11,
-             bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="black"))
+    
+    ax.text(0.3, 1.1, "Observed diff = 0.5\np = 0.4 (NS)",
+            ha="center", fontsize=11,
+            bbox=dict(boxstyle="round,pad=0.3", fc="white", ec="black"))
+    
     ax.text(0.5, -0.3,
-             "→ 「差を見つけられなかった」\n  しかし真の差が 2 でも検出できなかったかも\n  = 結論できない",
-             ha="center", fontsize=10, color="gray")
-    ax.set_xlim(-3, 3); ax.set_ylim(-0.5, 1.3)
+            "→ 'Failed to find a difference'\n"
+            "   However, a true difference of 2.0 could still go undetected.\n"
+            "   = Inconclusive (Underpowered)",
+            ha="center", fontsize=10, color="gray")
+    
+    ax.set_xlim(-3, 3)
+    ax.set_ylim(-0.5, 1.3)
     ax.set_yticks([])
-    ax.legend(loc="upper right"); ax.grid(alpha=0.2)
+    ax.legend(loc="upper right")
+    ax.grid(alpha=0.2)
 
-    # 右: シナリオ B (MDE 込みなら "no difference" 言える)
+    # -------------------------------------------------------------------------
+    # Right: Scenario B (With MDE, "no difference" can be justified)
+    # -------------------------------------------------------------------------
     ax = axes[1]
-    ax.set_title("(b) MDE 込みなら 'no difference' 主張可能", fontsize=12, fontweight="bold")
+    ax.set_title("(b) With MDE, 'No Difference' is supportable", fontsize=12, fontweight="bold")
+    
+    # Small SE distributions
     sd2 = 0.5
     y1b = np.exp(-(x-0.0)**2 / (2*sd2**2))
     y2b = np.exp(-(x-0.5)**2 / (2*sd2**2))
-    ax.fill_between(x, y1b, alpha=0.3, color=OBS_COL, label="Group 1 (SE 小)")
-    ax.fill_between(x, y2b, alpha=0.3, color=MDE_COL, label="Group 2 (SE 小)")
+    
+    ax.fill_between(x, y1b, alpha=0.3, color=OBS_COL, label="Group 1 (Small SE)")
+    ax.fill_between(x, y2b, alpha=0.3, color=MDE_COL, label="Group 2 (Small SE)")
     ax.axvline(0.0, color=OBS_COL, ls="--", lw=1.5)
     ax.axvline(0.5, color=MDE_COL, ls="--", lw=1.5)
+    
     mde_val = 1.96 * np.sqrt(2) * sd2
     ax.axvspan(-mde_val, mde_val, alpha=0.15, color=PASS_COL,
-                label=f"MDE = ±{mde_val:.2f}")
-    ax.text(0.3, 1.1, f"obs diff = 0.5 < MDE\n→ '検出可能だったが差なし'",
-             ha="center", fontsize=11,
-             bbox=dict(boxstyle="round,pad=0.3", fc="white", ec=PASS_COL, lw=2))
+               label=f"MDE = ±{mde_val:.2f}")
+    
+    ax.text(0.3, 1.1, f"Observed diff = 0.5 < MDE\n→ No difference despite power to detect",
+            ha="center", fontsize=11,
+            bbox=dict(boxstyle="round,pad=0.3", fc="white", ec=PASS_COL, lw=2))
+    
     ax.text(0.5, -0.3,
-             "→ ★ 真に同等の証拠\n  「もし差があれば MDE 以上なら必ず検出」\n  = 主張できる",
-             ha="center", fontsize=10, color=PASS_COL, fontweight="bold")
-    ax.set_xlim(-3, 3); ax.set_ylim(-0.5, 1.3)
+            "→ ★ Evidence of true equivalence\n"
+            "   'If a true difference ≥ MDE existed, we would have detected it.'\n"
+            "   = Validates the claim of universality",
+            ha="center", fontsize=10, color=PASS_COL, fontweight="bold")
+    
+    ax.set_xlim(-3, 3)
+    ax.set_ylim(-0.5, 1.3)
     ax.set_yticks([])
-    ax.legend(loc="upper right"); ax.grid(alpha=0.2)
+    ax.legend(loc="upper right")
+    ax.grid(alpha=0.2)
 
+    # -------------------------------------------------------------------------
+    # Save Figure
+    # -------------------------------------------------------------------------
     plt.tight_layout()
     fp = out_dir / "fig05_concept_diagram.png"
     fig.savefig(fp, dpi=200, bbox_inches="tight", facecolor=FIG_BG)
     plt.close(fig)
     print(f"  [save] {fp}")
-
 
 # ================================================================
 # MAIN

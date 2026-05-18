@@ -382,7 +382,7 @@ def plot_poster_main(strata, fit_oran_a, fit_tara_a, out_dir):
     fig.suptitle(
         "ET recovery dynamics in Mediterranean drylands —\n"
         "universal timescale (τ ≈ 3 d), management-scaled amplitude (~4×)",
-        fontsize=15, fontweight="bold", y=0.99)
+        fontsize=10, fontweight="bold", y=0.99)
 
     # ── Save (PNG + PDF) ──
     out_dir.mkdir(parents=True, exist_ok=True)

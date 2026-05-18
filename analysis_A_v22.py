@@ -306,6 +306,7 @@ def jackknife_tau(arr_d, arr_y, min_per_bin, bounds_3p, bounds_2p, le_inf_fixed,
 # 5. 可視化
 # ================================================================
 
+
 def _ax(ax, title="", xl="", yl=""):
     ax.set_title(title, fontweight="bold", fontsize=11, pad=6)
     ax.set_xlabel(xl, fontsize=10); ax.set_ylabel(yl, fontsize=10)
@@ -340,7 +341,7 @@ def plot_recovery_both(res, out):
     # Observed bin medians
     sizes = 40 + n_per * 3
     ax.scatter(x_obs, y_obs, s=sizes, c="#1D9E75", edgecolors="black", lw=1,
-                zorder=10, label="観測ビン中央値 (size ∝ n)")
+                zorder=10, label="Median of observed bins (size ∝ n)")
     for xi, yi, ni in zip(x_obs, y_obs, n_per):
         ax.annotate(f"n={int(ni)}", (xi, yi), xytext=(5, 5),
                      textcoords="offset points", fontsize=7.5, color="#555")
