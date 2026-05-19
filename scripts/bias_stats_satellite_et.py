@@ -2,19 +2,29 @@
 scripts/bias_stats_satellite_et.py
 ==================================
 
-Section 10 of SATELLITE_ET_NOTES.md を再現する集計スクリプト。
+SATELLITE_ET_NOTES.md §10 を再現する集計スクリプト。
 
 入力:
   --master  data/master_full_v2.csv
-            列: date, site, ET_mm (EC), ET_metv3_mm (sat), metv3_qflag, Ta_min, ...
+            列: date, site, ET_mm (EC), ET_metv3_mm (sat),
+                  metv3_qflag, Ta_min, ...
+            注: site ラベルは "Oran" / "TzM"。スクリプト内で
+                TzM → Tarazona にリネームする。
 
-処理 (fair comparison, per site):
-  1. qflag フィルタ:    metv3_qflag <= QFLAG_MAX (default 1)
-  2. 雪/凍結日除外:     Ta_min > FREEZE_TA_MIN_THRESHOLD (default 0 °C)
-  3. 両方が値を持つ日のみ (paired comparison)
-  4. 統計量を算出:      n, mean_ec, mean_sat, bias, bias_pct,
-                         rmse, r (Pearson), KGE
-  5. CSV と scatter 図 (pair plot) を出力
+qflag の扱い:
+  master_full_v2.csv の `metv3_qflag` は 30-min raw quality_flag
+  (LSA SAF DMET の bitmask 整数) を 1 日 48 ステップ平均したもの。
+  実測値は 1240–1983 の範囲で、§5 メモの「0–3 スケール」は raw flag の
+  ビット解釈の話。daily 平均値に閾値を当てる意味はない。
+  → cloudy day の品質確保は load_metv3.py が n_obs < 36 で NaN 化済。
+  → デフォルトでは qflag 追加フィルタなし(--qflag-pct で上位 % 切れる)。
+
+処理 (per site):
+  1. site 名を統一 (TzM → Tarazona)
+  2. (optional) qflag percentile filter
+  3. 雪/凍結日除外: Ta_min > FREEZE_TA (default 0 °C)
+  4. 両方が値を持つ日のみ
+  5. 統計量: n, mean_ec, mean_sat, bias, bias_pct, rmse, r, KGE
 
 出力: ./output_bias_stats/
   bias_stats_summary.csv         サイト別 1 行
@@ -22,7 +32,7 @@ Section 10 of SATELLITE_ET_NOTES.md を再現する集計スクリプト。
 
 使い方:
   python3 scripts/bias_stats_satellite_et.py
-  python3 scripts/bias_stats_satellite_et.py --qflag-max 1 --freeze-ta 0
+  python3 scripts/bias_stats_satellite_et.py --qflag-pct 0.8  # best 80%
 """
 
 from __future__ import annotations
@@ -39,14 +49,17 @@ matplotlib.rcParams["font.family"] = "DejaVu Sans"
 matplotlib.rcParams["axes.unicode_minus"] = False
 
 SITES = ["Oran", "Tarazona"]
+SITE_RENAME = {"TzM": "Tarazona"}     # master uses TzM internally
 SITE_COL = {"Oran": "#E85D04", "Tarazona": "#1D9E75"}
 
 
 def parse_args():
     p = argparse.ArgumentParser(description="EC vs METv3 bias stats")
     p.add_argument("--master", default="data/master_full_v2.csv")
-    p.add_argument("--qflag-max", type=float, default=1.0,
-                   help="metv3_qflag の上限 (default 1 = good+nominal)")
+    p.add_argument("--qflag-pct", type=float, default=None,
+                   help="0-1: keep only days with metv3_qflag in the best "
+                          "qflag-pct fraction per site. None = no filter "
+                          "(default; relies on load_metv3.py n_obs filter).")
     p.add_argument("--freeze-ta", type=float, default=0.0,
                    help="Ta_min がこの値以下の日を除外 [°C]")
     p.add_argument("--out", default="output_bias_stats")
@@ -67,11 +80,15 @@ def kge(obs: np.ndarray, sim: np.ndarray) -> float:
 
 
 def stats_per_site(df: pd.DataFrame, site: str,
-                    qflag_max: float, freeze_ta: float) -> dict:
+                    qflag_pct: float | None, freeze_ta: float) -> dict:
     sub = df[df["site"] == site].copy()
     n_raw = len(sub)
 
-    sub = sub[sub["metv3_qflag"] <= qflag_max]
+    if qflag_pct is not None and 0 < qflag_pct < 1 and len(sub) > 10:
+        # lower qflag value = better quality (typical convention).
+        # keep the best `qflag_pct` fraction.
+        thr = sub["metv3_qflag"].quantile(qflag_pct)
+        sub = sub[sub["metv3_qflag"] <= thr]
     n_after_qflag = len(sub)
 
     if "Ta_min" in sub.columns:
@@ -114,11 +131,13 @@ def stats_per_site(df: pd.DataFrame, site: str,
 
 
 def draw_scatter(df: pd.DataFrame, results: list[dict], out_png: Path,
-                  qflag_max: float, freeze_ta: float):
+                  qflag_pct: float | None, freeze_ta: float):
     fig, axes = plt.subplots(1, 2, figsize=(11, 5), facecolor="white")
     for ax, site in zip(axes, SITES):
         sub = df[df["site"] == site].copy()
-        sub = sub[sub["metv3_qflag"] <= qflag_max]
+        if qflag_pct is not None and 0 < qflag_pct < 1 and len(sub) > 10:
+            thr = sub["metv3_qflag"].quantile(qflag_pct)
+            sub = sub[sub["metv3_qflag"] <= thr]
         if "Ta_min" in sub.columns:
             sub = sub[sub["Ta_min"].fillna(99) > freeze_ta]
         sub = sub.dropna(subset=["ET_mm", "ET_metv3_mm"])
@@ -150,8 +169,10 @@ def draw_scatter(df: pd.DataFrame, results: list[dict], out_png: Path,
         ax.set_title(site, fontsize=12, weight="bold", loc="left")
         ax.grid(alpha=0.25)
 
+    qf_str = "no qflag filter" if qflag_pct is None \
+                 else f"qflag best {int(qflag_pct*100)}%"
     fig.suptitle(
-        f"EC vs Meteosat ETv3 (qflag ≤ {qflag_max:.0f}, Ta_min > {freeze_ta:.0f} °C)",
+        f"EC vs Meteosat ETv3  ({qf_str}, Ta_min > {freeze_ta:.0f} °C)",
         fontsize=12, weight="bold", y=0.99)
     fig.tight_layout()
     fig.savefig(out_png, dpi=200, bbox_inches="tight")
@@ -165,23 +186,31 @@ def main():
 
     print("=" * 60)
     print("EC vs Meteosat ETv3 — bias statistics")
-    print(f"  qflag_max = {args.qflag_max}, freeze_ta = {args.freeze_ta} °C")
+    print(f"  qflag_pct = {args.qflag_pct}, freeze_ta = {args.freeze_ta} °C")
     print(f"  master    = {args.master}")
     print(f"  out       = {out}")
     print("=" * 60)
 
     df = pd.read_csv(args.master)
     df["date"] = pd.to_datetime(df["date"], errors="coerce")
+    df["site"] = df["site"].replace(SITE_RENAME)
     print(f"  raw rows: {len(df):,}")
+    print(f"  sites after rename: "
+            f"{df['site'].value_counts().to_dict()}")
 
     needed = ["ET_mm", "ET_metv3_mm", "metv3_qflag"]
     missing = [c for c in needed if c not in df.columns]
     if missing:
         raise SystemExit(f"[FATAL] master file missing columns: {missing}")
 
+    qf_desc = df["metv3_qflag"].describe()
+    print(f"  metv3_qflag range: [{qf_desc['min']:.0f}, "
+            f"{qf_desc['max']:.0f}] "
+            f"(daily mean of raw bitmask; ≤1 thresholding NOT applicable)")
+
     results = []
     for s in SITES:
-        r = stats_per_site(df, s, args.qflag_max, args.freeze_ta)
+        r = stats_per_site(df, s, args.qflag_pct, args.freeze_ta)
         results.append(r)
         if r["valid"]:
             print(f"\n  {s}:")
@@ -205,7 +234,7 @@ def main():
     print(f"\n  [save] {csv_fp}")
 
     fig_fp = out / "fig_scatter_ec_vs_metv3.png"
-    draw_scatter(df, results, fig_fp, args.qflag_max, args.freeze_ta)
+    draw_scatter(df, results, fig_fp, args.qflag_pct, args.freeze_ta)
 
     print(f"\n[done] {out}/")
 

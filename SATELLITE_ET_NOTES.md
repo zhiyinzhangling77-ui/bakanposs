@@ -66,7 +66,16 @@ LSA SAF DMET の品質フラグ:
 | 2–3 | reduced quality (薄雲、低照度など) |
 | 負値 / 大値 | invalid (fill, cloud, snow, etc.) |
 
-論文・ポスターで使うときは **qflag ≤ 1** で絞るのが標準。raw データではなく品質フィルタ後の値を提示。
+論文・ポスターで使うときは **raw 30-min qflag ≤ 1** で絞るのが標準。raw データではなく品質フィルタ後の値を提示。
+
+> **注**: 本リポジトリの `metv3_daily_all.csv` / `master_full_v2.csv` の
+> `metv3_qflag` カラムは raw flag (bitmask 整数) を 1 日 48 ステップで
+> *平均した* 値なので、実測値は 1240–1983 の範囲に入る。
+> 0–3 スケールの閾値はこの daily 平均値には適用できない。
+> 雲日の品質確保は既に `scripts/load_metv3.py` が `n_obs < 36` で
+> NaN 化することで済ませている。
+> 追加で日次を絞りたい場合は **percentile-based**
+> (`bias_stats_satellite_et.py --qflag-pct 0.8` で best 80%)で。
 
 ---
 
