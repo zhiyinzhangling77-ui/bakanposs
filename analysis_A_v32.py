@@ -135,10 +135,32 @@ def load_bias_summary(fp: Path) -> dict:
     )
 
 
+def _load_tara_ec_csv(tara_csv: Path) -> pd.DataFrame | None:
+    """CSV-only fallback when parquet engine unavailable."""
+    if not tara_csv.exists():
+        return None
+    raw = pd.read_csv(tara_csv)
+    raw["date"] = pd.to_datetime(raw["date"], errors="coerce")
+    le_col = next((c for c in ["LE_corr", "LE", "LE_EC", "LE_Wm2"]
+                       if c in raw.columns), None)
+    if le_col is None:
+        return None
+    out = pd.DataFrame({
+        "date": raw["date"],
+        "LE_EC": pd.to_numeric(raw[le_col], errors="coerce"),
+    })
+    if "Irrig_mm" in raw.columns:
+        out["Irrig_mm"] = pd.to_numeric(raw["Irrig_mm"], errors="coerce").fillna(0)
+    else:
+        out["Irrig_mm"] = 0.0
+    return out.dropna(subset=["date"]).drop_duplicates("date")
+
+
 def load_timeseries(parquet: Path, tara_csv: Path, metv3_csv: Path,
                      season_start: pd.Timestamp, season_end: pd.Timestamp
                      ) -> pd.DataFrame | None:
-    """Panel (a) の時系列 zoom 用。失敗しても None を返し panel (a) スキップ."""
+    """Panel (a) 用. parquet を試し、失敗したら tara_csv 単独で組む."""
+    tara = None
     try:
         daily = pd.read_parquet(parquet)
         daily["date"] = pd.to_datetime(daily["date"])
@@ -148,27 +170,34 @@ def load_timeseries(parquet: Path, tara_csv: Path, metv3_csv: Path,
         elif "LE_corr" in tara.columns:
             tara = tara.rename(columns={"LE_corr": "LE"})
         tara["LE_EC"] = pd.to_numeric(tara["LE"], errors="coerce")
-
         raw = pd.read_csv(tara_csv)
         raw["date"] = pd.to_datetime(raw["date"], errors="coerce")
         if "Irrig_mm" in raw.columns:
             irrig = raw[["date", "Irrig_mm"]].dropna(subset=["date"]).drop_duplicates("date")
             tara = tara.merge(irrig, on="date", how="left")
         tara["Irrig_mm"] = tara.get("Irrig_mm", 0).fillna(0)
+        tara = tara[["date", "LE_EC", "Irrig_mm"]]
+    except Exception as e:
+        print(f"  [warn] parquet load failed ({type(e).__name__}: {e})")
+        print(f"         tara CSV を直接使います")
+        tara = _load_tara_ec_csv(tara_csv)
+        if tara is None:
+            print(f"  [warn] tara CSV からも EC 取れず → panel (a) スキップ")
+            return None
 
+    try:
         met = pd.read_csv(metv3_csv)
         met["date"] = pd.to_datetime(met["date"], errors="coerce")
         met = met[met["site"].isin(["Tarazona", "TzM"])].copy()
         met["LE_MET"] = pd.to_numeric(met["ET_mm"], errors="coerce") * LE_PER_MM
         met = met[["date", "LE_MET"]].drop_duplicates("date")
-
-        out = tara[["date", "LE_EC", "Irrig_mm"]].merge(met, on="date", how="outer")
-        out = out[(out["date"] >= season_start) & (out["date"] <= season_end)]
-        return out.sort_values("date").reset_index(drop=True)
     except Exception as e:
-        print(f"  [warn] timeseries load failed ({type(e).__name__}: {e})")
-        print(f"         panel (a) を簡易版で描画します")
+        print(f"  [warn] METv3 CSV load failed ({type(e).__name__}: {e})")
         return None
+
+    out = tara.merge(met, on="date", how="outer")
+    out = out[(out["date"] >= season_start) & (out["date"] <= season_end)]
+    return out.sort_values("date").reset_index(drop=True)
 
 
 # ================================================================
@@ -342,43 +371,74 @@ def draw_panel_b(ax, df_pool: pd.DataFrame, fit_res: dict,
     ax.grid(alpha=0.25, axis="y")
 
 
+def _metv3_is_valid(metv3: dict) -> bool:
+    """Reject pegged-at-floor / pegged-at-ceil / very-low R² fits."""
+    if metv3 is None: return False
+    tau = metv3.get("tau", np.nan)
+    r2  = metv3.get("r2", np.nan)
+    if np.isnan(tau): return False
+    if tau <= TAU_FLOOR + 0.05 or tau >= TAU_CEIL - 0.5: return False
+    if not np.isnan(r2) and r2 < 0.3: return False
+    return True
+
+
 def draw_panel_c(ax, ec_ref: dict, metv3: dict, bias: dict):
-    labels = [
-        f"EC\n(τ_EC)",
-        f"Meteosat ETv3\n(τ_Sat)",
-        f"Bias = EC−Sat\n(τ_bias)",
-    ]
-    taus = [ec_ref["tau"], metv3["tau"], bias["tau_bias"]]
+    metv3_valid = _metv3_is_valid(metv3)
+
+    labels_full = ["EC\n(τ_EC)", "Meteosat ETv3\n(τ_Sat)",
+                       "Bias = EC−Sat\n(τ_bias)"]
+    taus = [ec_ref["tau"],
+              metv3["tau"] if metv3_valid else 0.0,
+              bias["tau_bias"]]
     err_lo = [ec_ref["tau"] - ec_ref["ci_lo"],
-                metv3["tau"] - metv3["ci_lo"] if not np.isnan(metv3["ci_lo"]) else 0,
-                bias["tau_bias"] - bias["tau_ci_lo"]]
+                  max(metv3["tau"] - metv3["ci_lo"], 0.0) if metv3_valid else 0.0,
+                  max(bias["tau_bias"] - bias["tau_ci_lo"], 0.0)]
     err_hi = [ec_ref["ci_hi"] - ec_ref["tau"],
-                metv3["ci_hi"] - metv3["tau"] if not np.isnan(metv3["ci_hi"]) else 0,
-                bias["tau_ci_hi"] - bias["tau_bias"]]
+                  max(metv3["ci_hi"] - metv3["tau"], 0.0) if metv3_valid else 0.0,
+                  max(bias["tau_ci_hi"] - bias["tau_bias"], 0.0)]
     cols = [EC_COL, METV3_COL, BIAS_COL]
-    xs = np.arange(len(labels))
+    xs = np.arange(len(labels_full))
+
+    # set ylim early so text positions can reference it
+    y_max = max(ec_ref["ci_hi"], bias["tau_ci_hi"]) * 1.35
+    ax.set_ylim(0, y_max)
 
     # universal 3-4 d band
     ax.axhspan(3.0, 4.0, color="#1D9E75", alpha=0.10, zorder=0,
                   label="Analysis-A universal band (3–4 d)")
 
-    bars = ax.bar(xs, taus, color=cols, alpha=0.85, edgecolor="black", lw=0.8,
+    # bars: draw EC + Bias normally; METv3 either bar or hatched placeholder
+    for i, (x, t, c) in enumerate(zip(xs, taus, cols)):
+        if i == 1 and not metv3_valid:
+            ax.bar(x, y_max * 0.7, color="none", edgecolor=METV3_COL,
+                     lw=1.2, hatch="///", alpha=0.35, zorder=3)
+        else:
+            ax.bar(x, t, color=c, alpha=0.85, edgecolor="black", lw=0.8,
                      zorder=3)
-    ax.errorbar(xs, taus, yerr=[err_lo, err_hi], fmt="none",
-                  ecolor="black", capsize=6, lw=1.5, zorder=4)
 
-    for x, tau, se in zip(xs, taus,
-                              [ec_ref["se"], metv3["se"], bias["tau_se_bias"]]):
-        se_str = f"SE={se:.2f}" if not np.isnan(se) else "SE=NA"
-        ax.text(x, tau + 0.25,
-                  f"{tau:.2f} d\n{se_str}",
-                  ha="center", va="bottom", fontsize=9, weight="bold")
+    # errorbars only for valid bars
+    valid_mask = [True, metv3_valid, True]
+    for i, ok in enumerate(valid_mask):
+        if not ok: continue
+        ax.errorbar(xs[i], taus[i], yerr=[[err_lo[i]], [err_hi[i]]],
+                      fmt="none", ecolor="black", capsize=6, lw=1.5, zorder=4)
+
+    # annotations
+    se_list = [ec_ref["se"], metv3["se"], bias["tau_se_bias"]]
+    for i, (x, t, se) in enumerate(zip(xs, taus, se_list)):
+        if i == 1 and not metv3_valid:
+            ax.text(x, ax.get_ylim()[1] * 0.05,
+                      "No detectable\nrecovery\n(τ pegged at floor,\n R² ≈ 0)",
+                      ha="center", va="bottom", fontsize=9, color=METV3_COL,
+                      weight="bold")
+        else:
+            se_str = f"SE={se:.2f}" if not np.isnan(se) else "SE=NA"
+            ax.text(x, t + 0.25, f"{t:.2f} d\n{se_str}",
+                      ha="center", va="bottom", fontsize=9, weight="bold")
 
     ax.set_xticks(xs)
-    ax.set_xticklabels(labels, fontsize=10)
+    ax.set_xticklabels(labels_full, fontsize=10)
     ax.set_ylabel("τ [d]", fontsize=11)
-    ax.set_ylim(0, max(taus + err_hi) * 1.35 if max(err_hi) > 0
-                      else max(taus) * 1.45)
     ax.set_title("(c) τ comparison: EC vs Sat vs Bias",
                     fontsize=12, loc="left", weight="bold")
     ax.legend(loc="upper left", fontsize=9, framealpha=0.9)
@@ -403,8 +463,8 @@ def make_figure(out_dir: Path, ts, df_pool, summary, metv3,
     ax_c = fig.add_subplot(gs[1, 1])
 
     fig.suptitle(
-        "Tarazona irrigation blind spot — Meteosat ETv3 misses the management amplitude\n"
-        f"(τ_sat ≈ τ_EC, but Sat amplitude ≪ EC amplitude)",
+        "Tarazona irrigation blind spot — Meteosat ETv3 is flat to drip irrigation\n"
+        "while the bias itself recovers on the Analysis-A timescale (τ ≈ 3–4 d)",
         fontsize=14, weight="bold", y=0.985)
 
     draw_panel_a(ax_a, ts, season_start, season_end)
@@ -469,23 +529,30 @@ Panel reading guide
        τ_EC = {EC_TAU_REF['tau']:.2f} d  [{EC_TAU_REF['ci_lo']:.2f}, {EC_TAU_REF['ci_hi']:.2f}]
        amp = {EC_TAU_REF['amplitude']:.0f} W m⁻²
     2) Meteosat ETv3 alone, same events:
-       τ_Sat = {metv3['tau']:.2f} d  [{metv3['ci_lo']:.2f}, {metv3['ci_hi']:.2f}]
+       τ_Sat = {metv3['tau']:.2f} d  (R² = {metv3.get('r2', float('nan')):.2f})
+       → fit hits the lower boundary with R² ≈ 0, i.e. the satellite
+         time series is essentially flat across the irrigation
+         pulse — no detectable exponential recovery.
     3) Bias = EC − Sat:
        τ_bias = {summary['tau_bias']:.2f} d
        [{summary['tau_ci_lo']:.2f}, {summary['tau_ci_hi']:.2f}]
        amp_bias = {summary['amplitude']:.1f} W m⁻²
     Green band = Analysis-A universal range (3-4 d).
-    All three bars overlap → satellite reproduces the universal
-    timescale; the entire management amplitude (~95 W m⁻², matching
-    EC amplitude) is captured in the bias.
+    The Sat bar is shown hatched because the fit pegs at the τ floor
+    with R² ≈ 0 — i.e. the satellite is statistically *flat* through
+    the event window.  The EC and Bias bars both fall within the
+    Analysis-A universal band (3–4 d), and the bias amplitude
+    (~95 W m⁻²) is essentially equal to the EC amplitude.
 
 ------------------------------------------------------------------
 Take-home message
 ------------------------------------------------------------------
-The satellite product is NOT broken in time — it sees the same
-~3 d recovery as the EC tower.  What it misses is the *magnitude*
-of the irrigation pulse: the bias amplitude is essentially equal
-to the EC amplitude (≈ 95 W m⁻²).
+At Tarazona, Meteosat ETv3 shows **no detectable exponential
+response** to drip irrigation events on the 3–4 d Analysis-A
+timescale (τ floored, R² ≈ 0).  Because the EC tower *does* show
+that recovery, the bias (EC − Sat) inherits the *entire*
+management signal: its amplitude ≈ EC amplitude (~95 W m⁻²) and
+its τ falls inside the Analysis-A universal band.
 → Sat-derived ET is usable for *climate-scale* drying timescales,
   but cannot be used to quantify the management signal of drip
   irrigation in heterogeneous orchard pixels (≈ 5 km pixel vs
