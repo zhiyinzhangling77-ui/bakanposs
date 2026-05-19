@@ -295,8 +295,10 @@ def draw_panel_curves(ax, df_pool: pd.DataFrame,
             positions.append(d); ns.append(len(ec_vals))
 
     # Boxplots side by side, offset ±0.18 from the day position
+    # manage_ticks=False : box の position を x 軸 tick に流用させない
     bp_ec = ax.boxplot(ec_box, positions=[p - 0.18 for p in positions],
                           widths=0.30, patch_artist=True, showfliers=False,
+                          manage_ticks=False,
                           medianprops=dict(color="black", lw=1.4),
                           whiskerprops=dict(color="#555"),
                           capprops=dict(color="#555"))
@@ -305,6 +307,7 @@ def draw_panel_curves(ax, df_pool: pd.DataFrame,
 
     bp_sat = ax.boxplot(sat_box, positions=[p + 0.18 for p in positions],
                            widths=0.30, patch_artist=True, showfliers=False,
+                           manage_ticks=False,
                            medianprops=dict(color="black", lw=1.4),
                            whiskerprops=dict(color="#555"),
                            capprops=dict(color="#555"))
@@ -341,21 +344,21 @@ def draw_panel_curves(ax, df_pool: pd.DataFrame,
     ax_r.set_ylim(ymin / LE_PER_MM, ymax / LE_PER_MM)
     ax_r.set_ylabel("LE  [mm day$^{-1}$]", fontsize=11, color="#444")
 
-    # N labels under x-axis (events contributing to each day)
-    y_label_pos = ymin - (ymax - ymin) * 0.06
-    for d, n in zip(positions, ns):
-        ax.text(d, y_label_pos, f"{n}", ha="center", va="top",
-                  fontsize=8, color=N_LABEL_COL, weight="bold",
-                  bbox=dict(boxstyle="round,pad=0.16", fc="white",
-                              ec=N_LABEL_COL, lw=0.6))
+    # N events per day intentionally omitted here — same event pool
+    # as panel (a), so the N labels are identical.  Add a small note
+    # to the legend instead.
 
     ax.set_xlabel("Days since irrigation", fontsize=11)
     ax.set_ylabel("LE  [W m$^{-2}$]", fontsize=11)
-    ax.set_xlim(-0.6, MAX_WINDOW + 0.6)
-    ax.set_xticks(range(0, MAX_WINDOW + 1, 2))
+    # Restrict to the observed data range (events only go to ~Day 7 in
+    # the v3 bias pool); avoids a long blank tail to MAX_WINDOW.
+    x_data_max = max(positions) if positions else MAX_WINDOW
+    ax.set_xlim(-0.7, x_data_max + 0.7)
+    ax.set_xticks(range(0, int(x_data_max) + 1))
     ax.set_title("(b) EC vs Sat recovery — same events, two products",
                     fontsize=12, loc="left", weight="bold")
-    ax.legend(loc="upper right", fontsize=9, framealpha=0.9)
+    ax.legend(loc="upper right", fontsize=9, framealpha=0.9,
+                title="n per day: see panel (a)", title_fontsize=8)
     ax.grid(alpha=0.25, axis="y")
 
 
