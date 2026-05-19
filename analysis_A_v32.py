@@ -6,37 +6,26 @@
 【目的】
   解析A v31 の τ ≈ 3 d / amplitude 4.5× scaling を踏まえて、
   Meteosat ETv3 衛星 product が Tarazona 灌漑アーモンド園で
-  「同じ時間スケールを再現しつつ、振幅を丸ごと取り逃す」現象を
-  1 枚の poster figure (3 panel) で見せる。
+  「灌漑後の指数回復をまったく検出できず、bias がそのまま
+  解析A の amplitude を吸収する」ことを 2 panel で見せる。
 
-【3 panel 構成】
-  (a) 時系列 zoom: 1 灌漑シーズン (default: 2023 Jun-Sep)
-      EC LE [W/m²] vs METv3 LE [W/m²]、灌漑イベントを縦線
-      → 衛星が灌漑パルスに無反応であることを視覚化
-  (b) Bias recovery: Δ = EC_LE − METv3_LE [W/m²] を Day 0 起点で
+【2 panel 構成】
+  (a) Bias recovery: Δ = EC_LE − METv3_LE [W/m²] を Day 0 起点で
       箱ひげ + exp fit (τ_bias, amplitude_bias)。第二軸 mm/day。
       → bias が解析A と同じ τ 時間スケールで減衰
-  (c) τ comparison: 3 bars
-      EC τ (解析A v31) / METv3 τ / Bias τ
-      → 時間スケールは普遍、振幅だけ衛星が見逃す
+  (b) τ comparison: 3 bars (EC / METv3 / Bias)
+      → Sat τ は床で頭打ち(fit invalid)。EC と Bias は universal
+        band 3–4 d 内。Bias amplitude ≈ EC amplitude。
 
 【入力 (デフォルト)】
   --bias-pool        ./output_analysis_B_v3/v3_bias_perevent_pooled.csv
-                     (date,LE_EC_Wm2,Irrig_mm,LE_METv3_Wm2,bias,
-                      days_since_event,site)  解析B v3 出力
   --bias-summary     ./output_analysis_B_v3/v3_bias_tau_summary.csv
-  --parquet          /home/shion-nagamine/bakanposs/analysis_A/
-                     daily_classified_v4.parquet  (時系列 panel 用)
-  --metv3-csv        /home/shion-nagamine/bakanposs/metv3_daily_all.csv
-                     (時系列 panel 用)
-  --season           "2023-06-01:2023-09-30"  panel (a) zoom 範囲
 
 【出力】 ./output_analysis_A_v32/
   fig04b_tarazona_blindspot_v32.png/pdf  ★ poster figure
   v32_poster_caption.txt                 ★ 脚注テキスト
-  v32_panel_a_timeseries.csv             panel (a) 再現用
-  v32_panel_b_bias_fit.csv               panel (b) fit 再現用
-  v32_panel_c_tau_bars.csv               panel (c) bars
+  v32_panel_a_bias_fit.csv               panel (a) fit 再現用
+  v32_panel_b_tau_bars.csv               panel (b) bars
 """
 
 from __future__ import annotations
@@ -50,7 +39,6 @@ import pandas as pd
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.gridspec import GridSpec
 from scipy.optimize import curve_fit
 
 matplotlib.rcParams["font.family"] = "DejaVu Sans"
@@ -88,15 +76,6 @@ def parse_args():
                    default="./output_analysis_B_v3/v3_bias_perevent_pooled.csv")
     p.add_argument("--bias-summary",
                    default="./output_analysis_B_v3/v3_bias_tau_summary.csv")
-    p.add_argument("--parquet",
-                   default="/home/shion-nagamine/bakanposs/analysis_A/daily_classified_v4.parquet")
-    p.add_argument("--tara-csv",
-                   default="/home/shion-nagamine/Dataset/Eddy data in Spain/"
-                           "Daily_Summary_Filtered_forPred_ActEne26.csv")
-    p.add_argument("--metv3-csv",
-                   default="/home/shion-nagamine/bakanposs/metv3_daily_all.csv")
-    p.add_argument("--season", default="2023-06-01:2023-09-30",
-                   help="panel (a) zoom range, ISO start:end")
     p.add_argument("--out", default="./output_analysis_A_v32")
     p.add_argument("--n-boot", type=int, default=N_BOOT_DEFAULT)
     return p.parse_args()
@@ -133,71 +112,6 @@ def load_bias_summary(fp: Path) -> dict:
         n_events=int(row["n_events"]),
         r2=float(row["r2"]),
     )
-
-
-def _load_tara_ec_csv(tara_csv: Path) -> pd.DataFrame | None:
-    """CSV-only fallback when parquet engine unavailable."""
-    if not tara_csv.exists():
-        return None
-    raw = pd.read_csv(tara_csv)
-    raw["date"] = pd.to_datetime(raw["date"], errors="coerce")
-    le_col = next((c for c in ["LE_corr", "LE", "LE_EC", "LE_Wm2"]
-                       if c in raw.columns), None)
-    if le_col is None:
-        return None
-    out = pd.DataFrame({
-        "date": raw["date"],
-        "LE_EC": pd.to_numeric(raw[le_col], errors="coerce"),
-    })
-    if "Irrig_mm" in raw.columns:
-        out["Irrig_mm"] = pd.to_numeric(raw["Irrig_mm"], errors="coerce").fillna(0)
-    else:
-        out["Irrig_mm"] = 0.0
-    return out.dropna(subset=["date"]).drop_duplicates("date")
-
-
-def load_timeseries(parquet: Path, tara_csv: Path, metv3_csv: Path,
-                     season_start: pd.Timestamp, season_end: pd.Timestamp
-                     ) -> pd.DataFrame | None:
-    """Panel (a) 用. parquet を試し、失敗したら tara_csv 単独で組む."""
-    tara = None
-    try:
-        daily = pd.read_parquet(parquet)
-        daily["date"] = pd.to_datetime(daily["date"])
-        tara = daily[daily["site"] == "Tarazona"].copy()
-        if "LE_corr" in tara.columns and "LE" in tara.columns:
-            tara = tara.drop(columns=["LE"]).rename(columns={"LE_corr": "LE"})
-        elif "LE_corr" in tara.columns:
-            tara = tara.rename(columns={"LE_corr": "LE"})
-        tara["LE_EC"] = pd.to_numeric(tara["LE"], errors="coerce")
-        raw = pd.read_csv(tara_csv)
-        raw["date"] = pd.to_datetime(raw["date"], errors="coerce")
-        if "Irrig_mm" in raw.columns:
-            irrig = raw[["date", "Irrig_mm"]].dropna(subset=["date"]).drop_duplicates("date")
-            tara = tara.merge(irrig, on="date", how="left")
-        tara["Irrig_mm"] = tara.get("Irrig_mm", 0).fillna(0)
-        tara = tara[["date", "LE_EC", "Irrig_mm"]]
-    except Exception as e:
-        print(f"  [warn] parquet load failed ({type(e).__name__}: {e})")
-        print(f"         tara CSV を直接使います")
-        tara = _load_tara_ec_csv(tara_csv)
-        if tara is None:
-            print(f"  [warn] tara CSV からも EC 取れず → panel (a) スキップ")
-            return None
-
-    try:
-        met = pd.read_csv(metv3_csv)
-        met["date"] = pd.to_datetime(met["date"], errors="coerce")
-        met = met[met["site"].isin(["Tarazona", "TzM"])].copy()
-        met["LE_MET"] = pd.to_numeric(met["ET_mm"], errors="coerce") * LE_PER_MM
-        met = met[["date", "LE_MET"]].drop_duplicates("date")
-    except Exception as e:
-        print(f"  [warn] METv3 CSV load failed ({type(e).__name__}: {e})")
-        return None
-
-    out = tara.merge(met, on="date", how="outer")
-    out = out[(out["date"] >= season_start) & (out["date"] <= season_end)]
-    return out.sort_values("date").reset_index(drop=True)
 
 
 # ================================================================
@@ -270,51 +184,6 @@ def fit_metv3_tau(df_pool: pd.DataFrame, n_boot: int):
 # Panel drawers
 # ================================================================
 
-def draw_panel_a(ax, ts: pd.DataFrame | None,
-                  season_start, season_end):
-    if ts is None or ts.empty:
-        ax.text(0.5, 0.5,
-                 "Panel (a) skipped\n(daily timeseries not loaded;\n"
-                 "see --parquet / --metv3-csv args)",
-                 ha="center", va="center", fontsize=11,
-                 transform=ax.transAxes, color="#888")
-        ax.set_xticks([]); ax.set_yticks([])
-        return
-
-    ts = ts.copy()
-    ts["LE_EC_smooth"] = ts["LE_EC"].rolling(3, center=True, min_periods=1).mean()
-    ts["LE_MET_smooth"] = ts["LE_MET"].rolling(3, center=True, min_periods=1).mean()
-
-    ax.plot(ts["date"], ts["LE_EC_smooth"], color=EC_COL, lw=2.0,
-             label="EC (tower)", zorder=4)
-    ax.plot(ts["date"], ts["LE_MET_smooth"], color=METV3_COL, lw=2.0,
-             label="Meteosat ETv3", zorder=3)
-    ax.fill_between(ts["date"], ts["LE_MET_smooth"], ts["LE_EC_smooth"],
-                       where=(ts["LE_EC_smooth"] > ts["LE_MET_smooth"]),
-                       color=BIAS_COL, alpha=0.18, label="Bias (EC − Sat)",
-                       zorder=2)
-
-    irrig = ts[ts["Irrig_mm"] > IRRIG_THRESHOLD]
-    y_top = float(np.nanmax(ts["LE_EC_smooth"])) * 1.05
-    if not irrig.empty:
-        ax.vlines(irrig["date"], 0, y_top, color="#3878C6", lw=0.7,
-                    alpha=0.55, zorder=1)
-        ax.scatter(irrig["date"], np.full(len(irrig), y_top * 0.98),
-                     marker="v", s=22, color="#3878C6", zorder=5,
-                     label=f"Irrigation events (n={len(irrig)})")
-
-    ax.set_xlim(season_start, season_end)
-    ax.set_ylim(0, y_top * 1.08)
-    ax.set_ylabel("LE [W m$^{-2}$]", fontsize=11)
-    ax.set_xlabel("Date", fontsize=11)
-    ax.set_title(
-        f"(a) Tarazona summer {season_start.year}: "
-        "EC tower vs Meteosat ETv3",
-        fontsize=12, loc="left", weight="bold")
-    ax.legend(loc="upper right", fontsize=9, framealpha=0.9)
-    ax.grid(alpha=0.25)
-
-
 def draw_panel_b(ax, df_pool: pd.DataFrame, fit_res: dict,
                   summary: dict):
     ax_r = ax.twinx()
@@ -364,7 +233,7 @@ def draw_panel_b(ax, df_pool: pd.DataFrame, fit_res: dict,
     ax.set_xlim(-0.6, MAX_WINDOW + 0.6)
     ax.set_xticks(range(0, MAX_WINDOW + 1, 2))
     ax.set_title(
-        f"(b) Bias recovery (n events = {summary['n_events']}, "
+        f"(a) Bias recovery (n events = {summary['n_events']}, "
         f"R² = {summary['r2']:.2f})",
         fontsize=12, loc="left", weight="bold")
     ax.legend(loc="upper right", fontsize=9, framealpha=0.9)
@@ -457,7 +326,7 @@ def draw_panel_c(ax, ec_ref: dict, metv3: dict, bias: dict):
     ax.set_xticks(xs)
     ax.set_xticklabels(labels_full, fontsize=10)
     ax.set_ylabel("τ [d]", fontsize=11)
-    ax.set_title("(c) τ comparison: EC vs Sat vs Bias",
+    ax.set_title("(b) τ comparison: EC vs Sat vs Bias",
                     fontsize=12, loc="left", weight="bold")
     ax.legend(loc="upper left", fontsize=9, framealpha=0.9)
     ax.grid(alpha=0.25, axis="y")
@@ -467,25 +336,19 @@ def draw_panel_c(ax, ec_ref: dict, metv3: dict, bias: dict):
 # Figure assembly
 # ================================================================
 
-def make_figure(out_dir: Path, ts, df_pool, summary, metv3,
-                 season_start, season_end):
-    # constrained_layout で panel top を自動整列 (twinx 等のラベル張り出しを吸収)
-    fig = plt.figure(figsize=(15, 11), facecolor="white",
+def make_figure(out_dir: Path, df_pool, summary, metv3):
+    """2-panel side-by-side layout: bias recovery + τ comparison."""
+    fig = plt.figure(figsize=(15, 6.5), facecolor="white",
                        constrained_layout=True)
-    gs = fig.add_gridspec(2, 2,
-                            height_ratios=[1.0, 1.1],
-                            width_ratios=[1.35, 1.0])
-
-    ax_a = fig.add_subplot(gs[0, :])
-    ax_b = fig.add_subplot(gs[1, 0])
-    ax_c = fig.add_subplot(gs[1, 1])
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.35, 1.0])
+    ax_b = fig.add_subplot(gs[0, 0])
+    ax_c = fig.add_subplot(gs[0, 1])
 
     fig.suptitle(
         "Tarazona irrigation blind spot — Meteosat ETv3 is flat to drip irrigation\n"
         "while the bias itself recovers on the Analysis-A timescale (τ ≈ 3–4 d)",
-        fontsize=14, weight="bold", y=0.985)
+        fontsize=14, weight="bold")
 
-    draw_panel_a(ax_a, ts, season_start, season_end)
     draw_panel_b(ax_b, df_pool, None, summary)
     draw_panel_c(ax_c, EC_TAU_REF, metv3, summary)
 
@@ -525,14 +388,7 @@ Definitions
 ------------------------------------------------------------------
 Panel reading guide
 ------------------------------------------------------------------
-(a) Time series zoom — one irrigation season at Tarazona.
-    Green = EC tower LE, orange = Meteosat ETv3 LE (both 3-day rolling
-    mean for visibility).  Blue triangles mark irrigation events
-    (Irrig ≥ 0.5 mm).  Purple shading = bias (EC − Sat).
-    Tower shows pulsed recovery on every irrigation; satellite stays
-    flat → blind spot.
-
-(b) Bias recovery curve — per-event Δ pooled across all Tarazona
+(a) Bias recovery curve — per-event Δ pooled across all Tarazona
     irrigation events ({summary['n_events']} events).  Boxplots show the
     distribution of Δ at each day-since-event; medians drive the
     exponential fit  Δ(d) = c + amp · exp(−d/τ_bias).  Right axis
@@ -542,7 +398,7 @@ Panel reading guide
             (≈ {summary['amplitude']/LE_PER_MM:.2f} mm day⁻¹)
             R² = {summary['r2']:.2f}
 
-(c) τ comparison — three bars side by side.
+(b) τ comparison — three bars side by side.
     1) EC reference (Analysis A v31, Tarazona active, n = 41):
        τ_EC = {EC_TAU_REF['tau']:.2f} d  [{EC_TAU_REF['ci_lo']:.2f}, {EC_TAU_REF['ci_hi']:.2f}]
        amp = {EC_TAU_REF['amplitude']:.0f} W m⁻²
@@ -620,8 +476,6 @@ def main():
     print(f"  出力先: {out}")
     print("=" * 60)
 
-    season_start, season_end = [pd.Timestamp(s) for s in args.season.split(":")]
-
     print("\n--- Load precomputed bias pool (Analysis B v3) ---")
     df_pool = load_bias_pool(Path(args.bias_pool))
     summary = load_bias_summary(Path(args.bias_summary))
@@ -633,31 +487,18 @@ def main():
     print("\n--- Fit METv3-only τ (bootstrap n={}) ---".format(args.n_boot))
     metv3 = fit_metv3_tau(df_pool, n_boot=args.n_boot)
     if metv3 is None:
-        print("  [warn] METv3 fit failed; panel (c) will skip METv3 bar")
         metv3 = dict(tau=np.nan, se=np.nan, ci_lo=np.nan, ci_hi=np.nan,
                        a=np.nan, c=np.nan, r2=np.nan)
-    else:
-        print(f"  τ_Sat = {metv3['tau']:.2f} d, "
-                f"SE = {metv3['se']:.2f},  "
-                f"CI = [{metv3['ci_lo']:.2f}, {metv3['ci_hi']:.2f}], "
-                f"R² = {metv3['r2']:.2f}")
-
-    print(f"\n--- Load timeseries for panel (a) "
-           f"({season_start.date()} → {season_end.date()}) ---")
-    ts = load_timeseries(Path(args.parquet), Path(args.tara_csv),
-                            Path(args.metv3_csv), season_start, season_end)
-    if ts is not None:
-        print(f"  rows: {len(ts)}, irrig events in zoom: "
-                f"{int((ts['Irrig_mm'] > IRRIG_THRESHOLD).sum())}")
+    print(f"  τ_Sat = {metv3['tau']:.2f} d, "
+            f"SE = {metv3['se']:.2f},  "
+            f"CI = [{metv3['ci_lo']:.2f}, {metv3['ci_hi']:.2f}], "
+            f"R² = {metv3['r2']:.2f}")
 
     print("\n--- Figure (v32) ---")
-    make_figure(out, ts, df_pool, summary, metv3, season_start, season_end)
+    make_figure(out, df_pool, summary, metv3)
     write_caption(out, summary, metv3)
 
-    # CSV exports
-    if ts is not None:
-        ts.to_csv(out / "v32_panel_a_timeseries.csv", index=False)
-    df_pool.to_csv(out / "v32_panel_b_bias_fit.csv", index=False)
+    df_pool.to_csv(out / "v32_panel_a_bias_fit.csv", index=False)
     pd.DataFrame([
         dict(label="EC",        tau=EC_TAU_REF["tau"], se=EC_TAU_REF["se"],
               ci_lo=EC_TAU_REF["ci_lo"], ci_hi=EC_TAU_REF["ci_hi"],
@@ -668,7 +509,7 @@ def main():
         dict(label="Bias",      tau=summary["tau_bias"], se=summary["tau_se_bias"],
               ci_lo=summary["tau_ci_lo"], ci_hi=summary["tau_ci_hi"],
               amplitude=summary["amplitude"], n=summary["n_events"]),
-    ]).to_csv(out / "v32_panel_c_tau_bars.csv", index=False)
+    ]).to_csv(out / "v32_panel_b_tau_bars.csv", index=False)
 
     print(f"\n[done] {out}/")
 
