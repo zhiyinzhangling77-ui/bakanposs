@@ -5,12 +5,11 @@ lines remain plotted on EC-missing days. master_full_v2.csv (EC-joined)
 was discarding satellite values on EC-gap days; we bypass that here.
 
 Sources:
-  EC tower fluxes/NDVI      : data/master_full_v2.csv  (EC days only, OK)
-  Sentinel-2 NDVI           : data/master_full_v2.csv  (S2_NDVI; EC-joined)
-                              *** still EC-aligned; replace if a raw
-                              Sentinel-2 NDVI export is later pushed. ***
-  Meteosat MGPP (10-day GPP): data/mgpp_decadal_all.csv (independent)
-  Meteosat ETv3 (daily ET)  : data/metv3_daily_all.csv  (independent)
+  EC tower fluxes/NDVI      : data/master_full_v2.csv      (EC days only)
+  Sentinel-2 NDVI           : data/OranTzM_S2_NDVI.csv     (B4/B8 -> NDVI;
+                              full S2 revisit, independent of EC)
+  Meteosat MGPP (10-day GPP): data/mgpp_decadal_all.csv    (independent)
+  Meteosat ETv3 (daily ET)  : data/metv3_daily_all.csv     (independent)
 
 Layout (3 rows x 2 cols):
   Row 1: NDVI (EC tower vs Sentinel-2)
@@ -29,6 +28,7 @@ REPO = Path(__file__).parent.parent
 EC_CSV    = REPO / "data" / "master_full_v2.csv"
 METV3_CSV = REPO / "data" / "metv3_daily_all.csv"
 MGPP_CSV  = REPO / "data" / "mgpp_decadal_all.csv"
+S2_CSV    = REPO / "data" / "OranTzM_S2_NDVI.csv"
 OUT_DIR = REPO / "figures" / "poster"
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
@@ -108,12 +108,23 @@ def style_time_ax(ax, d0, d1):
     ax.grid(which="major", color=GRID, lw=0.8, zorder=0)
 
 
+def load_s2_ndvi() -> pd.DataFrame:
+    """Compute NDVI from B4/B8 and aggregate to one value per date+site."""
+    raw = pd.read_csv(S2_CSV, parse_dates=["date"])
+    raw = raw.rename(columns={"name": "site"})
+    raw["NDVI_s2"] = (raw["B8"] - raw["B4"]) / (raw["B8"] + raw["B4"])
+    raw = raw.dropna(subset=["NDVI_s2"])
+    return (raw.groupby(["site", "date"], as_index=False)["NDVI_s2"]
+               .mean())
+
+
 def main() -> None:
     ec_full    = pd.read_csv(EC_CSV,    parse_dates=["date"])
     metv3_full = pd.read_csv(METV3_CSV, parse_dates=["date"])
     mgpp_full  = pd.read_csv(MGPP_CSV,  parse_dates=["date"])
     mgpp_full  = mgpp_full[(mgpp_full["GPP_mgpp"] > 0) &
                            (mgpp_full["GPP_mgpp"] < 30)].copy()
+    s2_full    = load_s2_ndvi()
 
     fig, axes = plt.subplots(
         3, 2, figsize=(13.5, 9.0),
@@ -125,6 +136,7 @@ def main() -> None:
         ec_site    = ec_full   [ec_full   ["site"] == site].sort_values("date")
         metv3_site = metv3_full[metv3_full["site"] == site].sort_values("date")
         mgpp_site  = mgpp_full [mgpp_full ["site"] == site].sort_values("date")
+        s2_site    = s2_full   [s2_full   ["site"] == site].sort_values("date")
 
         # x-range = EC observation window per site
         d0, d1 = ec_site["date"].min(), ec_site["date"].max()
@@ -136,13 +148,15 @@ def main() -> None:
                                  d0, d1)
         mgpp_d  = mgpp_site[(mgpp_site["date"] >= d0) &
                             (mgpp_site["date"] <= d1)].copy()
+        s2_d    = s2_site[(s2_site["date"] >= d0) &
+                          (s2_site["date"] <= d1)].copy()
 
         # ---- Row 1: NDVI ----
         ax = axes[0, j]
         shade_springs(ax, d0, d1)
-        s2_d, s2_v = break_gaps(ec_d["date"], ec_d["S2_NDVI"],
-                                 max_gap_days=15)
-        ax.plot(s2_d, s2_v,
+        s2_x, s2_y = break_gaps(s2_d["date"], s2_d["NDVI_s2"],
+                                 max_gap_days=20)
+        ax.plot(s2_x, s2_y,
                 "-o", color=C_S2, lw=1.0, ms=3.2, mec="white", mew=0.4,
                 alpha=0.9, zorder=2,
                 label="Sentinel-2 NDVI  ·  10 m  ·  ~5-day")
