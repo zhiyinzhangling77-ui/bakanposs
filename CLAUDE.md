@@ -1,25 +1,29 @@
 # Repository Guide for Claude
 
-> ⚠️ **このセッションで最初にやること**:
+> ⚠️ **このセッションで最初にやること(順番厳守)**:
 >
-> 1. **[`RESEARCH_OVERVIEW.md`](./RESEARCH_OVERVIEW.md)** — 研究全体図、3 つの解析の関係(必読)
-> 2. **[`SESSION_SUMMARY.md`](./SESSION_SUMMARY.md)** — 過去セッションの全判断履歴・失敗・制約
-> 3. 進める解析に応じて以下のいずれか:
+> 1. **[`RESEARCH_OVERVIEW.md`](./RESEARCH_OVERVIEW.md)** — 研究全体図、3 つの解析の関係
+> 2. **[`SESSION_SUMMARY.md`](./SESSION_SUMMARY.md)** — 旧セッション履歴(v9-v27)
+> 3. **[`SESSION_UPDATE_v28_v32.md`](./SESSION_UPDATE_v28_v32.md)** — v28-v32 poster figure + 解析B 橋渡し
+> 4. **★[`SESSION_UPDATE_v32_blindspot.md`](./SESSION_UPDATE_v32_blindspot.md)** — **最新議論(絶対参照)**: τ_bias の位置づけ訂正、ETv3 mechanism 訂正、SMAP/H26 評価、narrative 転換、Tarazona サイズ訂正(1 ha)
+> 5. **[`SATELLITE_ET_NOTES.md`](./SATELLITE_ET_NOTES.md)** — 衛星 ET caveats(§4 SM 入力ありに訂正済)
+> 6. 進める解析に応じて:
 >    - 解析A 結果参照: [`ANALYSIS_A_FINAL.md`](./ANALYSIS_A_FINAL.md)
 >    - 解析B(衛星 ET): [`ANALYSIS_B_PLAN.md`](./ANALYSIS_B_PLAN.md)
 >    - 解析C(NDVI): [`ANALYSIS_C_PLAN.md`](./ANALYSIS_C_PLAN.md)
 
 ---
 
-## クイックステータス(2026-05 時点)
+## クイックステータス(2026-05 時点、v32 blindspot session 後)
 
 | 解析 | 状態 | 主結果 |
 |---|---|---|
-| **A** | ✅ COMPLETED (v27) | τ ≈ 3.0-3.8d universal、振幅 4× scaling |
-| **B** | ⬜ PLANNED 次着手 | 衛星 ET(MOD16/ECOSTRESS)で τ 検証 |
+| **A** | ✅ COMPLETED (v31 poster figure) | τ ≈ 3.0-3.8d universal、振幅 4.5× scaling |
+| **B** | 🟡 v32 + bias_stats 完了、次は narrative 反映 (v33) | Tarazona: r=0.07, bias −70%。amp_EC=95 vs amp_Sat≈0 |
 | **C** | 🔶 v1 in progress | NDVI で active period 客観定義 |
+| **Poster** | 🟡 A0 縦テンプレ生成済、v2 narrative 反映待ち | `poster/build_poster_template.py` |
 
-→ **次セッションの優先タスク**: 解析B(衛星 ET 検証)着手
+→ **次セッションの最初**: `SESSION_UPDATE_v32_blindspot.md` §10 の決定肢 (A)–(D) のどれで進めるかをユーザーに確認
 
 ---
 
@@ -50,6 +54,20 @@
 5. ❌ Fit τ ≥ 50d を有効値として扱う(v26 で発覚、v27 で validation 追加)
 6. ❌ `LE_0_FLOOR` 一律 50(Oran 雨養 cereal の LE 27 W/m² で fit 不可)
    → adaptive bound 必須
+7. ❌ **τ_bias を独立な物理測定として扱う**(v32 blindspot 議論)
+   → bias = EC − Sat ≈ EC − const なので τ_bias = τ_EC は数学的構造、
+     新規情報ではない。consistency check のみ。
+8. ❌ **SMAP 9 km で空間希釈論を実証**(v32 blindspot 議論)
+   → orchard 1 ha との比較で循環論証。in-situ tower SWC を ground truth
+     に据えること。
+9. ❌ **「ETv3 は降水だけで ET 計算」と書く**(v32 blindspot 議論)
+   → H-SAF H141/H142/H26 の衛星 SM を入力に持つ。drip blind spot は
+     SM 入力チェーンの 3 重の解像度限界による(空間/物理/SVAT 構造)。
+10. ❌ **Tarazona orchard を「0.1 km²」と書く**
+    → 正しくは **1 ha = 0.01 km²**。過去メモの 0.1 km² は誤り。
+11. ❌ **「Meteosat ET は不正確」と総括**(v32 blindspot 議論)
+    → rainfed Oran では r=0.82, bias +1%, KGE=0.61 で良好。drip 特異の
+      blind spot として書くこと。
 
 ---
 
