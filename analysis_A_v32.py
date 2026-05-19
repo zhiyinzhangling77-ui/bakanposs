@@ -12,10 +12,11 @@
 【2 panel 構成】
   (a) Bias recovery: Δ = EC_LE − METv3_LE [W/m²] を Day 0 起点で
       箱ひげ + exp fit (τ_bias, amplitude_bias)。第二軸 mm/day。
-      → bias が解析A と同じ τ 時間スケールで減衰
-  (b) τ comparison: 3 bars (EC / METv3 / Bias)
-      → Sat τ は床で頭打ち(fit invalid)。EC と Bias は universal
-        band 3–4 d 内。Bias amplitude ≈ EC amplitude。
+      → bias 内に管理 amplitude が保存されていることを可視化
+  (b) Management amplitude bars: EC / METv3 / Bias の amplitude 比較
+      → amp_EC = 95, amp_Sat ≈ 0, amp_Bias = 95
+        Sat captures 0 %, Bias inherits 100 %.  τ_bias は consistency
+        check として caption に注記(独立証拠ではない).
 
 【入力 (デフォルト)】
   --bias-pool        ./output_analysis_B_v3/v3_bias_perevent_pooled.csv
@@ -25,7 +26,7 @@
   fig04b_tarazona_blindspot_v32.png/pdf  ★ poster figure
   v32_poster_caption.txt                 ★ 脚注テキスト
   v32_panel_a_bias_fit.csv               panel (a) fit 再現用
-  v32_panel_b_tau_bars.csv               panel (b) bars
+  v32_panel_b_amp_bars.csv               panel (b) amplitude bars
 """
 
 from __future__ import annotations
@@ -252,83 +253,76 @@ def _metv3_fit_quality(metv3: dict) -> str:
     return "ok"
 
 
-def draw_panel_c(ax, ec_ref: dict, metv3: dict, bias: dict):
-    """3 bars: EC / Sat / Bias.  Sat bar is always shown — even if fit is
-    invalid — with annotation so the viewer can see the τ pegged-at-floor
-    pathology rather than wondering why it's missing."""
+def draw_panel_amp(ax, ec_ref: dict, metv3: dict, bias: dict):
+    """3 bars: EC / Sat / Bias  recovery amplitude  [W m⁻²].
+
+    Main argument of v32: the satellite captures **zero** of the EC
+    management amplitude, and the full amplitude is preserved inside
+    the bias.  τ comparison (former panel) is demoted to supplementary
+    because bias = EC − const ⇒ τ_bias = τ_EC by construction.
+    """
     metv3_quality = _metv3_fit_quality(metv3)
 
-    labels_full = ["EC\n(τ_EC)", "Meteosat ETv3\n(τ_Sat)",
-                       "Bias = EC−Sat\n(τ_bias)"]
-    taus = [ec_ref["tau"], metv3["tau"], bias["tau_bias"]]
-    err_lo = [max(ec_ref["tau"] - ec_ref["ci_lo"], 0.0),
-                  max(metv3["tau"] - metv3.get("ci_lo", np.nan), 0.0)
-                      if not np.isnan(metv3.get("ci_lo", np.nan)) else 0.0,
-                  max(bias["tau_bias"] - bias["tau_ci_lo"], 0.0)]
-    err_hi = [max(ec_ref["ci_hi"] - ec_ref["tau"], 0.0),
-                  max(metv3.get("ci_hi", np.nan) - metv3["tau"], 0.0)
-                      if not np.isnan(metv3.get("ci_hi", np.nan)) else 0.0,
-                  max(bias["tau_ci_hi"] - bias["tau_bias"], 0.0)]
-    cols = [EC_COL, METV3_COL, BIAS_COL]
-    xs = np.arange(len(labels_full))
+    # amplitudes (W/m²)
+    ec_amp   = float(ec_ref["amplitude"])              # 94.8 from v31
+    sat_amp  = float(max(metv3.get("a", 0.0) or 0.0, 0.0))  # ~0 when fit invalid
+    bias_amp = float(bias["amplitude"])                # 94.8 from B v3
 
-    # y-axis: cap at a reasonable value so the bias upper CI doesn't dominate
-    y_max = max(ec_ref["ci_hi"], bias["tau_ci_hi"]) * 1.4
-    y_max = min(y_max, 15.0)
+    labels = ["EC\n(tower)",
+                "Meteosat\nETv3",
+                "Bias =\nEC − Sat"]
+    amps  = [ec_amp, sat_amp, bias_amp]
+    cols  = [EC_COL, METV3_COL, BIAS_COL]
+    xs    = np.arange(len(labels))
+
+    y_max = max(amps) * 1.30
     ax.set_ylim(0, y_max)
 
-    # clip upper errorbar to y-axis (CI can extend off-scale)
-    err_hi_clipped = [min(e, y_max - t - 0.3) for e, t in zip(err_hi, taus)]
-    err_hi_offscale = [e > (y_max - t - 0.3) for e, t in zip(err_hi, taus)]
-
-    # universal 3–4 d band
-    ax.axhspan(3.0, 4.0, color="#1D9E75", alpha=0.10, zorder=0,
-                  label="Analysis-A universal band (3–4 d)")
-
-    # all three bars drawn at their fitted value
-    for i, (x, t, c) in enumerate(zip(xs, taus, cols)):
+    # bars
+    for i, (x, a, c) in enumerate(zip(xs, amps, cols)):
         invalid_sat = (i == 1 and metv3_quality != "ok")
-        ax.bar(x, t, color=c,
+        ax.bar(x, a, color=c,
                   alpha=0.35 if invalid_sat else 0.85,
                   edgecolor=c if invalid_sat else "black",
                   lw=1.2 if invalid_sat else 0.8,
                   hatch="///" if invalid_sat else None,
                   zorder=3)
 
-    # errorbars (always)
-    for i in range(3):
-        ax.errorbar(xs[i], taus[i],
-                       yerr=[[err_lo[i]], [err_hi_clipped[i]]],
-                       fmt="none", ecolor="black", capsize=6, lw=1.5, zorder=4)
-        # uplimit arrow if CI extends beyond axis
-        if err_hi_offscale[i]:
-            ax.annotate("", xy=(xs[i], y_max - 0.05),
-                          xytext=(xs[i], taus[i] + err_hi_clipped[i]),
-                          arrowprops=dict(arrowstyle="-|>", color="black",
-                                              lw=1.4), zorder=5)
-
-    # text annotations under each bar
-    se_list = [ec_ref["se"], metv3.get("se", np.nan), bias["tau_se_bias"]]
-    for i, (x, t, se) in enumerate(zip(xs, taus, se_list)):
-        se_str = f"SE={se:.2f}" if not np.isnan(se) else "SE=NA"
+    # value annotations
+    for i, (x, a) in enumerate(zip(xs, amps)):
         if i == 1 and metv3_quality != "ok":
-            r2 = metv3.get("r2", np.nan)
-            reason = {"pegged": "τ at floor", "lowR2": "low R²",
-                          "missing": "fit failed"}[metv3_quality]
-            ax.text(x, t + 0.15,
-                      f"{t:.2f} d\nFIT INVALID\n({reason}, R²={r2:.2f})",
-                      ha="center", va="bottom", fontsize=8,
+            ax.text(x, max(a, 2) + y_max * 0.02,
+                      f"{a:.1f} W m⁻²\n(fit invalid)",
+                      ha="center", va="bottom", fontsize=10,
                       color=METV3_COL, weight="bold")
         else:
-            ax.text(x, t + 0.15, f"{t:.2f} d\n{se_str}",
-                      ha="center", va="bottom", fontsize=9, weight="bold")
+            ax.text(x, a + y_max * 0.02,
+                      f"{a:.0f} W m⁻²",
+                      ha="center", va="bottom", fontsize=11, weight="bold")
+
+    # "0 % captured" annotation under the Sat bar
+    pct_captured = 0.0 if ec_amp == 0 else (sat_amp / ec_amp) * 100
+    ax.text(1, y_max * 0.55,
+              f"Sat captures\n{pct_captured:.0f} % of the\nEC amplitude",
+              ha="center", va="center", fontsize=10,
+              color=METV3_COL,
+              bbox=dict(boxstyle="round,pad=0.4", fc="white",
+                          ec=METV3_COL, lw=1.2, alpha=0.95))
+
+    # "100 % in bias" annotation under the Bias bar
+    pct_in_bias = 0.0 if ec_amp == 0 else (bias_amp / ec_amp) * 100
+    ax.text(2, y_max * 0.55,
+              f"Bias inherits\n{pct_in_bias:.0f} % of the\nEC amplitude",
+              ha="center", va="center", fontsize=10,
+              color=BIAS_COL,
+              bbox=dict(boxstyle="round,pad=0.4", fc="white",
+                          ec=BIAS_COL, lw=1.2, alpha=0.95))
 
     ax.set_xticks(xs)
-    ax.set_xticklabels(labels_full, fontsize=10)
-    ax.set_ylabel("τ [d]", fontsize=11)
-    ax.set_title("(b) τ comparison: EC vs Sat vs Bias",
+    ax.set_xticklabels(labels, fontsize=11)
+    ax.set_ylabel("Recovery amplitude  [W m$^{-2}$]", fontsize=11)
+    ax.set_title("(b) Management amplitude:  detected vs missed",
                     fontsize=12, loc="left", weight="bold")
-    ax.legend(loc="upper left", fontsize=9, framealpha=0.9)
     ax.grid(alpha=0.25, axis="y")
 
 
@@ -345,12 +339,12 @@ def make_figure(out_dir: Path, df_pool, summary, metv3):
     ax_c = fig.add_subplot(gs[0, 1])
 
     fig.suptitle(
-        "Tarazona irrigation blind spot — Meteosat ETv3 is flat to drip irrigation\n"
-        "while the bias itself recovers on the Analysis-A timescale (τ ≈ 3–4 d)",
+        "Tarazona irrigation blind spot — Meteosat ETv3 captures none of the\n"
+        "EC management amplitude;  the full pulse is preserved inside the bias",
         fontsize=14, weight="bold")
 
     draw_panel_b(ax_b, df_pool, None, summary)
-    draw_panel_c(ax_c, EC_TAU_REF, metv3, summary)
+    draw_panel_amp(ax_c, EC_TAU_REF, metv3, summary)
 
     png = out_dir / "fig04b_tarazona_blindspot_v32.png"
     pdf = out_dir / "fig04b_tarazona_blindspot_v32.pdf"
@@ -398,39 +392,49 @@ Panel reading guide
             (≈ {summary['amplitude']/LE_PER_MM:.2f} mm day⁻¹)
             R² = {summary['r2']:.2f}
 
-(b) τ comparison — three bars side by side.
-    1) EC reference (Analysis A v31, Tarazona active, n = 41):
-       τ_EC = {EC_TAU_REF['tau']:.2f} d  [{EC_TAU_REF['ci_lo']:.2f}, {EC_TAU_REF['ci_hi']:.2f}]
-       amp = {EC_TAU_REF['amplitude']:.0f} W m⁻²
-    2) Meteosat ETv3 alone, same events:
-       τ_Sat = {metv3['tau']:.2f} d  (R² = {metv3.get('r2', float('nan')):.2f})
-       → fit hits the lower boundary with R² ≈ 0, i.e. the satellite
-         time series is essentially flat across the irrigation
-         pulse — no detectable exponential recovery.
+(b) Management amplitude:  detected vs missed — three bars.
+    1) EC tower (Analysis A v31, Tarazona active, n = 41):
+       amp_EC  = {EC_TAU_REF['amplitude']:.0f} W m⁻²
+       τ_EC    = {EC_TAU_REF['tau']:.2f} d  [{EC_TAU_REF['ci_lo']:.2f}, {EC_TAU_REF['ci_hi']:.2f}]
+    2) Meteosat ETv3, same events:
+       amp_Sat ≈ 0 W m⁻²   (fit pegs at τ floor with R² ≈ 0)
+       → the satellite captures none of the management amplitude.
     3) Bias = EC − Sat:
-       τ_bias = {summary['tau_bias']:.2f} d
-       [{summary['tau_ci_lo']:.2f}, {summary['tau_ci_hi']:.2f}]
-       amp_bias = {summary['amplitude']:.1f} W m⁻²
-    Green band = Analysis-A universal range (3-4 d).
-    The Sat bar is shown hatched because the fit pegs at the τ floor
-    with R² ≈ 0 — i.e. the satellite is statistically *flat* through
-    the event window.  The EC and Bias bars both fall within the
-    Analysis-A universal band (3–4 d), and the bias amplitude
-    (~95 W m⁻²) is essentially equal to the EC amplitude.
+       amp_bias = {summary['amplitude']:.0f} W m⁻²
+       → the full amplitude is preserved inside the bias.
+
+    Note on τ.  The bias τ ({summary['tau_bias']:.2f} d) appears in
+    Analysis A's 3–4 d band, but this is a *consistency check*, not
+    independent evidence: with Sat ≈ flat, bias = EC − const inherits
+    the EC exponential by construction, so τ_bias = τ_EC mathematically.
+    The amplitude comparison above is the real measurement.
 
 ------------------------------------------------------------------
 Take-home message
 ------------------------------------------------------------------
-At Tarazona, Meteosat ETv3 shows **no detectable exponential
-response** to drip irrigation events on the 3–4 d Analysis-A
-timescale (τ floored, R² ≈ 0).  Because the EC tower *does* show
-that recovery, the bias (EC − Sat) inherits the *entire*
-management signal: its amplitude ≈ EC amplitude (~95 W m⁻²) and
-its τ falls inside the Analysis-A universal band.
-→ Sat-derived ET is usable for *climate-scale* drying timescales,
-  but cannot be used to quantify the management signal of drip
-  irrigation in heterogeneous orchard pixels (≈ 5 km pixel vs
-  ≈ 0.1 km² orchard).
+Meteosat ETv3 reproduces NDVI (canopy) and GPP (photosynthesis)
+at both sites, but at drip-irrigated Tarazona it captures **none**
+of the EC management amplitude in ET (95 W m⁻² recovered by the
+tower; ~0 W m⁻² by the satellite).  Because the satellite is
+flat through the event window, the EC management pulse is
+preserved intact inside the EC−Sat bias.
+
+The blind spot is structural, not statistical: ETv3 does ingest
+satellite soil moisture (H-SAF H141/H142/H26), but drip irrigation
+slips through three resolution limits:
+
+  (i)  Spatial scale — 1–12.5 km pixel vs 1 ha (0.01 km²) orchard.
+       At Tarazona, Sentinel-2 confirms only ~4 % of the H26 1 km
+       footprint is summer-active vegetation.
+  (ii) Microwave sensing — scatterometers see only the top ~5 cm;
+       drip wets emitter-local patches that dry within hours.
+  (iii) SVAT structure — the generic f(SM) availability curve
+       cannot represent the bi-modal SM distribution of a drip
+       orchard.
+
+Implication:  satellite ET can validate climate-scale drying
+(τ universal across rainfed/irrigated), but quantifying drip
+irrigation water use requires an in-situ amplitude correction.
 
 ------------------------------------------------------------------
 Statistical methods
@@ -440,6 +444,8 @@ Statistical methods
 - Bootstrap (B = {N_BOOT_DEFAULT}, raw-data resampling) gives SE and
   95 % CI for τ.
 - Boundary fits (τ ≤ 0.6 d or τ ≥ 59 d) and R² < 0.3 are excluded.
+- τ_bias is reported as a math consistency check (see note in (b)),
+  not as an independent physical measurement.
 
 ------------------------------------------------------------------
 Data sources
@@ -509,7 +515,7 @@ def main():
         dict(label="Bias",      tau=summary["tau_bias"], se=summary["tau_se_bias"],
               ci_lo=summary["tau_ci_lo"], ci_hi=summary["tau_ci_hi"],
               amplitude=summary["amplitude"], n=summary["n_events"]),
-    ]).to_csv(out / "v32_panel_b_tau_bars.csv", index=False)
+    ]).to_csv(out / "v32_panel_b_amp_bars.csv", index=False)
 
     print(f"\n[done] {out}/")
 

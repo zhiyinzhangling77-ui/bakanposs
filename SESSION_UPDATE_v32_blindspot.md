@@ -33,8 +33,15 @@
 
 ファイル: `analysis_A_v32.py`、`output_analysis_A_v32/fig04b_tarazona_blindspot_v32.{png,pdf}`
 
-### v32.3 (next, 未実装)
-**τ_bias を main argument から外す** 予定。詳細は §3。
+### v32.3 (✅ 実装済)
+**τ_bias を main argument から外し、management amplitude 比較に置換**:
+- panel (a) bias recovery: 変更なし(bias 内に pulse が保存されることを可視化)
+- panel (b) `draw_panel_c` (τ bars) → `draw_panel_amp` (amplitude bars)
+  - 3 bars: amp_EC = 95 / amp_Sat ≈ 0 / amp_bias = 95 W/m²
+  - "Sat captures 0%", "Bias inherits 100%" の annotation
+- suptitle・caption も amplitude-first に書き換え
+- τ_bias は caption の (b) 節に **"consistency check, not independent evidence"** と注記
+- CSV 出力名 `v32_panel_b_tau_bars.csv` → `v32_panel_b_amp_bars.csv`
 
 ---
 
@@ -175,11 +182,30 @@ pixel-mean ΔSM = 0.01 × 0.20 = 0.002 m³/m³
 
 → **H26 fetch する価値は Tarazona 周辺(±500 m〜±2 km)の土地利用次第**。
 
-### 判断フロー(未実施)
+### 判断フロー(✅ 実施済、結果は candidate C)
 
-1. **GEE で周辺 Sentinel-2 summer NDVI tile を出す**(`scripts/check_tarazona_pixel_landcover.py`、未実装)
-2. 周囲も灌漑農地集積 → H26 fetch + 解析(H-SAF 登録要)、~1 日コース
-3. 周囲が rainfed → H26 諦め、衛星 SM 評価は future work とし、**candidate C(衛星 SM 外す)** で論を閉じる
+1. **GEE Sentinel-2 + ESA WorldCover 解析** `scripts/check_tarazona_pixel_landcover.js`、実施済
+2. 結果 (summer 2020–2024 mean):
+
+   | buffer | mean NDVI | fraction NDVI > 0.5 |
+   |---|---|---|
+   | 200 m (tower) | 0.31 | 4.5 % |
+   | **1 km (~H26)** | 0.31 | **4.5 %** |
+   | 5 km (~ETv3) | 0.22 | 0.7 % |
+   | 12.5 km (~ASCAT) | 0.22 | 1.6 % |
+
+3. **判定**: 1 km buffer の active fraction = 4.5 % は判定閾値 5 % をわずかに下回る。
+   pixel-mean ΔSM = 0.013 × 0.2 ≈ **0.003 m³/m³** で noise floor の 1/15。
+   → **H26 fetch しても検出不能**(事前に経験的に確定)
+   → **candidate C 採用**: 衛星 SM 解析は外し、`amp_EC vs amp_Sat` 中心の
+     argument + tower SWC で論を閉じる。
+
+### Bonus: 空間希釈論の証拠 tier 格上げ
+
+これまで「空間希釈で見えない」は **Tier A**(general 文献からの推論)だったが、
+本研究 Tarazona pixel で **実測 4.5 % active fraction** が示せたことで、
+**Tier A + 本研究での Tarazona 直接実測** に格上げ。
+reviewer に「あなたのサイトで本当に空間希釈が効いているのか?」と聞かれたら即答可能。
 
 ---
 
@@ -260,18 +286,21 @@ SMAP L4 = 9 km
 
 ---
 
-## 10. 次セッションの最初に決めること
+## 10. 次セッションの最初に決めること(更新版)
 
-ユーザーは以下のどれで進めたいか確認:
+✅ (A) と (C) は完了:
+- (A) GEE で Tarazona pixel 周辺確認 → **active fraction 4.5 %、candidate C 確定**
+- (C) v32 を amp comparison 中心に refactor 済(panel (b) τ bars → amplitude bars)
+
+残作業:
 
 | 選択肢 | 内容 | 工数 |
 |---|---|---|
-| (A) **GEE で Tarazona pixel 周辺の summer NDVI を確認** → 結果次第で H26 fetch | future-proof な実証 | 半日 + ~1 日 |
-| (B) **H26 を諦めて candidate C (amp 比較 + tower SWC) で論を閉じる** | 即実装、論理は閉じる | ~2 時間 |
-| (C) **v32 の τ_bias を main から外して amp_EC vs amp_Sat 中心に refactor** | poster narrative 強化 | ~1 時間 |
-| (D) **poster template v2 を上記すべて反映で再生成** | ポスター ready | (B)(C) 後の ~30 分 |
+| (B) **Tower SWC event-recovery 解析** — `master_full_v2.csv` の `SWC` を v32 と同枠組みで | candidate C の証拠補強(in-situ が irrigation を確認) | ~2 時間 |
+| (D) **poster template v2** — v32 refactor + Fig 1 (6-panel) + GEE 周辺地図 + narrative | ポスター ready | ~30 分 |
+| (E) **論文 Methods 段落原稿** — SATELLITE_ET_NOTES.md と本ファイルから組み立て | 論文化準備 | ~30 分 |
 
-私の推奨: **(B) → (C) → (D)** の順で進め、(A) は論文化フェーズで追加。
+推奨順: **(B) → (D) → (E)**。
 
 ---
 

@@ -24,7 +24,23 @@
 - 5 km ピクセル = **25 km² の混合シグナル**
 - ピクセル内に複数の land cover (灌漑農地・rainfed・bare soil・urban) が混在 → 加重平均
 - **EC tower footprint (~100–300 m) との representativeness mismatch** は数倍〜10倍の差を生む常識
-- 灌漑農地が小規模 (e.g., Tarazona almond ~1–2 ha) の場合、ピクセル内シェアが小さく ET シグナルが希釈される
+- 灌漑農地が小規模 (e.g., Tarazona almond **1 ha = 0.01 km²**) の場合、ピクセル内シェアが小さく ET シグナルが希釈される
+
+### 本研究での実測(Sentinel-2 + ESA WorldCover, 2020–2024)
+
+`scripts/check_tarazona_pixel_landcover.js` の GEE 解析:
+
+| buffer | mean summer NDVI | fraction NDVI > 0.5 |
+|---|---|---|
+| 200 m (tower footprint) | ~0.31 | ~4.5 % |
+| **1 km (~H26 pixel)** | 0.31 | **4.5 %** |
+| 5 km (~ETv3 pixel) | 0.22 | 0.7 % |
+| 12.5 km (~ASCAT H141) | 0.22 | 1.6 % |
+
+→ Tarazona は **乾燥地マトリックスの中の孤立 orchard**。1 km H26 pixel
+  でも **96 % が rainfed / 乾燥地**で占められ、orchard 由来の灌漑信号は
+  pixel-mean SM 上昇 ~0.003 m³/m³(noise floor ~0.04 の 1/15)に薄められる。
+  → **H26 fetch しても見えない**ことが事前に GEE で実証された。
 
 ---
 

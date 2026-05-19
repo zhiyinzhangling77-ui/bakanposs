@@ -50,8 +50,12 @@ Map.centerObject(TARAZONA, 13);
 // バッファ半径 = 各衛星 SM product の "半 pixel" に合わせる
 // (= square pixel の中心からの距離.  buffer は circular だが
 //  視覚的・統計的なスケール比較には十分)
+//
+// Tower footprint は典型的に 100-300 m (EC stability + wind 依存)
+// → 200 m を採用.  以前 500 m にしていたが H26 と被って同じ統計が
+//   出ていたバグを修正.
 var buffers = {
-  '0.5 km (tower footprint)'   : TARAZONA.buffer(500),
+  '200 m  (tower footprint)'   : TARAZONA.buffer(200),
   '1 km   (~H26 pixel)'        : TARAZONA.buffer(500),
   '5 km   (~ETv3/MGPP pixel)'  : TARAZONA.buffer(2500),
   '12.5 km (~ASCAT H141 pixel)': TARAZONA.buffer(6250)
@@ -142,7 +146,7 @@ var outline = function(geom, color, name) {
     name
   );
 };
-outline(buffers['0.5 km (tower footprint)'],    'red',    '0.5 km buffer');
+outline(buffers['200 m  (tower footprint)'],    'red',    '200 m buffer');
 outline(buffers['1 km   (~H26 pixel)'],         'orange', '1 km buffer (H26)');
 outline(buffers['5 km   (~ETv3/MGPP pixel)'],   'blue',   '5 km buffer (ETv3)');
 outline(buffers['12.5 km (~ASCAT H141 pixel)'], 'purple', '12.5 km buffer');
