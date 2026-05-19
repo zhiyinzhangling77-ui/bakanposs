@@ -7,6 +7,12 @@ Layout (3 rows x 2 cols):
 
 All rows shade Mar-Jun (peak Mediterranean growing season) per year.
 
+Spatial / temporal scales annotated in each legend entry:
+  EC tower         : ~100 m footprint    , daily aggregate (30-min raw)
+  Sentinel-2 NDVI  : 10 m pixel          , ~5-day revisit
+  Meteosat MGPP    : 0.05° (~5 km)       , 10-day composite
+  Meteosat ETv3    : 0.05° (~5 km)       , daily aggregate (30-min raw)
+
 Inputs:  data/master_full_v2.csv, data/mgpp_decadal_all.csv
 Outputs: figures/poster/overview.png  (+ .pdf)
 """
@@ -131,9 +137,11 @@ def main() -> None:
         s2_d, s2_v = break_gaps(sub["date"], sub["S2_NDVI"], max_gap_days=15)
         ax.plot(s2_d, s2_v,
                 "-o", color=C_S2, lw=1.0, ms=3.2, mec="white", mew=0.4,
-                alpha=0.9, zorder=2, label="Sentinel-2 NDVI")
+                alpha=0.9, zorder=2,
+                label="Sentinel-2 NDVI  ·  10 m  ·  ~5-day")
         ax.plot(sub["date"], smooth_break(sub["NDVI"]),
-                color=C_EC, lw=1.7, zorder=3, label="EC tower NDVI (7-d)")
+                color=C_EC, lw=1.7, zorder=3,
+                label="EC tower NDVI  ·  ~100 m  ·  daily (7-d)")
         ax.set_ylabel("NDVI (–)", fontsize=10.5)
         ax.set_ylim(-0.05, 0.85)
         style_time_ax(ax, d0, d1)
@@ -151,9 +159,11 @@ def main() -> None:
         m_d, m_v = break_gaps(msub["date"], msub["GPP_mgpp"], max_gap_days=15)
         ax.plot(m_d, m_v,
                 "-o", color=C_MGPP, lw=1.2, ms=3.6, mec="white", mew=0.5,
-                alpha=0.95, zorder=2, label="Meteosat MGPP (10-d)")
+                alpha=0.95, zorder=2,
+                label="Meteosat MGPP  ·  0.05° (~5 km)  ·  10-day")
         ax.plot(sub["date"], smooth_break(sub["GPP_gC_m2_d"]),
-                color=C_EC, lw=1.7, zorder=3, label="EC tower (7-d)")
+                color=C_EC, lw=1.7, zorder=3,
+                label="EC tower GPP  ·  ~100 m  ·  daily (7-d)")
         ax.set_ylabel(r"GPP (gC m$^{-2}$ d$^{-1}$)", fontsize=10.5)
         ymax = max(16, np.nanpercentile(sub["GPP_gC_m2_d"], 99) + 2)
         ax.set_ylim(-1, ymax)
@@ -168,9 +178,10 @@ def main() -> None:
         shade_springs(ax, d0, d1)
         ax.plot(sub["date"], smooth_break(sub["ET_metv3_mm"]),
                 color=C_METV3, lw=1.4, alpha=0.95, zorder=2,
-                label="Meteosat ETv3 (7-d)")
+                label="Meteosat ETv3  ·  0.05° (~5 km)  ·  daily (7-d)")
         ax.plot(sub["date"], smooth_break(sub["ET_mm"]),
-                color=C_EC, lw=1.7, zorder=3, label="EC tower (7-d)")
+                color=C_EC, lw=1.7, zorder=3,
+                label="EC tower ET  ·  ~100 m  ·  daily (7-d)")
         ax.set_ylabel("ET (mm day$^{-1}$)", fontsize=10.5)
         ax.set_ylim(-0.3, 8.5)
         style_time_ax(ax, d0, d1)
@@ -180,10 +191,12 @@ def main() -> None:
                 fontsize=14, fontweight="bold")
 
     fig.text(0.5, 0.005,
-             "Shaded band: Mar–Jun (typical Mediterranean growing season). "
-             "Sentinel-2 NDVI (10 m) ; Meteosat MGPP = LSA SAF 10-day GPP "
-             "composite (0.05°) ; Meteosat ETv3 = LSA SAF DMET v3 (0.05°).",
-             ha="center", fontsize=8.8, style="italic", color="#555555")
+             "Shaded band: Mar–Jun (Mediterranean growing season). "
+             "Each legend entry annotates product name · spatial pixel · "
+             "temporal cadence. EC values are smoothed with a 7-day "
+             "centered mean; lines break across data gaps >7 d (daily) "
+             "or >15 d (sparse).",
+             ha="center", fontsize=8.5, style="italic", color="#555555")
 
     out_png = OUT_DIR / "overview.png"
     out_pdf = OUT_DIR / "overview.pdf"
