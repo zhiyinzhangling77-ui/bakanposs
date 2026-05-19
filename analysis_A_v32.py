@@ -13,10 +13,13 @@
   (a) Bias recovery: Δ = EC_LE − METv3_LE [W/m²] を Day 0 起点で
       箱ひげ + exp fit (τ_bias, amplitude_bias)。第二軸 mm/day。
       → bias 内に管理 amplitude が保存されていることを可視化
-  (b) Management amplitude bars: EC / METv3 / Bias の amplitude 比較
-      → amp_EC = 95, amp_Sat ≈ 0, amp_Bias = 95
-        Sat captures 0 %, Bias inherits 100 %.  τ_bias は consistency
-        check として caption に注記(独立証拠ではない).
+  (b) EC vs Sat recovery curves overlay: 同じ event pool で EC と
+      METv3 を別々に exp fit、両者の箱ひげ + fit 曲線を重ねる。
+      間の shaded gap = bias.
+      → 「Sat が flat」が視覚的に分かり、management pulse の不在が
+        labelled 0 ではなく gap として現れる.
+        τ_bias は caption に consistency check として注記(独立証拠
+        ではない).
 
 【入力 (デフォルト)】
   --bias-pool        ./output_analysis_B_v3/v3_bias_perevent_pooled.csv
@@ -26,7 +29,7 @@
   fig04b_tarazona_blindspot_v32.png/pdf  ★ poster figure
   v32_poster_caption.txt                 ★ 脚注テキスト
   v32_panel_a_bias_fit.csv               panel (a) fit 再現用
-  v32_panel_b_amp_bars.csv               panel (b) amplitude bars
+  v32_panel_b_curves_fits.csv            panel (b) EC + Sat fit params
 """
 
 from __future__ import annotations
@@ -156,29 +159,44 @@ def fit_bias_tau(arr_d: np.ndarray, arr_y: np.ndarray,
     return None
 
 
-def fit_metv3_tau(df_pool: pd.DataFrame, n_boot: int):
-    """METv3 LE の独立 τ 推定 (bias と別物)."""
+def fit_series_tau(df_pool: pd.DataFrame, le_col: str, n_boot: int):
+    """Generic exp-decay fit on any LE_* column in the event pool.
+    Used for both LE_EC and LE_METv3 so they share fit machinery."""
     arr_d = df_pool["days_since_event"].values.astype(float)
-    arr_y = df_pool["LE_METv3_Wm2"].values.astype(float)
+    arr_y = df_pool[le_col].values.astype(float)
+    mask = ~np.isnan(arr_y)
+    arr_d = arr_d[mask]; arr_y = arr_y[mask]
     res = fit_bias_tau(arr_d, arr_y)
     if res is None:
         return None
     rng = np.random.default_rng(42)
     n = len(arr_d)
-    taus = []
+    taus, amps = [], []
     for _ in range(n_boot):
         idx = rng.integers(0, n, size=n)
         sub = fit_bias_tau(arr_d[idx], arr_y[idx])
         if sub is not None and TAU_FLOOR + 0.01 < sub["tau"] < TAU_CEIL - 0.5:
-            taus.append(sub["tau"])
+            taus.append(sub["tau"]); amps.append(sub["a"])
     if len(taus) < 50:
         return dict(tau=res["tau"], se=np.nan, ci_lo=np.nan, ci_hi=np.nan,
-                       a=res["a"], c=res["c"], r2=res["r2"])
-    taus = np.array(taus)
+                       a=res["a"], se_a=np.nan,
+                       c=res["c"], r2=res["r2"])
+    taus = np.array(taus); amps = np.array(amps)
     return dict(tau=res["tau"], se=float(np.std(taus)),
                   ci_lo=float(np.percentile(taus, CI_PCT[0])),
                   ci_hi=float(np.percentile(taus, CI_PCT[1])),
-                  a=res["a"], c=res["c"], r2=res["r2"])
+                  a=res["a"], se_a=float(np.std(amps)),
+                  c=res["c"], r2=res["r2"])
+
+
+def fit_metv3_tau(df_pool: pd.DataFrame, n_boot: int):
+    """METv3-only τ.  Wrapper around fit_series_tau for backward compat."""
+    return fit_series_tau(df_pool, "LE_METv3_Wm2", n_boot)
+
+
+def fit_ec_tau(df_pool: pd.DataFrame, n_boot: int):
+    """EC-only τ on the same event pool as Sat — for panel (b) overlay."""
+    return fit_series_tau(df_pool, "LE_EC_Wm2", n_boot)
 
 
 # ================================================================
@@ -253,76 +271,91 @@ def _metv3_fit_quality(metv3: dict) -> str:
     return "ok"
 
 
-def draw_panel_amp(ax, ec_ref: dict, metv3: dict, bias: dict):
-    """3 bars: EC / Sat / Bias  recovery amplitude  [W m⁻²].
+def draw_panel_curves(ax, df_pool: pd.DataFrame,
+                          ec_fit: dict, sat_fit: dict):
+    """Panel (b): EC vs Sat recovery curves on the same axes.
 
-    Main argument of v32: the satellite captures **zero** of the EC
-    management amplitude, and the full amplitude is preserved inside
-    the bias.  τ comparison (former panel) is demoted to supplementary
-    because bias = EC − const ⇒ τ_bias = τ_EC by construction.
+    Side-by-side boxplots per day-since-event for the two products,
+    with exponential fit overlays.  The shaded region between the two
+    fit curves IS the bias — making the missing amplitude visible as
+    a gap rather than as a labelled "0" bar.
     """
-    metv3_quality = _metv3_fit_quality(metv3)
+    sat_quality = _metv3_fit_quality(sat_fit)
+    ax_r = ax.twinx()                  # mm/day on right axis (matches panel a)
 
-    # amplitudes (W/m²)
-    ec_amp   = float(ec_ref["amplitude"])              # 94.8 from v31
-    sat_amp  = float(max(metv3.get("a", 0.0) or 0.0, 0.0))  # ~0 when fit invalid
-    bias_amp = float(bias["amplitude"])                # 94.8 from B v3
+    days = sorted(df_pool["days_since_event"].unique())
+    days = [d for d in days if d <= MAX_WINDOW]
+    ec_box, sat_box, positions, ns = [], [], [], []
+    for d in days:
+        sub = df_pool[df_pool["days_since_event"] == d]
+        ec_vals  = sub["LE_EC_Wm2"].dropna().values
+        sat_vals = sub["LE_METv3_Wm2"].dropna().values
+        if len(ec_vals) >= 1 and len(sat_vals) >= 1:
+            ec_box.append(ec_vals); sat_box.append(sat_vals)
+            positions.append(d); ns.append(len(ec_vals))
 
-    labels = ["EC\n(tower)",
-                "Meteosat\nETv3",
-                "Bias =\nEC − Sat"]
-    amps  = [ec_amp, sat_amp, bias_amp]
-    cols  = [EC_COL, METV3_COL, BIAS_COL]
-    xs    = np.arange(len(labels))
+    # Boxplots side by side, offset ±0.18 from the day position
+    bp_ec = ax.boxplot(ec_box, positions=[p - 0.18 for p in positions],
+                          widths=0.30, patch_artist=True, showfliers=False,
+                          medianprops=dict(color="black", lw=1.4),
+                          whiskerprops=dict(color="#555"),
+                          capprops=dict(color="#555"))
+    for b in bp_ec["boxes"]:
+        b.set(facecolor=EC_COL, alpha=0.30, edgecolor=EC_COL)
 
-    y_max = max(amps) * 1.30
-    ax.set_ylim(0, y_max)
+    bp_sat = ax.boxplot(sat_box, positions=[p + 0.18 for p in positions],
+                           widths=0.30, patch_artist=True, showfliers=False,
+                           medianprops=dict(color="black", lw=1.4),
+                           whiskerprops=dict(color="#555"),
+                           capprops=dict(color="#555"))
+    for b in bp_sat["boxes"]:
+        b.set(facecolor=METV3_COL, alpha=0.30, edgecolor=METV3_COL)
 
-    # bars
-    for i, (x, a, c) in enumerate(zip(xs, amps, cols)):
-        invalid_sat = (i == 1 and metv3_quality != "ok")
-        ax.bar(x, a, color=c,
-                  alpha=0.35 if invalid_sat else 0.85,
-                  edgecolor=c if invalid_sat else "black",
-                  lw=1.2 if invalid_sat else 0.8,
-                  hatch="///" if invalid_sat else None,
-                  zorder=3)
+    # Exp-fit overlay curves
+    xs_fit = np.linspace(0, MAX_WINDOW, 200)
+    ec_curve  = exp_model(xs_fit, ec_fit["a"],  ec_fit["tau"],  ec_fit["c"])
+    sat_curve = exp_model(xs_fit, sat_fit["a"], sat_fit["tau"], sat_fit["c"])
 
-    # value annotations
-    for i, (x, a) in enumerate(zip(xs, amps)):
-        if i == 1 and metv3_quality != "ok":
-            ax.text(x, max(a, 2) + y_max * 0.02,
-                      f"{a:.1f} W m⁻²\n(fit invalid)",
-                      ha="center", va="bottom", fontsize=10,
-                      color=METV3_COL, weight="bold")
-        else:
-            ax.text(x, a + y_max * 0.02,
-                      f"{a:.0f} W m⁻²",
-                      ha="center", va="bottom", fontsize=11, weight="bold")
+    ax.plot(xs_fit, ec_curve, color=EC_COL, lw=2.6, zorder=6,
+              label=f"EC fit:  τ = {ec_fit['tau']:.2f} d,  "
+                     f"amp = {ec_fit['a']:.0f} W m$^{{-2}}$")
+    sat_label = (f"Sat fit:  flat (τ pegged at floor, R² ≈ 0)"
+                    if sat_quality != "ok"
+                    else f"Sat fit:  τ = {sat_fit['tau']:.2f} d,  "
+                          f"amp = {sat_fit['a']:.0f} W m$^{{-2}}$")
+    ax.plot(xs_fit, sat_curve, color=METV3_COL, lw=2.6, zorder=6, ls="--",
+              label=sat_label)
 
-    # "0 % captured" annotation under the Sat bar
-    pct_captured = 0.0 if ec_amp == 0 else (sat_amp / ec_amp) * 100
-    ax.text(1, y_max * 0.55,
-              f"Sat captures\n{pct_captured:.0f} % of the\nEC amplitude",
-              ha="center", va="center", fontsize=10,
-              color=METV3_COL,
-              bbox=dict(boxstyle="round,pad=0.4", fc="white",
-                          ec=METV3_COL, lw=1.2, alpha=0.95))
+    # Shaded region between curves = bias = missing amplitude
+    ax.fill_between(xs_fit, sat_curve, ec_curve,
+                       where=(ec_curve >= sat_curve),
+                       color=BIAS_COL, alpha=0.18, zorder=2,
+                       label=f"Bias = missing amplitude "
+                              f"(≈ {ec_fit['a']:.0f} W m$^{{-2}}$ at Day 0)")
 
-    # "100 % in bias" annotation under the Bias bar
-    pct_in_bias = 0.0 if ec_amp == 0 else (bias_amp / ec_amp) * 100
-    ax.text(2, y_max * 0.55,
-              f"Bias inherits\n{pct_in_bias:.0f} % of the\nEC amplitude",
-              ha="center", va="center", fontsize=10,
-              color=BIAS_COL,
-              bbox=dict(boxstyle="round,pad=0.4", fc="white",
-                          ec=BIAS_COL, lw=1.2, alpha=0.95))
+    ax.axvline(0, color="#888", ls=":", lw=1.0, zorder=1)
 
-    ax.set_xticks(xs)
-    ax.set_xticklabels(labels, fontsize=11)
-    ax.set_ylabel("Recovery amplitude  [W m$^{-2}$]", fontsize=11)
-    ax.set_title("(b) Management amplitude:  detected vs missed",
+    # mm/day secondary axis — set after data so ylim is finalized
+    ax.relim(); ax.autoscale_view()
+    ymin, ymax = ax.get_ylim()
+    ax_r.set_ylim(ymin / LE_PER_MM, ymax / LE_PER_MM)
+    ax_r.set_ylabel("LE  [mm day$^{-1}$]", fontsize=11, color="#444")
+
+    # N labels under x-axis (events contributing to each day)
+    y_label_pos = ymin - (ymax - ymin) * 0.06
+    for d, n in zip(positions, ns):
+        ax.text(d, y_label_pos, f"{n}", ha="center", va="top",
+                  fontsize=8, color=N_LABEL_COL, weight="bold",
+                  bbox=dict(boxstyle="round,pad=0.16", fc="white",
+                              ec=N_LABEL_COL, lw=0.6))
+
+    ax.set_xlabel("Days since irrigation", fontsize=11)
+    ax.set_ylabel("LE  [W m$^{-2}$]", fontsize=11)
+    ax.set_xlim(-0.6, MAX_WINDOW + 0.6)
+    ax.set_xticks(range(0, MAX_WINDOW + 1, 2))
+    ax.set_title("(b) EC vs Sat recovery — same events, two products",
                     fontsize=12, loc="left", weight="bold")
+    ax.legend(loc="upper right", fontsize=9, framealpha=0.9)
     ax.grid(alpha=0.25, axis="y")
 
 
@@ -330,21 +363,23 @@ def draw_panel_amp(ax, ec_ref: dict, metv3: dict, bias: dict):
 # Figure assembly
 # ================================================================
 
-def make_figure(out_dir: Path, df_pool, summary, metv3):
-    """2-panel side-by-side layout: bias recovery + τ comparison."""
-    fig = plt.figure(figsize=(15, 6.5), facecolor="white",
+def make_figure(out_dir: Path, df_pool, summary, ec_fit, sat_fit):
+    """2-panel side-by-side layout:
+       (a) Bias recovery curve (Δ = EC − Sat, exp fit)
+       (b) EC vs Sat recovery curves overlay (the gap = bias)"""
+    fig = plt.figure(figsize=(16, 6.5), facecolor="white",
                        constrained_layout=True)
-    gs = fig.add_gridspec(1, 2, width_ratios=[1.35, 1.0])
+    gs = fig.add_gridspec(1, 2, width_ratios=[1.0, 1.2])
     ax_b = fig.add_subplot(gs[0, 0])
     ax_c = fig.add_subplot(gs[0, 1])
 
     fig.suptitle(
-        "Tarazona irrigation blind spot — Meteosat ETv3 captures none of the\n"
-        "EC management amplitude;  the full pulse is preserved inside the bias",
+        "Tarazona irrigation blind spot — Meteosat ETv3 stays flat while\n"
+        "the EC tower recovers; the gap between them IS the management pulse",
         fontsize=14, weight="bold")
 
     draw_panel_b(ax_b, df_pool, None, summary)
-    draw_panel_amp(ax_c, EC_TAU_REF, metv3, summary)
+    draw_panel_curves(ax_c, df_pool, ec_fit, sat_fit)
 
     png = out_dir / "fig04b_tarazona_blindspot_v32.png"
     pdf = out_dir / "fig04b_tarazona_blindspot_v32.pdf"
@@ -355,7 +390,7 @@ def make_figure(out_dir: Path, df_pool, summary, metv3):
     print(f"  [save] {pdf}")
 
 
-def write_caption(out_dir: Path, summary: dict, metv3: dict):
+def write_caption(out_dir: Path, summary: dict, metv3: dict, ec_fit: dict):
     txt = f"""\
 ================================================================
 Fig 4b — Tarazona irrigation blind spot (Analysis A v32)
@@ -392,22 +427,27 @@ Panel reading guide
             (≈ {summary['amplitude']/LE_PER_MM:.2f} mm day⁻¹)
             R² = {summary['r2']:.2f}
 
-(b) Management amplitude:  detected vs missed — three bars.
-    1) EC tower (Analysis A v31, Tarazona active, n = 41):
-       amp_EC  = {EC_TAU_REF['amplitude']:.0f} W m⁻²
-       τ_EC    = {EC_TAU_REF['tau']:.2f} d  [{EC_TAU_REF['ci_lo']:.2f}, {EC_TAU_REF['ci_hi']:.2f}]
-    2) Meteosat ETv3, same events:
-       amp_Sat ≈ 0 W m⁻²   (fit pegs at τ floor with R² ≈ 0)
-       → the satellite captures none of the management amplitude.
-    3) Bias = EC − Sat:
-       amp_bias = {summary['amplitude']:.0f} W m⁻²
-       → the full amplitude is preserved inside the bias.
+(b) EC vs Sat recovery — both products fitted on the same event pool.
+    Side-by-side boxplots per day-since-event for EC LE (green) and
+    Meteosat ETv3 LE (orange), with their independent exponential fits
+    overlaid.  The purple shaded region between the two fit curves is
+    the bias = missing amplitude.
 
-    Note on τ.  The bias τ ({summary['tau_bias']:.2f} d) appears in
-    Analysis A's 3–4 d band, but this is a *consistency check*, not
-    independent evidence: with Sat ≈ flat, bias = EC − const inherits
-    the EC exponential by construction, so τ_bias = τ_EC mathematically.
-    The amplitude comparison above is the real measurement.
+       EC fit  :  τ = {ec_fit['tau']:.2f} d,  amp = {ec_fit['a']:.0f} W m⁻²
+                  ({ec_fit.get('r2', float('nan')):.2f} R²,
+                   n_events ≈ {summary['n_events']})
+       Sat fit :  τ pegged at floor, R² ≈ 0  →  amp_Sat ≈ 0
+                  (no detectable exponential response)
+
+    The EC pulse (~{ec_fit['a']:.0f} W m⁻²) lives entirely in the gap
+    between the green and the orange curve — the satellite resolves
+    none of it.
+
+    Note on τ_bias.  The bias τ ({summary['tau_bias']:.2f} d) in
+    panel (a) appears in Analysis A's 3–4 d band, but this is a
+    *consistency check*, not independent evidence: with Sat ≈ flat,
+    bias = EC − const inherits the EC exponential by construction,
+    so τ_bias = τ_EC mathematically.
 
 ------------------------------------------------------------------
 Take-home message
@@ -490,23 +530,37 @@ def main():
             f"[{summary['tau_ci_lo']:.2f}, {summary['tau_ci_hi']:.2f}]"
             f"  amp = {summary['amplitude']:.1f} W/m²")
 
+    nan_fit = dict(tau=np.nan, se=np.nan, ci_lo=np.nan, ci_hi=np.nan,
+                      a=np.nan, se_a=np.nan, c=np.nan, r2=np.nan)
+
     print("\n--- Fit METv3-only τ (bootstrap n={}) ---".format(args.n_boot))
-    metv3 = fit_metv3_tau(df_pool, n_boot=args.n_boot)
-    if metv3 is None:
-        metv3 = dict(tau=np.nan, se=np.nan, ci_lo=np.nan, ci_hi=np.nan,
-                       a=np.nan, c=np.nan, r2=np.nan)
+    metv3 = fit_metv3_tau(df_pool, n_boot=args.n_boot) or nan_fit
     print(f"  τ_Sat = {metv3['tau']:.2f} d, "
-            f"SE = {metv3['se']:.2f},  "
-            f"CI = [{metv3['ci_lo']:.2f}, {metv3['ci_hi']:.2f}], "
-            f"R² = {metv3['r2']:.2f}")
+            f"SE = {metv3.get('se', np.nan):.2f},  "
+            f"CI = [{metv3.get('ci_lo', np.nan):.2f}, "
+            f"{metv3.get('ci_hi', np.nan):.2f}], "
+            f"R² = {metv3.get('r2', np.nan):.2f}, "
+            f"amp = {metv3.get('a', np.nan):.1f} W/m²")
+
+    print("\n--- Fit EC-only τ (same event pool, bootstrap n={}) ---".format(args.n_boot))
+    ec_fit = fit_ec_tau(df_pool, n_boot=args.n_boot) or nan_fit
+    print(f"  τ_EC  = {ec_fit['tau']:.2f} d, "
+            f"SE = {ec_fit.get('se', np.nan):.2f},  "
+            f"CI = [{ec_fit.get('ci_lo', np.nan):.2f}, "
+            f"{ec_fit.get('ci_hi', np.nan):.2f}], "
+            f"R² = {ec_fit.get('r2', np.nan):.2f}, "
+            f"amp = {ec_fit.get('a', np.nan):.1f} W/m²")
 
     print("\n--- Figure (v32) ---")
-    make_figure(out, df_pool, summary, metv3)
-    write_caption(out, summary, metv3)
+    make_figure(out, df_pool, summary, ec_fit, metv3)
+    write_caption(out, summary, metv3, ec_fit)
 
     df_pool.to_csv(out / "v32_panel_a_bias_fit.csv", index=False)
     pd.DataFrame([
-        dict(label="EC",        tau=EC_TAU_REF["tau"], se=EC_TAU_REF["se"],
+        dict(label="EC (B-v3 pool)", tau=ec_fit["tau"], se=ec_fit.get("se", np.nan),
+              ci_lo=ec_fit.get("ci_lo", np.nan), ci_hi=ec_fit.get("ci_hi", np.nan),
+              amplitude=ec_fit.get("a", np.nan), n=summary["n_events"]),
+        dict(label="EC (v31 ref)", tau=EC_TAU_REF["tau"], se=EC_TAU_REF["se"],
               ci_lo=EC_TAU_REF["ci_lo"], ci_hi=EC_TAU_REF["ci_hi"],
               amplitude=EC_TAU_REF["amplitude"], n=EC_TAU_REF["n_events"]),
         dict(label="METv3",     tau=metv3["tau"], se=metv3["se"],
@@ -515,7 +569,7 @@ def main():
         dict(label="Bias",      tau=summary["tau_bias"], se=summary["tau_se_bias"],
               ci_lo=summary["tau_ci_lo"], ci_hi=summary["tau_ci_hi"],
               amplitude=summary["amplitude"], n=summary["n_events"]),
-    ]).to_csv(out / "v32_panel_b_amp_bars.csv", index=False)
+    ]).to_csv(out / "v32_panel_b_curves_fits.csv", index=False)
 
     print(f"\n[done] {out}/")
 
