@@ -371,69 +371,87 @@ def draw_panel_b(ax, df_pool: pd.DataFrame, fit_res: dict,
     ax.grid(alpha=0.25, axis="y")
 
 
-def _metv3_is_valid(metv3: dict) -> bool:
-    """Reject pegged-at-floor / pegged-at-ceil / very-low R² fits."""
-    if metv3 is None: return False
-    tau = metv3.get("tau", np.nan)
-    r2  = metv3.get("r2", np.nan)
-    if np.isnan(tau): return False
-    if tau <= TAU_FLOOR + 0.05 or tau >= TAU_CEIL - 0.5: return False
-    if not np.isnan(r2) and r2 < 0.3: return False
-    return True
+def _metv3_fit_quality(metv3: dict) -> str:
+    """Classify METv3 fit: 'ok' | 'pegged' | 'lowR2' | 'missing'."""
+    if metv3 is None or np.isnan(metv3.get("tau", np.nan)):
+        return "missing"
+    tau = metv3["tau"]; r2 = metv3.get("r2", np.nan)
+    if tau <= TAU_FLOOR + 0.05 or tau >= TAU_CEIL - 0.5:
+        return "pegged"
+    if not np.isnan(r2) and r2 < 0.3:
+        return "lowR2"
+    return "ok"
 
 
 def draw_panel_c(ax, ec_ref: dict, metv3: dict, bias: dict):
-    metv3_valid = _metv3_is_valid(metv3)
+    """3 bars: EC / Sat / Bias.  Sat bar is always shown — even if fit is
+    invalid — with annotation so the viewer can see the τ pegged-at-floor
+    pathology rather than wondering why it's missing."""
+    metv3_quality = _metv3_fit_quality(metv3)
 
     labels_full = ["EC\n(τ_EC)", "Meteosat ETv3\n(τ_Sat)",
                        "Bias = EC−Sat\n(τ_bias)"]
-    taus = [ec_ref["tau"],
-              metv3["tau"] if metv3_valid else 0.0,
-              bias["tau_bias"]]
-    err_lo = [ec_ref["tau"] - ec_ref["ci_lo"],
-                  max(metv3["tau"] - metv3["ci_lo"], 0.0) if metv3_valid else 0.0,
+    taus = [ec_ref["tau"], metv3["tau"], bias["tau_bias"]]
+    err_lo = [max(ec_ref["tau"] - ec_ref["ci_lo"], 0.0),
+                  max(metv3["tau"] - metv3.get("ci_lo", np.nan), 0.0)
+                      if not np.isnan(metv3.get("ci_lo", np.nan)) else 0.0,
                   max(bias["tau_bias"] - bias["tau_ci_lo"], 0.0)]
-    err_hi = [ec_ref["ci_hi"] - ec_ref["tau"],
-                  max(metv3["ci_hi"] - metv3["tau"], 0.0) if metv3_valid else 0.0,
+    err_hi = [max(ec_ref["ci_hi"] - ec_ref["tau"], 0.0),
+                  max(metv3.get("ci_hi", np.nan) - metv3["tau"], 0.0)
+                      if not np.isnan(metv3.get("ci_hi", np.nan)) else 0.0,
                   max(bias["tau_ci_hi"] - bias["tau_bias"], 0.0)]
     cols = [EC_COL, METV3_COL, BIAS_COL]
     xs = np.arange(len(labels_full))
 
-    # set ylim early so text positions can reference it
-    y_max = max(ec_ref["ci_hi"], bias["tau_ci_hi"]) * 1.35
+    # y-axis: cap at a reasonable value so the bias upper CI doesn't dominate
+    y_max = max(ec_ref["ci_hi"], bias["tau_ci_hi"]) * 1.4
+    y_max = min(y_max, 15.0)
     ax.set_ylim(0, y_max)
 
-    # universal 3-4 d band
+    # clip upper errorbar to y-axis (CI can extend off-scale)
+    err_hi_clipped = [min(e, y_max - t - 0.3) for e, t in zip(err_hi, taus)]
+    err_hi_offscale = [e > (y_max - t - 0.3) for e, t in zip(err_hi, taus)]
+
+    # universal 3–4 d band
     ax.axhspan(3.0, 4.0, color="#1D9E75", alpha=0.10, zorder=0,
                   label="Analysis-A universal band (3–4 d)")
 
-    # bars: draw EC + Bias normally; METv3 either bar or hatched placeholder
+    # all three bars drawn at their fitted value
     for i, (x, t, c) in enumerate(zip(xs, taus, cols)):
-        if i == 1 and not metv3_valid:
-            ax.bar(x, y_max * 0.7, color="none", edgecolor=METV3_COL,
-                     lw=1.2, hatch="///", alpha=0.35, zorder=3)
-        else:
-            ax.bar(x, t, color=c, alpha=0.85, edgecolor="black", lw=0.8,
-                     zorder=3)
+        invalid_sat = (i == 1 and metv3_quality != "ok")
+        ax.bar(x, t, color=c,
+                  alpha=0.35 if invalid_sat else 0.85,
+                  edgecolor=c if invalid_sat else "black",
+                  lw=1.2 if invalid_sat else 0.8,
+                  hatch="///" if invalid_sat else None,
+                  zorder=3)
 
-    # errorbars only for valid bars
-    valid_mask = [True, metv3_valid, True]
-    for i, ok in enumerate(valid_mask):
-        if not ok: continue
-        ax.errorbar(xs[i], taus[i], yerr=[[err_lo[i]], [err_hi[i]]],
-                      fmt="none", ecolor="black", capsize=6, lw=1.5, zorder=4)
+    # errorbars (always)
+    for i in range(3):
+        ax.errorbar(xs[i], taus[i],
+                       yerr=[[err_lo[i]], [err_hi_clipped[i]]],
+                       fmt="none", ecolor="black", capsize=6, lw=1.5, zorder=4)
+        # uplimit arrow if CI extends beyond axis
+        if err_hi_offscale[i]:
+            ax.annotate("", xy=(xs[i], y_max - 0.05),
+                          xytext=(xs[i], taus[i] + err_hi_clipped[i]),
+                          arrowprops=dict(arrowstyle="-|>", color="black",
+                                              lw=1.4), zorder=5)
 
-    # annotations
-    se_list = [ec_ref["se"], metv3["se"], bias["tau_se_bias"]]
+    # text annotations under each bar
+    se_list = [ec_ref["se"], metv3.get("se", np.nan), bias["tau_se_bias"]]
     for i, (x, t, se) in enumerate(zip(xs, taus, se_list)):
-        if i == 1 and not metv3_valid:
-            ax.text(x, ax.get_ylim()[1] * 0.05,
-                      "No detectable\nrecovery\n(τ pegged at floor,\n R² ≈ 0)",
-                      ha="center", va="bottom", fontsize=9, color=METV3_COL,
-                      weight="bold")
+        se_str = f"SE={se:.2f}" if not np.isnan(se) else "SE=NA"
+        if i == 1 and metv3_quality != "ok":
+            r2 = metv3.get("r2", np.nan)
+            reason = {"pegged": "τ at floor", "lowR2": "low R²",
+                          "missing": "fit failed"}[metv3_quality]
+            ax.text(x, t + 0.15,
+                      f"{t:.2f} d\nFIT INVALID\n({reason}, R²={r2:.2f})",
+                      ha="center", va="bottom", fontsize=8,
+                      color=METV3_COL, weight="bold")
         else:
-            se_str = f"SE={se:.2f}" if not np.isnan(se) else "SE=NA"
-            ax.text(x, t + 0.25, f"{t:.2f} d\n{se_str}",
+            ax.text(x, t + 0.15, f"{t:.2f} d\n{se_str}",
                       ha="center", va="bottom", fontsize=9, weight="bold")
 
     ax.set_xticks(xs)
@@ -451,12 +469,12 @@ def draw_panel_c(ax, ec_ref: dict, metv3: dict, bias: dict):
 
 def make_figure(out_dir: Path, ts, df_pool, summary, metv3,
                  season_start, season_end):
-    fig = plt.figure(figsize=(15, 11), facecolor="white")
-    gs = GridSpec(2, 2, figure=fig,
-                     height_ratios=[1.0, 1.1],
-                     width_ratios=[1.35, 1.0],
-                     hspace=0.42, wspace=0.32,
-                     left=0.07, right=0.96, top=0.93, bottom=0.08)
+    # constrained_layout で panel top を自動整列 (twinx 等のラベル張り出しを吸収)
+    fig = plt.figure(figsize=(15, 11), facecolor="white",
+                       constrained_layout=True)
+    gs = fig.add_gridspec(2, 2,
+                            height_ratios=[1.0, 1.1],
+                            width_ratios=[1.35, 1.0])
 
     ax_a = fig.add_subplot(gs[0, :])
     ax_b = fig.add_subplot(gs[1, 0])
