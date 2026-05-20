@@ -214,24 +214,30 @@ def draw_bar_comparison(out_dir: Path, res_ec: dict, res_sat: dict,
                      f"n = {res_sat['n']} weeks)",
               capsize=4, error_kw=dict(ecolor="black", lw=1.0))
 
-    # significance stars
+    # significance stars — placed above (or below) the error-bar cap,
+    # not on top of the bar itself, so they never overlap the whisker.
     all_coefs = np.array(res_ec["coef"] + res_sat["coef"])
     all_ses   = np.array(res_ec["se"]   + res_sat["se"])
     span = float(np.max(np.abs(all_coefs) + all_ses))
-    pad  = span * 0.06
+    pad  = span * 0.08         # gap above the error-bar cap
 
-    for i, (c, p) in enumerate(zip(res_ec["coef"], res_ec["pvalues"])):
-        ax.text(x[i] - width/2,
-                  c + (pad if c >= 0 else -pad),
-                  sig_label(p),
+    def _star_y(c: float, se: float) -> float:
+        """Star y position: just above the upper cap for c >= 0,
+        just below the lower cap for c < 0."""
+        return (c + se + pad) if c >= 0 else (c - se - pad)
+
+    for i, (c, se, p) in enumerate(zip(res_ec["coef"],
+                                              res_ec["se"],
+                                              res_ec["pvalues"])):
+        ax.text(x[i] - width/2, _star_y(c, se), sig_label(p),
                   ha="center", va="bottom" if c >= 0 else "top",
-                  fontsize=10, weight="bold")
-    for i, (c, p) in enumerate(zip(res_sat["coef"], res_sat["pvalues"])):
-        ax.text(x[i] + width/2,
-                  c + (pad if c >= 0 else -pad),
-                  sig_label(p),
+                  fontsize=13, weight="bold")
+    for i, (c, se, p) in enumerate(zip(res_sat["coef"],
+                                              res_sat["se"],
+                                              res_sat["pvalues"])):
+        ax.text(x[i] + width/2, _star_y(c, se), sig_label(p),
                   ha="center", va="bottom" if c >= 0 else "top",
-                  fontsize=10, weight="bold")
+                  fontsize=13, weight="bold")
 
     # zero line
     ax.axhline(0, color="black", lw=0.8)
@@ -240,41 +246,48 @@ def draw_bar_comparison(out_dir: Path, res_ec: dict, res_sat: dict,
     n_demand = sum(1 for p_ in preds if GROUP[p_] == "demand")
     ax.axvline(n_demand - 0.5, color="#AAAAAA", lw=1.0, ls=":", zorder=0)
 
-    # y-axis
-    y_max =  span * 1.55
-    y_min = -span * 0.85
+    # y-axis — enlarged so star labels above the upper CI cap clear the
+    # group-label banner and don't crowd the bars.
+    y_max =  span * 1.70
+    y_min = -span * 0.95
     ax.set_ylim(y_min, y_max)
 
     # group annotations at top
-    y_label = y_max * 0.93
+    y_label = y_max * 0.94
     ax.text((n_demand - 1) / 2, y_label, "ATMOSPHERIC DEMAND",
-              ha="center", va="top", fontsize=11, weight="bold",
+              ha="center", va="top", fontsize=13, weight="bold",
               color=DEMAND_COL,
-              bbox=dict(boxstyle="round,pad=0.35", fc="white",
-                          ec=DEMAND_COL, lw=1.2))
+              bbox=dict(boxstyle="round,pad=0.45", fc="white",
+                          ec=DEMAND_COL, lw=1.4))
     ax.text((n_demand + n - 1) / 2, y_label, "WATER SUPPLY",
-              ha="center", va="top", fontsize=11, weight="bold",
+              ha="center", va="top", fontsize=13, weight="bold",
               color=SUPPLY_COL,
-              bbox=dict(boxstyle="round,pad=0.35", fc="white",
-                          ec=SUPPLY_COL, lw=1.2))
+              bbox=dict(boxstyle="round,pad=0.45", fc="white",
+                          ec=SUPPLY_COL, lw=1.4))
 
     # x-axis
     ax.set_xticks(x)
-    ax.set_xticklabels([PRETTY[p] for p in preds], fontsize=10)
+    ax.set_xticklabels([PRETTY[p] for p in preds], fontsize=12)
+    ax.tick_params(axis="y", labelsize=11)
 
-    ax.set_ylabel("Standardised regression coefficient  (β)", fontsize=12)
+    ax.set_ylabel("Standardised regression coefficient  (β)", fontsize=14)
     ax.set_title(
         "Driver attribution:  EC tower vs Meteosat ETv3 at drip-irrigated Tarazona\n"
         + period_str,
-        fontsize=12, weight="bold")
+        fontsize=14, weight="bold")
 
-    # Significance legend (small, lower-left)
+    # Significance legend (lower-left, larger so it is poster-readable)
     ax.text(0.01, 0.02,
-              "*** p<0.001    ** p<0.01    * p<0.05    ns: not significant",
-              transform=ax.transAxes, fontsize=8, color="#555",
-              va="bottom", ha="left")
+              "*** p < 0.001    ** p < 0.01    * p < 0.05    "
+              "ns: not significant",
+              transform=ax.transAxes, fontsize=12, color="#333",
+              va="bottom", ha="left",
+              bbox=dict(boxstyle="round,pad=0.3", fc="white",
+                          ec="#BBBBBB", lw=0.8, alpha=0.9))
 
-    ax.legend(loc="lower right", fontsize=10, framealpha=0.95)
+    # Main colour-coded legend (EC vs Sat) — larger
+    ax.legend(loc="lower right", fontsize=13, framealpha=0.95,
+                borderpad=0.7, labelspacing=0.6)
     ax.grid(alpha=0.25, axis="y")
 
     png = out_dir / "fig01_driver_attribution_bars.png"
