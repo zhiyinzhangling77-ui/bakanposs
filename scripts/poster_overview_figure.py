@@ -134,20 +134,22 @@ def _to_daily(series_dt: pd.Series, values: pd.Series,
 def phase_stats(ec_daily: pd.Series, sat_daily: pd.Series,
                 max_lag_days: int = 120,
                 smooth_w: int = 30):
-    """Compute lag and peak-DOY statistics between EC and Satellite.
+    """Compute lag, peak-DOY, bias, and correlation statistics.
 
     Both inputs are daily-indexed pd.Series. They are smoothed with a
-    ``smooth_w``-day centered rolling mean before peak detection so that
-    Sentinel-2's noisy revisits don't dominate.
+    ``smooth_w``-day centered rolling mean before peak detection.
 
     Returns dict with:
-      dpeak_doy : mean(DOY_max(Sat) - DOY_max(EC)) over years where both
-                  have a real annual peak (positive => Sat peaks later)
+      dpeak_doy : mean(DOY_max(Sat) - DOY_max(EC)) over years (positive
+                  => Sat peaks later)
       n_years   : number of years contributing to dpeak_doy
-      lag       : argmax tau in days for corr(EC[t], Sat[t+tau]) flipped
-                  so positive => Sat is later than EC (consistent with
-                  dpeak sign)
-      r_max     : Pearson correlation at the best lag
+      lag       : argmax tau in days, sign-flipped so positive => Sat
+                  later than EC (kept in CSV; not shown on the figure)
+      r_max     : Pearson at the best lag
+      r_zero    : Pearson at lag 0 (the HONEST agreement — drops when
+                  phase shifts)
+      bias_pct  : 100 * (mean(Sat) - mean(EC)) / mean(EC), on raw
+                  (un-smoothed) values over the overlap
     """
     ec_s  = ec_daily.rolling(smooth_w, center=True,
                               min_periods=max(5, smooth_w // 3)).mean()
@@ -155,7 +157,7 @@ def phase_stats(ec_daily: pd.Series, sat_daily: pd.Series,
                               min_periods=max(5, smooth_w // 3)).mean()
     ec_s, sat_s = ec_s.align(sat_s, join="outer")
 
-    # ---- cross-correlation lag scan ----
+    # ---- cross-correlation lag scan (for CSV record only) ----
     best_r, best_tau = -np.inf, 0
     for tau in range(-max_lag_days, max_lag_days + 1):
         shifted = sat_s.shift(tau)
@@ -165,12 +167,22 @@ def phase_stats(ec_daily: pd.Series, sat_daily: pd.Series,
         r = df.iloc[:, 0].corr(df.iloc[:, 1])
         if not np.isnan(r) and r > best_r:
             best_r, best_tau = r, tau
-    # shift(+tau): sat value at index i moves to i+tau, i.e., sat appears
-    # tau days LATER. If best_tau>0 makes them match, Sat was originally
-    # EARLIER than EC. Flip the sign so positive => Sat later than EC.
     lag = -best_tau
-    # Flag lags that land on the boundary -> not a real peak inside window
     lag_at_boundary = abs(best_tau) >= max_lag_days - 1
+
+    # ---- zero-lag Pearson on smoothed series ----
+    df0 = pd.concat([ec_s, sat_s], axis=1).dropna()
+    r_zero = (df0.iloc[:, 0].corr(df0.iloc[:, 1])
+              if len(df0) >= 90 else float("nan"))
+
+    # ---- relative bias on raw (un-smoothed) values, common dates ----
+    ec_raw, sat_raw = ec_daily.align(sat_daily, join="inner")
+    both = pd.concat([ec_raw, sat_raw], axis=1).dropna()
+    if len(both) >= 30 and both.iloc[:, 0].mean() != 0:
+        bias_pct = 100.0 * (both.iloc[:, 1].mean() - both.iloc[:, 0].mean()
+                            ) / both.iloc[:, 0].mean()
+    else:
+        bias_pct = float("nan")
 
     # ---- annual peak DOY ----
     years_ec  = set(ec_s.dropna().index.year)
@@ -188,23 +200,27 @@ def phase_stats(ec_daily: pd.Series, sat_daily: pd.Series,
     return {
         "dpeak_doy": dpeak, "n_years": len(diffs),
         "lag": lag, "r_max": best_r,
+        "r_zero": r_zero, "bias_pct": bias_pct,
         "lag_at_boundary": lag_at_boundary,
         "dpeak_per_year": dpeak_per_year,
     }
 
 
 def add_phase_annotation(ax, st: dict, loc: str = "upper right") -> None:
-    """Small text box: Δpeak / lag (positive => Sat later) and r_max."""
+    """Small text box: Δpeak / bias / zero-lag r."""
     if loc == "upper right":
         x, y, ha, va = 0.985, 0.965, "right", "top"
     else:
         x, y, ha, va = 0.015, 0.965, "left", "top"
     dp = st["dpeak_doy"]
     dp_txt = f"{dp:+.0f} d" if not np.isnan(dp) else "n/a"
-    boundary_mark = "*" if st.get("lag_at_boundary") else ""
+    b = st["bias_pct"]
+    b_txt = f"{b:+.0f} %" if not np.isnan(b) else "n/a"
+    r = st["r_zero"]
+    r_txt = f"{r:.2f}" if not np.isnan(r) else "n/a"
     txt = (f"$\\Delta$peak = {dp_txt}\n"
-           f"lag = {st['lag']:+d} d{boundary_mark}\n"
-           f"r = {st['r_max']:.2f}")
+           f"bias = {b_txt}\n"
+           f"r$_0$ = {r_txt}")
     ax.text(x, y, txt, transform=ax.transAxes, ha=ha, va=va,
             fontsize=8.4, family="monospace",
             bbox=dict(boxstyle="round,pad=0.32", fc="white",
@@ -329,12 +345,11 @@ def main() -> None:
 
     fig.text(0.5, 0.005,
              "Shaded band: Mar–Jun (Mediterranean growing season). "
-             "$\\Delta$peak = mean(DOY$_{max}$(Sat) – DOY$_{max}$(EC)) over "
-             "years (positive => Sat later). lag = argmax$_\\tau$ "
-             "Pearson(EC[t], Sat[t+$\\tau$]), sign-flipped (positive => Sat "
-             "later). r = correlation at the best lag. * = lag at the ±120 d "
-             "scan boundary (no real peak inside window — interpret with "
-             "care).",
+             "$\\Delta$peak = mean(DOY$_{max}$(Sat) – DOY$_{max}$(EC)) "
+             "over years (positive => Sat later). "
+             "bias = 100·(mean(Sat) – mean(EC)) / mean(EC) on raw daily "
+             "values. r$_0$ = Pearson at zero lag (no phase optimisation, "
+             "so it drops when satellite and EC are out of phase).",
              ha="center", fontsize=8.0, style="italic", color="#555555")
 
     out_png = OUT_DIR / "overview.png"

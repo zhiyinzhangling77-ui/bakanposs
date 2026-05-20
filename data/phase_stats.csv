@@ -1,7 +1,7 @@
-site,indicator,dpeak_doy,n_years,lag,r_max,lag_at_boundary
-Oran,NDVI,2.333,3,-2,0.980,False
-Oran,GPP,-8.000,3,-10,0.821,False
-Oran,ET,6.333,3,2,0.907,False
-TzM,NDVI,-1.200,5,120,0.737,True
-TzM,GPP,1.000,5,21,0.860,False
-TzM,ET,-43.600,5,-50,0.554,False
+site,indicator,dpeak_doy,n_years,lag,r_max,r_zero,bias_pct,lag_at_boundary
+Oran,NDVI,2.333,3,-2,0.980,0.979,-8.581,False
+Oran,GPP,-8.000,3,-10,0.821,0.780,-38.497,False
+Oran,ET,6.333,3,2,0.907,0.904,1.868,False
+TzM,NDVI,-1.200,5,120,0.737,0.644,-25.117,True
+TzM,GPP,1.000,5,21,0.860,0.805,-63.855,False
+TzM,ET,-43.600,5,-50,0.554,0.050,-69.472,False
