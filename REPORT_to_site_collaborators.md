@@ -26,6 +26,28 @@ ask a small number of clarification questions about site metadata
 
 ---
 
+## Objective and findings in one paragraph
+
+**Objective.**  To test whether the operational MSG-based Meteosat
+ETv3 product reproduces EC-tower ET at two contrasting Mediterranean
+sites — your Oran rainfed cereal site and your Tarazona drip-
+irrigated almond orchard — and to identify the structural reasons
+for any divergence.
+
+**Key finding.**  At Oran, Meteosat ETv3 reproduces EC ET with
+r = 0.82 and +1 % bias.  At Tarazona, NDVI and GPP still agree
+between satellite and tower, but ET fails completely (r = 0.07,
+bias −70 %, peak shifted −44 d).  Three structural reasons combine:
+(i) the 1-ha orchard occupies only ~1 % of the 5-km satellite
+pixel; (ii) microwave SM products see only the top ~5 cm of soil;
+(iii) the SVAT model embedded in ETv3 treats the pixel as rainfed.
+EC tower ET at the orchard is driven by atmospheric demand (Rn
+dominant);  ETv3 is driven by its coarse satellite SM input.  The
+blind spot is structural, not a calibration issue.
+
+
+---
+
 ## 2.  Datasets used
 
 | Source | Variable(s) | Period | Resolution |
@@ -79,12 +101,15 @@ minimum-detectable-effect threshold MDE = 1.96 · √(SE₁² + SE₂²)
 evidence of statistical equivalence rather than under-powered
 non-difference.
 
-**Interpretation.**  The recovery timescale τ ≈ 3 d appears to be a
-robust property of these Mediterranean dryland systems, independent
-of whether the water input is rainfall or drip irrigation.  In
-contrast, the recovery **amplitude** scales 4.5× between rainfed
-and drip-irrigated conditions, suggesting that τ is a climate-level
-property while amplitude is a management signal.
+**Interpretation (carefully scoped).**  Within our two-site
+sample, the recovery timescale τ ≈ 3 d is statistically
+indistinguishable between rainfed and drip-irrigated conditions.
+By contrast, the recovery **amplitude** scales by a factor of ~4.5
+between the two sites.  This pattern is *consistent with* — but
+does not prove — a hypothesis in which τ is set primarily by
+drying physics (a climate-level property) and amplitude carries
+the management signal.  Establishing universality of τ would
+require more sites; we treat the 2-site result as suggestive only.
 
 
 ---
@@ -256,14 +281,18 @@ satellite SM noise floor (~0.04 m³ m⁻³).
      amplitude comparison with the satellite.  Please confirm
      the EC processing convention for both sites.
 
-  3. **Sample size at Oran.**  n = 10 rainfall events for the
-     Analysis A τ fit at Oran reflects the 3-year EC record and
-     the 3 mm event threshold.  The MDE-based equivalence test
-     mitigates the under-power concern, but extension to more
-     rainfed sites would strengthen the universality claim.
+  3. **Sample size and inter-site comparison.**  n = 10 rainfall
+     events at Oran and n = 41 irrigation events at Tarazona
+     reflect the respective EC record lengths and event thresholds.
+     The MDE-based equivalence test mitigates the under-power
+     concern, but the conclusion that τ is "indistinguishable
+     between rainfed and irrigated" is based on a 2-site sample
+     only.  Whether τ ≈ 3 d holds more broadly across Mediterranean
+     drylands cannot be established from this study alone and
+     would require additional EC sites.
 
   4. **Single-site case study for the satellite blind spot.**
-     The Tarazona result is currently from one orchard.
+     The Tarazona ETv3 result is currently from one orchard.
      Generalisation to other Mediterranean drip-irrigated
      systems (citrus, olive, larger almond) is planned but
      not yet done.
