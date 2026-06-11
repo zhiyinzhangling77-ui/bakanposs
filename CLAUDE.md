@@ -2,12 +2,12 @@
 
 > ⚠️ **このセッションで最初にやること**:
 >
-> 1. **[`RESEARCH_OVERVIEW.md`](./RESEARCH_OVERVIEW.md)** — 研究全体図、3 つの解析の関係(必読)
-> 2. **[`SESSION_SUMMARY.md`](./SESSION_SUMMARY.md)** — 過去セッションの全判断履歴・失敗・制約
+> 1. **[`docs/RESEARCH_OVERVIEW.md`](./docs/RESEARCH_OVERVIEW.md)** — 研究全体図、3 つの解析の関係(必読)
+> 2. **[`reports/SESSION_SUMMARY.md`](./reports/SESSION_SUMMARY.md)** — 過去セッションの全判断履歴・失敗・制約
 > 3. 進める解析に応じて以下のいずれか:
->    - 解析A 結果参照: [`ANALYSIS_A_FINAL.md`](./ANALYSIS_A_FINAL.md)
->    - 解析B(衛星 ET): [`ANALYSIS_B_PLAN.md`](./ANALYSIS_B_PLAN.md)
->    - 解析C(NDVI): [`ANALYSIS_C_PLAN.md`](./ANALYSIS_C_PLAN.md)
+>    - 解析A 結果参照: [`docs/ANALYSIS_A_FINAL.md`](./docs/ANALYSIS_A_FINAL.md)
+>    - 解析B(衛星 ET): [`docs/ANALYSIS_B_PLAN.md`](./docs/ANALYSIS_B_PLAN.md)
+>    - 解析C(NDVI): [`docs/ANALYSIS_C_PLAN.md`](./docs/ANALYSIS_C_PLAN.md)
 
 ---
 
@@ -26,17 +26,27 @@
 ## 主要ファイル
 
 ```
-/home/user/bakanposs/
-├── CLAUDE.md                ★ このファイル(自動読込)
-├── RESEARCH_OVERVIEW.md      ★ 全体図
-├── ANALYSIS_A_FINAL.md       解析A 最終結果
-├── ANALYSIS_B_PLAN.md        解析B 設計図
-├── ANALYSIS_C_PLAN.md        解析C 設計図
-├── SESSION_SUMMARY.md        過去履歴
-├── requirements.txt          Python 環境
-├── data_loaders.py           共通ローダ
-├── analysis_A_v4-v27.py      解析A(v27 が最終)
-└── analysis_C_v1.py          解析C 初版
+bakanposs/                                  ← repo root
+├── CLAUDE.md                                ★ このファイル(自動読込)
+├── pyproject.toml                           パッケージメタデータ
+├── docs/
+│   ├── RESEARCH_OVERVIEW.md                 ★ 全体図
+│   ├── ANALYSIS_A_FINAL.md                  解析A 最終結果
+│   ├── ANALYSIS_B_PLAN.md                   解析B 設計図
+│   ├── ANALYSIS_C_PLAN.md                   解析C 設計図
+│   └── RUN_ANALYSIS_C.md                    解析C 実行ガイド
+├── reports/
+│   ├── SESSION_SUMMARY.md                   過去履歴
+│   └── analysis_C_report.md                 解析C v1 報告
+├── bakanposs/                               Python パッケージ
+│   ├── loaders.py                           共通ローダ
+│   ├── analysis_a.py                        解析A (v9 最新)
+│   └── analysis_c/
+│       ├── v1_legacy.py                     解析C v1 (多目的)
+│       └── v2_phenology.py                  解析C v2 (集約版)
+└── analyses/
+    ├── run_analysis_A.py                    A エントリポイント
+    └── run_analysis_C.py                    C エントリポイント (--version v1|v2)
 ```
 
 ---
@@ -80,7 +90,7 @@
   - 既存のフェッチコードの所在
 - 解析C 着手時:
   - MOD13Q1 NDVI は取得済みか?
-  - `analysis_C_v1.py` を baseline にするか書き直すか
+  - `bakanposs/analysis_c/v1_legacy.py` を baseline にするか、`v2_phenology.py` を拡張するか
 - 論文化フェーズ:
   - Target journal
   - 共著者の有無

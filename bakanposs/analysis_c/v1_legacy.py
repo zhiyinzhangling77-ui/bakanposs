@@ -37,12 +37,12 @@ import sys
 sys.path.insert(0, str(Path(__file__).parent / "analysis_A"))
 
 # 解析Aの設定値・補助関数を再利用 (重複定義を避ける)
-from analysis_A_v9 import (
+from bakanposs.analysis_a import (
     load_oran_ec, load_tarazona_ec,
     SITES, GROWING_MONTHS, PATHS as A_PATHS,
 )
 # クリーンローダ (バグ修正版) は共通モジュールから
-from data_loaders import (
+from bakanposs.loaders import (
     load_oran_ec_clean, load_tarazona_ec_clean, normalize_swc,
     EF_DENOM_MIN, SENTINEL_THR,
 )

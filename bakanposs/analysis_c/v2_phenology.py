@@ -30,8 +30,6 @@ event 定義 (ANALYSIS_A_FINAL.md §3.2):
   NDVI     : MOD13Q1 250m / 16-day AppEEARS CSV (両サイト同梱)
 """
 
-import json
-import sys
 from pathlib import Path
 import warnings
 
@@ -48,10 +46,11 @@ warnings.filterwarnings("ignore")
 
 # v1 からは I/O ユーティリティのみ再利用 (load_ndvi_csv, smooth_ndvi, match_ndvi)
 # 解析判定ロジックは v2 で全部書き直し
-sys.path.insert(0, str(Path(__file__).parent))
-from analysis_C_v1 import load_ndvi_csv, smooth_ndvi, match_ndvi, SITE_ID_IN_CSV
-from analysis_A_v9 import SITES, GROWING_MONTHS, PATHS as A_PATHS
-from data_loaders import (
+from bakanposs.analysis_c.v1_legacy import (
+    load_ndvi_csv, smooth_ndvi, match_ndvi, SITE_ID_IN_CSV,
+)
+from bakanposs.analysis_a import SITES, GROWING_MONTHS, PATHS as A_PATHS
+from bakanposs.loaders import (
     load_oran_ec_clean, load_tarazona_ec_clean, normalize_swc,
 )
 
