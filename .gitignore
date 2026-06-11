@@ -19,3 +19,7 @@ venv/
 .idea/
 *.csv~
 *.parquet~
+
+# Analysis run outputs (figures + CSVs)
+output_analysis_*/
+.env

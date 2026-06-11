@@ -1,0 +1,111 @@
+================================================================
+Fig 4b — Tarazona irrigation blind spot (Analysis A v32)
+================================================================
+
+Three-panel figure showing that the Meteosat ETv3 satellite ET product
+captures the *timescale* of the irrigation recovery (τ ≈ 3-4 d) but
+misses the *amplitude*, leaving a bias whose recovery has the same
+exponential shape as the EC tower response itself.
+
+------------------------------------------------------------------
+Definitions
+------------------------------------------------------------------
+- Day 0   : the day an irrigation event occurs (Irrig ≥ 0.5 mm)
+- LE      : latent heat flux [W m⁻²].  ET [mm day⁻¹] → LE [W m⁻²]
+            conversion uses LE = 28.36 × ET (daily mean).
+- Bias    : Δ = LE_EC − LE_METv3 [W m⁻²]
+- τ       : e-folding time (days) of the exponential recovery
+- amp     : amplitude of the recovery, defined for each curve as
+            (value at Day 0) − (asymptote at long lag)
+- MDE     : minimum detectable effect on τ at α = 0.05
+            (= 1.96 × √(SE₁² + SE₂²)), used to claim "no difference"
+
+------------------------------------------------------------------
+Panel reading guide
+------------------------------------------------------------------
+(a) Bias recovery curve — per-event Δ pooled across all Tarazona
+    irrigation events (48 events).  Boxplots show the
+    distribution of Δ at each day-since-event; medians drive the
+    exponential fit  Δ(d) = c + amp · exp(−d/τ_bias).  Right axis
+    shows the same quantity in mm day⁻¹.
+    Fitted: τ_bias = 4.57 d
+            amp_bias = 94.8 W m⁻²
+            (≈ 3.34 mm day⁻¹)
+            R² = 0.86
+
+(b) EC vs Sat recovery — both products fitted on the same event pool.
+    Side-by-side boxplots per day-since-event for EC LE (green) and
+    Meteosat ETv3 LE (orange), with their independent exponential fits
+    overlaid.  The purple shaded region between the two fit curves is
+    the bias = missing amplitude.
+
+       EC fit  :  τ = 4.70 d,  amp = 95 W m⁻²
+                  (0.83 R²,
+                   n_events ≈ 48)
+       Sat fit :  τ pegged at floor, R² ≈ 0  →  amp_Sat ≈ 0
+                  (no detectable exponential response)
+
+    The EC pulse (~95 W m⁻²) lives entirely in the gap
+    between the green and the orange curve — the satellite resolves
+    none of it.
+
+    Note on τ_bias.  The bias τ (4.57 d) in
+    panel (a) appears in Analysis A's 3–4 d band, but this is a
+    *consistency check*, not independent evidence: with Sat ≈ flat,
+    bias = EC − const inherits the EC exponential by construction,
+    so τ_bias = τ_EC mathematically.
+
+------------------------------------------------------------------
+Take-home message
+------------------------------------------------------------------
+Meteosat ETv3 reproduces NDVI (canopy) and GPP (photosynthesis)
+at both sites, but at drip-irrigated Tarazona it captures **none**
+of the EC management amplitude in ET (95 W m⁻² recovered by the
+tower; ~0 W m⁻² by the satellite).  Because the satellite is
+flat through the event window, the EC management pulse is
+preserved intact inside the EC−Sat bias.
+
+The blind spot is structural, not statistical: ETv3 does ingest
+satellite soil moisture (H-SAF H141/H142/H26), but drip irrigation
+slips through three resolution limits:
+
+  (i)  Spatial scale — 1–12.5 km pixel vs 1 ha (0.01 km²) orchard.
+       At Tarazona, Sentinel-2 confirms only ~4 % of the H26 1 km
+       footprint is summer-active vegetation.
+  (ii) Microwave sensing — scatterometers see only the top ~5 cm;
+       drip wets emitter-local patches that dry within hours.
+  (iii) SVAT structure — the generic f(SM) availability curve
+       cannot represent the bi-modal SM distribution of a drip
+       orchard.
+
+Implication:  satellite ET can validate climate-scale drying
+(τ universal across rainfed/irrigated), but quantifying drip
+irrigation water use requires an in-situ amplitude correction.
+
+------------------------------------------------------------------
+Statistical methods
+------------------------------------------------------------------
+- Exponential fit: weighted nonlinear least squares on the median
+  LE / bias per day-since-event (≥ 3 events per day required).
+- Bootstrap (B = 5000, raw-data resampling) gives SE and
+  95 % CI for τ.
+- Boundary fits (τ ≤ 0.6 d or τ ≥ 59 d) and R² < 0.3 are excluded.
+- τ_bias is reported as a math consistency check (see note in (b)),
+  not as an independent physical measurement.
+
+------------------------------------------------------------------
+Data sources
+------------------------------------------------------------------
+- EC tower: Tarazona almond orchard (lat 39.266, lon −1.9397),
+  drip-irrigated, daily LE 2020-2024 (n = 41 active-season events).
+- Satellite: LSA SAF Meteosat ETv3, 30-min product aggregated to
+  daily ET (mm day⁻¹), same grid cell, 2020-2024.
+- Irrigation log: tower operator records, mm/event.
+
+------------------------------------------------------------------
+Provenance
+------------------------------------------------------------------
+- Analysis A v31 (EC τ baseline):     fig04_poster_main_v31.pdf
+- Analysis B v3 (bias pool + summary): v3_bias_perevent_pooled.csv
+                                          v3_bias_tau_summary.csv
+- This figure script:                 analysis_A_v32.py

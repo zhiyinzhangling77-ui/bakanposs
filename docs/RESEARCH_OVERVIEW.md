@@ -141,18 +141,28 @@
 ## 8. ファイル構成
 
 ```
-/home/user/bakanposs/           (Claude が作業する repo)
-├── CLAUDE.md                    自動読込されるガイド
-├── RESEARCH_OVERVIEW.md         ★ このファイル
-├── ANALYSIS_A_FINAL.md          解析A 最終結果
-├── ANALYSIS_B_PLAN.md           解析B 設計図
-├── ANALYSIS_C_PLAN.md           解析C 設計図
-├── SESSION_SUMMARY.md           過去セッション履歴
-├── requirements.txt             Python 環境
-├── data_loaders.py              共通ローダ (A/B/C で使う)
-├── analysis_A_v4-v27.py         解析A の実装(v27 が最終)
-├── analysis_C_v1.py             解析C 初版
-└── output_analysis_A_v27/       最終結果 (figures + CSV)
+bakanposs/                            (Claude が作業する repo)
+├── CLAUDE.md                          自動読込されるガイド
+├── pyproject.toml                     パッケージメタデータ
+├── docs/
+│   ├── RESEARCH_OVERVIEW.md           ★ このファイル
+│   ├── ANALYSIS_A_FINAL.md            解析A 最終結果
+│   ├── ANALYSIS_B_PLAN.md             解析B 設計図
+│   ├── ANALYSIS_C_PLAN.md             解析C 設計図
+│   └── RUN_ANALYSIS_C.md              解析C 実行ガイド
+├── reports/
+│   ├── SESSION_SUMMARY.md             過去セッション履歴
+│   └── analysis_C_report.md           解析C v1 報告
+├── bakanposs/                         Python パッケージ
+│   ├── loaders.py                     共通ローダ
+│   ├── analysis_a.py                  解析A (v9 が最新公開版)
+│   └── analysis_c/
+│       ├── v1_legacy.py               解析C v1 (多目的)
+│       └── v2_phenology.py            解析C v2 (集約版)
+├── analyses/
+│   ├── run_analysis_A.py              A エントリポイント
+│   └── run_analysis_C.py              C エントリポイント (--version v1|v2)
+└── output_analysis_*_v*/               実行ごとの出力 (figures + CSV, gitignore)
 ```
 
 ---
