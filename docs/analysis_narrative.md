@@ -363,7 +363,7 @@ Phase C  (satellite cross-check)
 
 ## 7. 仮説検証の結果 (H1, H4, H6) — 実データでの検証
 
-`scripts/hypothesis_tests.py` を実データに適用した結果 (n=401 for TzM summer × NDVI>0.3, 2026-05-10 実行):
+`figures/hypothesis_tests.py` を実データに適用した結果 (n=401 for TzM summer × NDVI>0.3, 2026-05-10 実行):
 
 ### H1: τ-based 補正の有効性 → **強く支持**
 

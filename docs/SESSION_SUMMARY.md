@@ -70,7 +70,7 @@
 - 解像度: 0.05° (~5 km) global grid
 - 時間刻み: 30 分 (1 日 48 スロット)
 - 総ファイル数: ~120,000 枚
-- 処理: `scripts/load_metv3.py` で nearest pixel 抽出 → 日積算 (≥ 36/48 スロット必須)
+- 処理: `pipeline/load_metv3.py` で nearest pixel 抽出 → 日積算 (≥ 36/48 スロット必須)
 - 出力: `/home/shion-nagamine/bakanposs/metv3_daily_all.csv` (5,114 site-days)
 
 ### 2.4 SMAP L4 SPL4SMGP v007
@@ -78,9 +78,9 @@
 - 元: `NASA/SMAP/SPL4SMGP/007` (GEE)
 - 解像度: 9 km, 3 時間刻み
 - バッファ: **6 km** (重要: 9 km ピクセル捕捉のため 200/300 m では NULL になる)
-- 抽出スクリプト: `scripts/gee_smap_only.js`
+- 抽出スクリプト: `gee/gee_smap_only.js`
 - 出力: `/mnt/hdd/Dataset/SMAP_OranTzM.csv` (40,896 raw rows, 100% valid)
-- 日次集約: `scripts/load_smap.py` → `/home/shion-nagamine/bakanposs/smap_daily.csv` (5,112 site-days)
+- 日次集約: `pipeline/load_smap.py` → `/home/shion-nagamine/bakanposs/smap_daily.csv` (5,112 site-days)
 
 ### 2.5 統合 master データセット
 
@@ -97,10 +97,10 @@
 **目的**: 「TzM が SWC とLEで脱結合している」という v14 結果を、クリーンなパイプラインから再現する
 
 **実施内容**:
-1. `scripts/unify_ec_daily.py`: 4 つの異種日次 CSV を統合 → `ec_daily_master.csv` (1,356 行)
-2. `scripts/add_flags.py`: `Irrig_mm > 0.5` から days_since_irrig 計算、irrig_bucket (d0-3 / d4-7 / d8+) / season / drought_class / NDVI gate 付与
-3. `scripts/aggregate_oran_30min.py`: Oran 半時間 → 日次 LE/H/G/Rn を埋め、`ec_daily_master_complete.csv` 作成
-4. `scripts/sds_v14_repro.py`: SDS = 1 - mean(LE|SWC<p25) / mean(LE|p25≤SWC≤p75)、bootstrap N=2000 で 95% CI
+1. `pipeline/unify_ec_daily.py`: 4 つの異種日次 CSV を統合 → `ec_daily_master.csv` (1,356 行)
+2. `pipeline/add_flags.py`: `Irrig_mm > 0.5` から days_since_irrig 計算、irrig_bucket (d0-3 / d4-7 / d8+) / season / drought_class / NDVI gate 付与
+3. `pipeline/aggregate_oran_30min.py`: Oran 半時間 → 日次 LE/H/G/Rn を埋め、`ec_daily_master_complete.csv` 作成
+4. `figures/sds_v14_repro.py`: SDS = 1 - mean(LE|SWC<p25) / mean(LE|p25≤SWC≤p75)、bootstrap N=2000 で 95% CI
 
 **結果**:
 - Oran spring: SDS = +0.43 [+0.36, +0.51], n=202 (rainfed active, SWC と LE がカップル)
@@ -122,8 +122,8 @@
 **目的**: GEE から 7 プロダクトを取得して EC と同じ daily テーブルに揃え、サイト × 日付でジョイン可能にする
 
 **実施内容**:
-1. `scripts/unify_satellite.py`: 8 種類の GEE wide CSV を long → daily に変換、単位変換 (MOD16: kg/m²/8d → mm/d、PML: Ec+Es+Ei を sum)、`satellite_daily.csv` (5,112 × 18 vars)
-2. `scripts/merge_satellite_ec.py`: EC × satellite を date × site でマージ → `master_full.csv`
+1. `pipeline/unify_satellite.py`: 8 種類の GEE wide CSV を long → daily に変換、単位変換 (MOD16: kg/m²/8d → mm/d、PML: Ec+Es+Ei を sum)、`satellite_daily.csv` (5,112 × 18 vars)
+2. `pipeline/merge_satellite_ec.py`: EC × satellite を date × site でマージ → `master_full.csv`
 3. 8-day プロダクトは 8-day window 内で forward-fill して daily に変換
 4. 灌漑バケット別バイアス表をその場で生成
 
@@ -144,8 +144,8 @@
 **目的**: 「バイアスが灌漑経過日数の指数関数で減衰する」を NLS で実証し、補正に使えるパラメータを取り出す
 
 **実施内容**:
-1. `scripts/figure_C_summer.py`: 4 種類のフィルタ (all/summer/growing/summer×growing) × 灌漑バケットで boxplot
-2. `scripts/tau_fit.py`: full model Δ(t) = a·exp(-t/τ) + c と transient model Δ(t) = a·exp(-t/τ) の両方を fit (`scipy.curve_fit`)
+1. `figures/figure_C_summer.py`: 4 種類のフィルタ (all/summer/growing/summer×growing) × 灌漑バケットで boxplot
+2. `figures/tau_fit.py`: full model Δ(t) = a·exp(-t/τ) + c と transient model Δ(t) = a·exp(-t/τ) の両方を fit (`scipy.curve_fit`)
 3. Bootstrap N=500, τ ∈ (0, 60] 制約
 
 **結果** (TzM summer × NDVI>0.3, full model, 95% CI):
@@ -174,9 +174,9 @@
 **目的**: MODIS ファミリーから独立した第3プロダクトとして METv3 を追加し、結論の頑健性を高める
 
 **実施内容**:
-1. `scripts/inspect_metv3.py`: NetCDF 構造把握 (ET [mm/h], 0.05° grid, quality_flag)
-2. `scripts/load_metv3.py`: ~120,000 NetCDF を年ごとに処理、xarray lazy load + 2 点ピクセル抽出 → 日積算
-3. `scripts/integrate_metv3_smap.py`: master_full に METv3 と SMAP を left-join → `master_full_v2.csv`
+1. `inspectors/inspect_metv3.py`: NetCDF 構造把握 (ET [mm/h], 0.05° grid, quality_flag)
+2. `pipeline/load_metv3.py`: ~120,000 NetCDF を年ごとに処理、xarray lazy load + 2 点ピクセル抽出 → 日積算
+3. `pipeline/integrate_metv3_smap.py`: master_full に METv3 と SMAP を left-join → `master_full_v2.csv`
 4. `tau_fit.py`, `figure_C_summer.py`, `sds_vs_bias.py` を 3 プロダクト対応に書き換え
 
 **結果**:
@@ -196,7 +196,7 @@
 
 **目的**: 解析から提案された 8 個の仮説 (H1〜H8) のうち、既存データで検証可能な 3 個を回す
 
-**実施内容**: `scripts/hypothesis_tests.py`
+**実施内容**: `figures/hypothesis_tests.py`
 
 #### H1: τ-based 補正の有効性
 - 期待: -25〜-50% RMSE 削減
@@ -268,20 +268,20 @@ c4950e0  merge_satellite_ec.py + killer_figures.py
 
 | ファイル | 役割 | 行数 |
 |---|---|---:|
-| `scripts/unify_ec_daily.py` | EC 日次統合 | 100+ |
-| `scripts/add_flags.py` | 灌漑バケット・季節・干ばつクラス | 130+ |
-| `scripts/aggregate_oran_30min.py` | Oran 半時間→日次 | 180+ |
-| `scripts/qc_master.py` | 7 項目 QA | 150+ |
-| `scripts/sds_v14_repro.py` | SDS metric | 170+ |
-| `scripts/unify_satellite.py` | GEE 7プロダクト統合 | 217 |
-| `scripts/load_metv3.py` | METv3 NetCDF → daily | 153 |
-| `scripts/load_smap.py` | SMAP CSV → daily (両形式対応) | 80 |
-| `scripts/merge_satellite_ec.py` | EC + 衛星マージ | 53 |
-| `scripts/integrate_metv3_smap.py` | METv3+SMAP 統合 | 136 |
-| `scripts/figure_C_summer.py` | 灌漑バケット boxplot (3 製品) | 130+ |
-| `scripts/sds_vs_bias.py` | SDS vs バイアス scatter (3 製品) | 180+ |
-| `scripts/tau_fit.py` | NLS exponential decay (3 製品) | 225+ |
-| `scripts/hypothesis_tests.py` | H1/H4/H6 検証 | 380+ |
+| `pipeline/unify_ec_daily.py` | EC 日次統合 | 100+ |
+| `pipeline/add_flags.py` | 灌漑バケット・季節・干ばつクラス | 130+ |
+| `pipeline/aggregate_oran_30min.py` | Oran 半時間→日次 | 180+ |
+| `pipeline/qc_master.py` | 7 項目 QA | 150+ |
+| `figures/sds_v14_repro.py` | SDS metric | 170+ |
+| `pipeline/unify_satellite.py` | GEE 7プロダクト統合 | 217 |
+| `pipeline/load_metv3.py` | METv3 NetCDF → daily | 153 |
+| `pipeline/load_smap.py` | SMAP CSV → daily (両形式対応) | 80 |
+| `pipeline/merge_satellite_ec.py` | EC + 衛星マージ | 53 |
+| `pipeline/integrate_metv3_smap.py` | METv3+SMAP 統合 | 136 |
+| `figures/figure_C_summer.py` | 灌漑バケット boxplot (3 製品) | 130+ |
+| `figures/sds_vs_bias.py` | SDS vs バイアス scatter (3 製品) | 180+ |
+| `figures/tau_fit.py` | NLS exponential decay (3 製品) | 225+ |
+| `figures/hypothesis_tests.py` | H1/H4/H6 検証 | 380+ |
 | `paper_outline.md` | 論文骨格 | 161 |
 | `paper_methods_results.md` | 論文 Intro/Methods/Results/Discussion (完成) | ~250 |
 | `analysis_narrative.md` | 全体ナラティブ + 統計知識解説 | ~470 |
@@ -391,14 +391,14 @@ c4950e0  merge_satellite_ec.py + killer_figures.py
 1. git pull && cd /home/shion-nagamine/bakanposs
 2. ls -la *.csv figs/  # データ・図の存在確認
 3. master_full_v2.csv が無い場合は以下を順に実行:
-   python3 scripts/unify_ec_daily.py
-   python3 scripts/add_flags.py
-   python3 scripts/aggregate_oran_30min.py
-   python3 scripts/unify_satellite.py
-   python3 scripts/merge_satellite_ec.py
-   python3 scripts/integrate_metv3_smap.py
-   python3 scripts/tau_fit.py
-   python3 scripts/hypothesis_tests.py
+   python3 pipeline/unify_ec_daily.py
+   python3 pipeline/add_flags.py
+   python3 pipeline/aggregate_oran_30min.py
+   python3 pipeline/unify_satellite.py
+   python3 pipeline/merge_satellite_ec.py
+   python3 pipeline/integrate_metv3_smap.py
+   python3 figures/tau_fit.py
+   python3 figures/hypothesis_tests.py
 4. paper_methods_results.md を読む (1.4 Findings preview, 3.7, 3.8, 4.1)
 5. analysis_narrative.md を読む (§7 H1, H4, H6 結果)
 6. **論文 Abstract 執筆** (これがメインタスク)
@@ -432,7 +432,7 @@ c4950e0  merge_satellite_ec.py + killer_figures.py
 
 ### 9.4 データ・コードの再現性
 - 中間 CSV (master_full.csv, ec_daily_master.csv 等) は git 管理外
-- 完全再生成は `python3 scripts/unify_ec_daily.py` から順に実行 (TODO §8 参照)
+- 完全再生成は `python3 pipeline/unify_ec_daily.py` から順に実行 (TODO §8 参照)
 - METv3 ロードは 3.5 時間かかる (`metv3_daily_all.csv` が既にあるならスキップ可)
 - SMAP は `/mnt/hdd/Dataset/SMAP_OranTzM.csv` (新形式) を `load_smap.py` が自動検出
 
@@ -455,22 +455,22 @@ c4950e0  merge_satellite_ec.py + killer_figures.py
 
 ### 10.1 コード (絶対参照)
 ```
-/home/shion-nagamine/bakanposs/scripts/unify_ec_daily.py
-/home/shion-nagamine/bakanposs/scripts/add_flags.py
-/home/shion-nagamine/bakanposs/scripts/aggregate_oran_30min.py
-/home/shion-nagamine/bakanposs/scripts/qc_master.py
-/home/shion-nagamine/bakanposs/scripts/unify_satellite.py
-/home/shion-nagamine/bakanposs/scripts/load_metv3.py
-/home/shion-nagamine/bakanposs/scripts/load_smap.py
-/home/shion-nagamine/bakanposs/scripts/merge_satellite_ec.py
-/home/shion-nagamine/bakanposs/scripts/integrate_metv3_smap.py
-/home/shion-nagamine/bakanposs/scripts/sds_v14_repro.py
-/home/shion-nagamine/bakanposs/scripts/figure_C_summer.py
-/home/shion-nagamine/bakanposs/scripts/sds_vs_bias.py
-/home/shion-nagamine/bakanposs/scripts/tau_fit.py
-/home/shion-nagamine/bakanposs/scripts/hypothesis_tests.py
-/home/shion-nagamine/bakanposs/scripts/gee_extract.js
-/home/shion-nagamine/bakanposs/scripts/gee_smap_only.js
+/home/shion-nagamine/bakanposs/pipeline/unify_ec_daily.py
+/home/shion-nagamine/bakanposs/pipeline/add_flags.py
+/home/shion-nagamine/bakanposs/pipeline/aggregate_oran_30min.py
+/home/shion-nagamine/bakanposs/pipeline/qc_master.py
+/home/shion-nagamine/bakanposs/pipeline/unify_satellite.py
+/home/shion-nagamine/bakanposs/pipeline/load_metv3.py
+/home/shion-nagamine/bakanposs/pipeline/load_smap.py
+/home/shion-nagamine/bakanposs/pipeline/merge_satellite_ec.py
+/home/shion-nagamine/bakanposs/pipeline/integrate_metv3_smap.py
+/home/shion-nagamine/bakanposs/figures/sds_v14_repro.py
+/home/shion-nagamine/bakanposs/figures/figure_C_summer.py
+/home/shion-nagamine/bakanposs/figures/sds_vs_bias.py
+/home/shion-nagamine/bakanposs/figures/tau_fit.py
+/home/shion-nagamine/bakanposs/figures/hypothesis_tests.py
+/home/shion-nagamine/bakanposs/gee/gee_extract.js
+/home/shion-nagamine/bakanposs/gee/gee_smap_only.js
 ```
 
 ### 10.2 解析結果 CSV

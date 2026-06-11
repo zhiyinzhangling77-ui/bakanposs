@@ -157,4 +157,4 @@ The original deep-root narrative is unsupported by the present data; the irrigat
 - [ ] Fit the exponential decay bias model and report τ with CI.
 - [ ] Confirm SIGPAC parcel boundaries for footprint quality control.
 - [ ] Get PI consent / ICOS metadata if either site is in the network.
-- [ ] Draft Methods paragraph that lists every script in scripts/ as the reproducibility chain.
+- [ ] Draft Methods paragraph that lists every script in pipeline/ + figures/ as the reproducibility chain.
