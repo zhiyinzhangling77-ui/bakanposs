@@ -76,6 +76,11 @@ EVENT_WINDOW_DAYS = 14           # 解析A v27 仕様
 PEAK_WINDOW_DAYS = 30            # plan §4.2 (NDVI peak ±X)
 TAU_BOUND = (0.5, 60.0)          # 解析A v27 仕様
 BOOTSTRAP_N = 2000
+# bootstrap validation filter: τ at boundary は常に除外 / R² floor
+# 解析A v27 は 0.30 を採用していたが、v2 は per-event 短窓 × 多 event pool で
+# 同 d 上の生 LE 散布が大きく、R²=0.30 は厳しすぎることが Tarazona [season]
+# (point R²=0.19 / bootstrap 2/2000 採択) で判明したため 0.10 に緩和.
+BOOTSTRAP_R2_MIN = 0.10
 RNG = np.random.default_rng(20260518)
 
 
@@ -234,6 +239,15 @@ def _oran_rain_from_raw(filepath):
     n_days_event = int((daily["Rain_mm"] > 3.0).sum())
     print(f"  [_oran_rain_from_raw] daily n_days={len(daily)}  "
             f"wet>0 days={n_days_wet}  event(>3mm) days={n_days_event}")
+    if n_days_wet == 0:
+        # P 列に full series sentinel-free だが全ゼロ ⇒ サイトに precip 計器が
+        # 配備されていなかった (AmeriFlux で珍しくない). 外部 precip
+        # (ERA5-Land tp / CHIRPS) を `Rain_mm` 列として EC 日次 df に
+        # 事前マージしておくと検出される.
+        print(f"  [_oran_rain_from_raw] ⚠ '{col}' is all-zero (no on-site "
+                f"precip sensor). Pre-merge ERA5/CHIRPS into EC df as "
+                f"`Rain_mm` to enable Oran event detection.")
+        return None
     return daily
 
 
@@ -385,7 +399,7 @@ def bootstrap_tau_ci(pool, le_col="LE", B=BOOTSTRAP_N,
                          ignore_index=True)
         fit = fit_recovery(sub["d"].values, sub[le_col].values, le_inf=le_inf)
         if (fit is None or not fit.get("success")
-                or fit.get("at_boundary") or fit.get("r2", 0) < 0.30):
+                or fit.get("at_boundary") or fit.get("r2", 0) < BOOTSTRAP_R2_MIN):
             n_excluded += 1
             continue
         taus.append(fit["tau"])
