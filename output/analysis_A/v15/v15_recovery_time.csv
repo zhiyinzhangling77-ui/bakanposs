@@ -1,0 +1,15 @@
+days_since_irrig,median,count,site,filter
+0.0,208.69938812374784,133,Tarazona,irrig_active_month==True
+1.0,198.33778251160533,101,Tarazona,irrig_active_month==True
+2.0,179.86819683885344,82,Tarazona,irrig_active_month==True
+3.0,170.5285267913359,58,Tarazona,irrig_active_month==True
+4.0,146.76668341651086,41,Tarazona,irrig_active_month==True
+5.0,130.26963167631928,32,Tarazona,irrig_active_month==True
+6.0,121.07949454467716,25,Tarazona,irrig_active_month==True
+7.0,129.11593073762654,14,Tarazona,irrig_active_month==True
+8.0,119.62102956358329,13,Tarazona,irrig_active_month==True
+9.0,91.55458740608103,11,Tarazona,irrig_active_month==True
+10.0,114.80982984205926,11,Tarazona,irrig_active_month==True
+11.0,137.17621209546252,8,Tarazona,irrig_active_month==True
+12.0,126.28881023538881,8,Tarazona,irrig_active_month==True
+13.0,89.15092258419111,6,Tarazona,irrig_active_month==True

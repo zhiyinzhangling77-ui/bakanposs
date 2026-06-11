@@ -1,0 +1,3 @@
+site,tau_ec,se_ec,tau_metv3,tau_se_metv3,ci_lo_metv3,ci_hi_metv3,n_events_metv3,amp_metv3,le_inf_metv3,r2_metv3,valid_metv3,reason,MDE,diff,significant_diff
+Oran,2.82,0.9,6.8842043567481195,,,,24,2.9919436538869597,19.060047,0.1398542980132339,False,R2=0.140 < 0.3,,,
+Tarazona,3.36,0.62,0.5000000001498123,,,,56,1.000000000118023,14.311165,-0.023939954616725156,False,tau=0.50 pegged at floor (0.5),,,

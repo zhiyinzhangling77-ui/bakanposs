@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bakanposs"
+version = "0.2.0"
+description = "Tarazona / Oran eddy-covariance and satellite ET analysis"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "zhiyinzhangling77" }]
+dependencies = [
+    "numpy",
+    "pandas",
+    "scipy",
+    "matplotlib",
+    "xarray",
+    "netCDF4",
+]
+
+[project.scripts]
+# Only v2 currently exposes a callable main(); A v9 and C v1 are run via
+# `python -m bakanposs.analysis_a` / `python -m bakanposs.analysis_c.v1_legacy`.
+bakanposs-C-v2 = "bakanposs.analysis_c.v2_phenology:main"
+
+[tool.setuptools.packages.find]
+include = ["bakanposs*"]
+exclude = ["analyses*", "scripts*", "docs*", "reports*", "output_*"]

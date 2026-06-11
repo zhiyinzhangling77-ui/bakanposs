@@ -1,0 +1,5 @@
+site,window_type,n_events,n_pool_obs,fit_status
+Oran,season,0,0,failed
+Oran,peak,0,0,failed
+Tarazona,season,85,530,failed
+Tarazona,peak,11,91,failed
