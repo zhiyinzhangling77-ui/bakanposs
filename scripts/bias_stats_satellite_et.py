@@ -26,7 +26,7 @@ qflag の扱い:
   4. 両方が値を持つ日のみ
   5. 統計量: n, mean_ec, mean_sat, bias, bias_pct, rmse, r, KGE
 
-出力: ./output_bias_stats/
+出力: ./output/bias_stats/
   bias_stats_summary.csv         サイト別 1 行
   fig_scatter_ec_vs_metv3.png    poster Methods 用 scatter
 
@@ -62,7 +62,7 @@ def parse_args():
                           "(default; relies on load_metv3.py n_obs filter).")
     p.add_argument("--freeze-ta", type=float, default=0.0,
                    help="Ta_min がこの値以下の日を除外 [°C]")
-    p.add_argument("--out", default="output_bias_stats")
+    p.add_argument("--out", default="output/bias_stats")
     return p.parse_args()
 
 

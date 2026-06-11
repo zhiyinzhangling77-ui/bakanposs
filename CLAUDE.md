@@ -27,13 +27,14 @@
 
 ---
 
-## 主要ファイル(Phase 1 整理後、2026-06)
+## 主要ファイル(Phase 1+2+3 整理後、2026-06)
 
 ```
 /home/user/bakanposs/
 ├── CLAUDE.md                            ★ このファイル(自動読込)
 ├── requirements.txt                     Python 環境
 ├── data_loaders.py                      共通ローダ
+├── run_analysis_C.py                    C runner
 │
 ├── docs/                                ★ 全マークダウン文書
 │   ├── RESEARCH_OVERVIEW.md             ★ 研究全体図
@@ -55,16 +56,31 @@
 ├── analysis_A_v32.py                    ★ 現役 (Tarazona blind-spot)
 ├── analysis_B_v3_bias_tau.py            ★ 現役 (bias recovery pool)
 ├── analysis_B_v6_driver_attribution.py  ★ 現役 (driver bars)
-├── analysis_A_v10-v30.py                旧版(Phase 2 で archive 予定)
-├── analysis_B_v1, v2, v4.py             旧版(同上)
-├── analysis_C_v1, v2.py                 解析C
+├── analysis_C_v2_ndvi_phenology.py      ★ 現役 (NDVI phenology)
+│
+├── archive/                             旧 script の保管(履歴保持)
+│   └── scripts/
+│       ├── analysis_A_v10–v30.py        21 版
+│       ├── analysis_A_v13_1_patch.py
+│       ├── analysis_B_v1, v2, v4.py
+│       └── analysis_C_v1.py
 │
 ├── data/                                入力データ
+├── output/                              ★ 全出力を統合
+│   ├── analysis_A/v15–v30/              旧 output
+│   ├── analysis_A/v31/, v32/            ★ 現役出力
+│   ├── analysis_B/v1, v2, v4/           旧 output
+│   ├── analysis_B/v3/, v6/              ★ 現役出力
+│   ├── analysis_C/v1/, v2/, last/
+│   └── bias_stats/                       EC vs ETv3 scatter
+│
 ├── scripts/                             helper scripts
 ├── poster/                              poster template
-├── reports/                             reports
-└── output_analysis_*/                   各 version 出力(Phase 3 で統合予定)
+└── reports/                             reports
 ```
+
+★ パス更新: 全現役 script は `./output/analysis_*/v*/` を default に。
+   `analysis_A_v32.py` は `./output/analysis_B/v3/v3_bias_*.csv` から bias pool を読む。
 
 ---
 

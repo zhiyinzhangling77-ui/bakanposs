@@ -62,7 +62,7 @@ those data are available.
 
 Output
 ------
-output_analysis_B_v6/
+output/analysis_B/v6/
   v6_driver_attribution_coefficients.csv   raw β + SE + t + p per
                                            predictor for both targets
   v6_driver_attribution_data.csv           weekly means used in the fit
@@ -129,7 +129,7 @@ SUPPLY_COL   = "#9C27B0"   # group label colour (purple)
 def parse_args():
     p = argparse.ArgumentParser(description="Driver attribution v6")
     p.add_argument("--master", default="data/master_full_v2.csv")
-    p.add_argument("--out", default="output_analysis_B_v6")
+    p.add_argument("--out", default="output/analysis_B/v6")
     p.add_argument("--site", default=SITE_LABEL_IN_MASTER)
     return p.parse_args()
 

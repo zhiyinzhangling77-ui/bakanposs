@@ -17,7 +17,7 @@
   - Tarazona active (Jun-Sep irrig events, n=41): τ ± SE [95% CI]
   全 |Δτ| < MDE → universality
 
-【出力】./output_analysis_A_v31/
+【出力】./output/analysis_A/v31/
   fig04_poster_main_v31.png/pdf     ★ clean figure (no annotations)
   v31_poster_caption.txt            ★ ポスター脇に貼る脚注テキスト
   v31_strata_data.csv               figure 再現用データ
@@ -67,7 +67,7 @@ def resolve_paths(args):
               base / "Dataset/Eddy data in Spain/Daily_Summary_Filtered_forPred_ActEne26.csv"
     oran_daily = Path(args.oran_daily) if args.oran_daily else \
               base / "Dataset/Eddy data in Spain/Oran_EddyDaily_MASTER_2018_2020_correct"
-    out = Path(args.out) if args.out else Path("./output_analysis_A_v31")
+    out = Path(args.out) if args.out else Path("./output/analysis_A/v31")
     return parquet, tara_csv, oran_daily, out
 
 

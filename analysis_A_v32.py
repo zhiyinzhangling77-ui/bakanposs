@@ -22,10 +22,10 @@
         ではない).
 
 【入力 (デフォルト)】
-  --bias-pool        ./output_analysis_B_v3/v3_bias_perevent_pooled.csv
-  --bias-summary     ./output_analysis_B_v3/v3_bias_tau_summary.csv
+  --bias-pool        ./output/analysis_B/v3/v3_bias_perevent_pooled.csv
+  --bias-summary     ./output/analysis_B/v3/v3_bias_tau_summary.csv
 
-【出力】 ./output_analysis_A_v32/
+【出力】 ./output/analysis_A/v32/
   fig04b_tarazona_blindspot_v32.png/pdf  ★ poster figure
   v32_poster_caption.txt                 ★ 脚注テキスト
   v32_panel_a_bias_fit.csv               panel (a) fit 再現用
@@ -77,10 +77,10 @@ N_LABEL_COL = "#5A4FCF"
 def parse_args():
     p = argparse.ArgumentParser(description="解析A v32 — Tarazona irrigation blind spot")
     p.add_argument("--bias-pool",
-                   default="./output_analysis_B_v3/v3_bias_perevent_pooled.csv")
+                   default="./output/analysis_B/v3/v3_bias_perevent_pooled.csv")
     p.add_argument("--bias-summary",
-                   default="./output_analysis_B_v3/v3_bias_tau_summary.csv")
-    p.add_argument("--out", default="./output_analysis_A_v32")
+                   default="./output/analysis_B/v3/v3_bias_tau_summary.csv")
+    p.add_argument("--out", default="./output/analysis_A/v32")
     p.add_argument("--n-boot", type=int, default=N_BOOT_DEFAULT)
     return p.parse_args()
 

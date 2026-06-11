@@ -61,8 +61,8 @@ from data_loaders import (
 # ===========================================================================
 BASE_NC = Path("/mnt/hdd/Dataset")
 NDVI_APPEEARS_CSV = BASE_NC / "MOD13Q1_NDVI_EVI/MOD13Q1-NDVI-EVI-MOD13Q1-061-results.csv"
-SAVE_DIR = Path("./output_analysis_C_v2")
-SAVE_DIR.mkdir(exist_ok=True)
+SAVE_DIR = Path("./output/analysis_C/v2")
+SAVE_DIR.mkdir(parents=True, exist_ok=True)
 
 # 解析A v27 final から (ANALYSIS_A_FINAL.md §3 / §2.1)
 A_RESULTS = {

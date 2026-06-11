@@ -28,7 +28,7 @@ v3 のアプローチ:
     τ  : decay time constant          [d]   ← これが目的
     c  : permanent (systematic) bias  [W/m²]
 
-出力先: ./output_analysis_B_v3/
+出力先: ./output/analysis_B/v3/
   v3_bias_tau_summary.csv
   v3_bias_perevent_pooled.csv
   fig01_bias_recovery.png
@@ -89,7 +89,7 @@ def parse_args():
     p.add_argument("--oran-csv",
                    default="/home/shion-nagamine/Dataset/Eddy data in Spain/"
                            "Oran_EddyDaily_MASTER_2018_2020_correct.csv")
-    p.add_argument("--out", default="./output_analysis_B_v3")
+    p.add_argument("--out", default="./output/analysis_B/v3")
     p.add_argument("--n-boot", type=int, default=2000)
     p.add_argument("--quick", action="store_true")
     p.add_argument("--no-plots", action="store_true")
