@@ -2,15 +2,15 @@
 
 > ⚠️ **このセッションで最初にやること(順番厳守)**:
 >
-> 1. **[`RESEARCH_OVERVIEW.md`](./RESEARCH_OVERVIEW.md)** — 研究全体図、3 つの解析の関係
-> 2. **[`SESSION_SUMMARY.md`](./SESSION_SUMMARY.md)** — 旧セッション履歴(v9-v27)
-> 3. **[`SESSION_UPDATE_v28_v32.md`](./SESSION_UPDATE_v28_v32.md)** — v28-v32 poster figure + 解析B 橋渡し
-> 4. **★[`SESSION_UPDATE_v32_blindspot.md`](./SESSION_UPDATE_v32_blindspot.md)** — **最新議論(絶対参照)**: τ_bias の位置づけ訂正、ETv3 mechanism 訂正、SMAP/H26 評価、narrative 転換、Tarazona サイズ訂正(1 ha)
-> 5. **[`SATELLITE_ET_NOTES.md`](./SATELLITE_ET_NOTES.md)** — 衛星 ET caveats(§4 SM 入力ありに訂正済)
+> 1. **[`RESEARCH_OVERVIEW.md`](./docs/RESEARCH_OVERVIEW.md)** — 研究全体図、3 つの解析の関係
+> 2. **[`SESSION_SUMMARY.md`](./docs/sessions/SESSION_SUMMARY.md)** — 旧セッション履歴(v9-v27)
+> 3. **[`SESSION_UPDATE_v28_v32.md`](./docs/sessions/SESSION_UPDATE_v28_v32.md)** — v28-v32 poster figure + 解析B 橋渡し
+> 4. **★[`SESSION_UPDATE_v32_blindspot.md`](./docs/sessions/SESSION_UPDATE_v32_blindspot.md)** — **最新議論(絶対参照)**: τ_bias の位置づけ訂正、ETv3 mechanism 訂正、SMAP/H26 評価、narrative 転換、Tarazona サイズ訂正(1 ha)
+> 5. **[`SATELLITE_ET_NOTES.md`](./docs/SATELLITE_ET_NOTES.md)** — 衛星 ET caveats(§4 SM 入力ありに訂正済)
 > 6. 進める解析に応じて:
->    - 解析A 結果参照: [`ANALYSIS_A_FINAL.md`](./ANALYSIS_A_FINAL.md)
->    - 解析B(衛星 ET): [`ANALYSIS_B_PLAN.md`](./ANALYSIS_B_PLAN.md)
->    - 解析C(NDVI): [`ANALYSIS_C_PLAN.md`](./ANALYSIS_C_PLAN.md)
+>    - 解析A 結果参照: [`ANALYSIS_A_FINAL.md`](./docs/ANALYSIS_A_FINAL.md)
+>    - 解析B(衛星 ET): [`ANALYSIS_B_PLAN.md`](./docs/ANALYSIS_B_PLAN.md)
+>    - 解析C(NDVI): [`ANALYSIS_C_PLAN.md`](./docs/ANALYSIS_C_PLAN.md)
 
 ---
 
@@ -27,20 +27,43 @@
 
 ---
 
-## 主要ファイル
+## 主要ファイル(Phase 1 整理後、2026-06)
 
 ```
 /home/user/bakanposs/
-├── CLAUDE.md                ★ このファイル(自動読込)
-├── RESEARCH_OVERVIEW.md      ★ 全体図
-├── ANALYSIS_A_FINAL.md       解析A 最終結果
-├── ANALYSIS_B_PLAN.md        解析B 設計図
-├── ANALYSIS_C_PLAN.md        解析C 設計図
-├── SESSION_SUMMARY.md        過去履歴
-├── requirements.txt          Python 環境
-├── data_loaders.py           共通ローダ
-├── analysis_A_v4-v27.py      解析A(v27 が最終)
-└── analysis_C_v1.py          解析C 初版
+├── CLAUDE.md                            ★ このファイル(自動読込)
+├── requirements.txt                     Python 環境
+├── data_loaders.py                      共通ローダ
+│
+├── docs/                                ★ 全マークダウン文書
+│   ├── RESEARCH_OVERVIEW.md             ★ 研究全体図
+│   ├── ANALYSIS_A_FINAL.md              解析A 最終結果
+│   ├── ANALYSIS_A_FAQ.md                解析A FAQ
+│   ├── ANALYSIS_B_PLAN.md               解析B 設計図
+│   ├── ANALYSIS_C_PLAN.md               解析C 設計図
+│   ├── SATELLITE_ET_NOTES.md            衛星 ET caveats
+│   ├── REPORT_to_site_collaborators.md  site PI 向け報告
+│   ├── paper_methods_results.md         論文 draft
+│   ├── paper_outline.md                 論文 outline
+│   ├── RUN_ANALYSIS_C.md                C 実行手順
+│   └── sessions/                        セッション履歴
+│       ├── SESSION_SUMMARY.md
+│       ├── SESSION_UPDATE_v28_v32.md
+│       └── SESSION_UPDATE_v32_blindspot.md
+│
+├── analysis_A_v31.py                    ★ 現役 (poster Fig 4 main)
+├── analysis_A_v32.py                    ★ 現役 (Tarazona blind-spot)
+├── analysis_B_v3_bias_tau.py            ★ 現役 (bias recovery pool)
+├── analysis_B_v6_driver_attribution.py  ★ 現役 (driver bars)
+├── analysis_A_v10-v30.py                旧版(Phase 2 で archive 予定)
+├── analysis_B_v1, v2, v4.py             旧版(同上)
+├── analysis_C_v1, v2.py                 解析C
+│
+├── data/                                入力データ
+├── scripts/                             helper scripts
+├── poster/                              poster template
+├── reports/                             reports
+└── output_analysis_*/                   各 version 出力(Phase 3 で統合予定)
 ```
 
 ---
