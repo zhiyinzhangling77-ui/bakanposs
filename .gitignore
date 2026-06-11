@@ -20,6 +20,16 @@ venv/
 *.csv~
 *.parquet~
 
-# Analysis run outputs (figures + CSVs)
+# Analysis run outputs (legacy convention) — new convention is output/<analysis>/<version>/
 output_analysis_*/
 .env
+
+# Backup files (e.g. data_loaders.py.bak.20260511_180801)
+*.bak
+*.bak.*
+
+# Root-level CSV / log clutter: outputs MUST go to output/, inputs to data/.
+# (the negation tracks the README/CHANGELOG etc. that we DO want at root)
+/*.csv
+/*.log
+/*.parquet
