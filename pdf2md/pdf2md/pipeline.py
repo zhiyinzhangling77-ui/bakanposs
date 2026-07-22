@@ -9,8 +9,11 @@ from pathlib import Path
 from . import clean, convert, split, summarize, toc
 
 
-def find_pdfs(input_dir: Path) -> list[Path]:
-    return sorted(p for p in input_dir.glob("*.pdf") if p.is_file())
+def find_pdfs(input_path: Path) -> list[Path]:
+    """フォルダなら中の *.pdf を、単一の .pdf ファイルならそれ1つを返す。"""
+    if input_path.is_file() and input_path.suffix.lower() == ".pdf":
+        return [input_path]
+    return sorted(p for p in input_path.glob("*.pdf") if p.is_file())
 
 
 # ---------------------------------------------------------------- sample
@@ -25,7 +28,11 @@ def run_sample(
     pdfs = find_pdfs(input_dir)
     if not pdfs:
         raise FileNotFoundError(f"{input_dir} に PDF がありません。")
-    target = (input_dir / pdf) if pdf else pdfs[0]
+    # --input がフォルダで --pdf 指定があればその1冊、無ければ先頭。単一ファイル入力ならそれ。
+    if pdf and input_dir.is_dir():
+        target = input_dir / pdf
+    else:
+        target = pdfs[0]
     if not target.exists():
         raise FileNotFoundError(target)
 

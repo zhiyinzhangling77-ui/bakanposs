@@ -111,7 +111,7 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="command", required=True)
 
     ps = sub.add_parser("sample", help="1冊の先頭数ページだけ変換して品質を確認")
-    ps.add_argument("--input", required=True, help="PDF が入ったフォルダ")
+    ps.add_argument("--input", required=True, help="PDF が入ったフォルダ、または単一の .pdf ファイル")
     ps.add_argument("--pdf", help="対象PDFのファイル名(省略時は最初の1冊)")
     ps.add_argument("--pages", type=int, default=5, help="変換するページ数(既定 5)")
     ps.add_argument("--prefer", choices=["marker", "mineru"], default="marker")
@@ -119,11 +119,11 @@ def build_parser() -> argparse.ArgumentParser:
     ps.set_defaults(func=cmd_sample)
 
     pt = sub.add_parser("toc", help="各PDFの目次(見出し構造)を一覧表示")
-    pt.add_argument("--input", required=True, help="PDF が入ったフォルダ")
+    pt.add_argument("--input", required=True, help="PDF が入ったフォルダ、または単一の .pdf ファイル")
     pt.set_defaults(func=cmd_toc)
 
     pr = sub.add_parser("run", help="本処理: 変換→ノイズ除去→章分割→要約付与→保存")
-    pr.add_argument("--input", required=True, help="PDF が入ったフォルダ")
+    pr.add_argument("--input", required=True, help="PDF が入ったフォルダ、または単一の .pdf ファイル")
     pr.add_argument("--output", required=True, help="Obsidian の保存先フォルダ")
     pr.add_argument("--chapters", help="変換する章の指定 例:'1,3,5-7'(省略時は全章)")
     pr.add_argument("--only", help="このファイル名の1冊だけ処理")
