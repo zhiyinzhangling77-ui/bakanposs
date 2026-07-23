@@ -70,19 +70,33 @@ ANY_HEADING_RE = re.compile(r"^(#{1,6})\s+(.*\S)\s*$")
 DEFAULT_CHAPTER_PATTERN = r"(?i)^\s*(chapter\s+\d+|第\s*\d+\s*[章節]|\d+[\.\s])"
 
 
-def split_none(markdown: str, fallback_title: str) -> tuple[str, list[Chapter]]:
+def _is_weak_title(t: str) -> bool:
+    """章番号だけ('1')や短すぎる見出しは章タイトルとして弱い。"""
+    t = t.strip()
+    return (not t) or t.isdigit() or len(t) < 3
+
+
+def split_none(
+    markdown: str, fallback_title: str, forced_title: str | None = None
+) -> tuple[str, list[Chapter]]:
     """分割しない: 変換範囲まるごとを1章として返す。
 
     `--page-range` で1章ずつ変換する運用に最適(marker が節見出しを # にして
-    しまい過剰分割する問題を回避できる)。タイトルは最初の見出し、無ければ
-    fallback_title(通常は PDF 名)。
+    しまい過剰分割する問題を回避できる)。タイトルは forced_title があればそれ、
+    無ければ最初の「実質的な」見出し(章番号だけ等の弱い見出しは飛ばす)、
+    それも無ければ fallback_title(通常は PDF 名)。
     """
-    title = fallback_title
-    for line in markdown.splitlines():
-        m = ANY_HEADING_RE.match(line)
-        if m:
-            title = clean_heading(m.group(2).strip())
-            break
+    if forced_title:
+        title = forced_title
+    else:
+        title = fallback_title
+        for line in markdown.splitlines():
+            m = ANY_HEADING_RE.match(line)
+            if m:
+                cand = clean_heading(m.group(2).strip())
+                if not _is_weak_title(cand):
+                    title = cand
+                    break
     return "", [Chapter(index=1, title=title, body=markdown.strip() + "\n")]
 
 
@@ -126,13 +140,15 @@ def split_chapters(
     mode: str = "h1",
     pattern: str | None = None,
     fallback_title: str = "section",
+    forced_title: str | None = None,
 ) -> tuple[str, list[Chapter]]:
     """分割モードを選んで (冒頭部, 章リスト) を返す。
 
     mode: "h1"(# ごと・従来) / "none"(分割しない) / "pattern"(章見出し正規表現)
+    forced_title: none モードでのタイトル明示指定(--title)
     """
     if mode == "none":
-        return split_none(markdown, fallback_title)
+        return split_none(markdown, fallback_title, forced_title)
     if mode == "pattern":
         fm, chs = split_by_pattern(markdown, pattern)
         if chs:
