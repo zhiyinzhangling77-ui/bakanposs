@@ -48,11 +48,17 @@ def digitize_series(x: np.ndarray, n_bins: int) -> np.ndarray:
 # ---------------------------------------------------------------------------
 # エントロピー (ビンインデックスから)
 # ---------------------------------------------------------------------------
-def _entropy_of_indices(cols: list[np.ndarray], n_bins: int) -> float:
+def _entropy_of_indices(
+    cols: list[np.ndarray], n_bins: int, correct: bool = False
+) -> float:
     """同時エントロピー H(cols...) を混合基数エンコード + bincount で計算。
 
     cols: それぞれ同じ長さ N の bin index 配列 (値域 0..n_bins-1)。
     自然対数 (nats)。
+
+    ``correct=True`` で Miller-Madow バイアス補正 ``+(K-1)/(2N)`` を加える
+    (K = 度数>0 のセル数)。プラグイン推定の負バイアスを主要項で打ち消し、次元の
+    異なる項どうし (例 2D の MI と 3D の CMI) を公平に比較できるようにする。
     """
     n = len(cols[0])
     if n == 0:
@@ -63,7 +69,10 @@ def _entropy_of_indices(cols: list[np.ndarray], n_bins: int) -> float:
     counts = np.bincount(code)
     counts = counts[counts > 0]
     p = counts / n
-    return float(-np.sum(p * np.log(p)))
+    h = float(-np.sum(p * np.log(p)))
+    if correct:
+        h += (len(counts) - 1) / (2.0 * n)   # Miller-Madow
+    return h
 
 
 def shannon_entropy(x: np.ndarray, n_bins: int) -> float:
@@ -74,11 +83,13 @@ def shannon_entropy(x: np.ndarray, n_bins: int) -> float:
 # ---------------------------------------------------------------------------
 # 相互情報量 (ゼロラグ)
 # ---------------------------------------------------------------------------
-def mutual_information_indices(xi: np.ndarray, yi: np.ndarray, n_bins: int) -> float:
+def mutual_information_indices(
+    xi: np.ndarray, yi: np.ndarray, n_bins: int, correct: bool = False
+) -> float:
     """I(X, Y) = H(X) + H(Y) - H(X, Y) [nats]。入力は bin index。"""
-    hx = _entropy_of_indices([xi], n_bins)
-    hy = _entropy_of_indices([yi], n_bins)
-    hxy = _entropy_of_indices([xi, yi], n_bins)
+    hx = _entropy_of_indices([xi], n_bins, correct)
+    hy = _entropy_of_indices([yi], n_bins, correct)
+    hxy = _entropy_of_indices([xi, yi], n_bins, correct)
     return hx + hy - hxy
 
 
@@ -101,19 +112,21 @@ def _encode(cols: list[np.ndarray], n_bins: int) -> np.ndarray:
 
 
 def conditional_mutual_information_indices(
-    xi: np.ndarray, yi: np.ndarray, z_cols: list[np.ndarray], n_bins: int
+    xi: np.ndarray, yi: np.ndarray, z_cols: list[np.ndarray], n_bins: int,
+    correct: bool = False,
 ) -> float:
     """I(X;Y|Z) = H(X,Z) + H(Y,Z) - H(Z) - H(X,Y,Z) [nats]。
 
     ``z_cols`` は条件付け集合 Z のビンインデックス列リスト (1 本でも複数でも可)。
     ペアワイズ MI が共通駆動 Z を通じて生む見かけの結合を除いた「Z を与えた上での
-    X-Y の直接依存」を測る。Z が空なら通常の I(X;Y) に一致。
+    X-Y の直接依存」を測る。Z が空なら通常の I(X;Y) に一致。``correct=True`` で
+    Miller-Madow 補正を各項に適用し、高次元ヒストの正バイアスを打ち消す。
     """
     z = list(z_cols)
-    h_xz = _entropy_of_indices([xi, *z], n_bins)
-    h_yz = _entropy_of_indices([yi, *z], n_bins)
-    h_z = _entropy_of_indices(z, n_bins) if z else 0.0
-    h_xyz = _entropy_of_indices([xi, yi, *z], n_bins)
+    h_xz = _entropy_of_indices([xi, *z], n_bins, correct)
+    h_yz = _entropy_of_indices([yi, *z], n_bins, correct)
+    h_z = _entropy_of_indices(z, n_bins, correct) if z else 0.0
+    h_xyz = _entropy_of_indices([xi, yi, *z], n_bins, correct)
     return h_xz + h_yz - h_z - h_xyz
 
 
@@ -125,13 +138,14 @@ def surrogate_cmi_stats(
     n_surrogates: int,
     c: float,
     rng: np.random.Generator,
+    correct: bool = False,
 ) -> dict[str, float]:
     """条件独立ヌルからの (μ_ss, σ_ss, Δ) [nats]。
 
     Z のビン層 (stratum) 内で X を置換する。これは (X,Z) 同時分布を厳密に保ちつつ
     Z を与えた上での X-Y 依存だけを壊すので、``I(X;Y|Z)`` の条件独立に対する正しい
     ヌル分布になる。観測 CMI が Δ = μ_ss + c·σ_ss を超えれば「Z で説明できない直接
-    依存が有意」と判定できる。
+    依存が有意」と判定できる。``correct`` は観測 CMI と同じ推定器を使うため揃える。
     """
     z_code = _encode(list(z_cols), n_bins)
     order = np.argsort(z_code, kind="stable")
@@ -143,7 +157,8 @@ def surrogate_cmi_stats(
         xs = xi.copy()
         for g in groups:                      # 各 Z 層内で X をシャッフル
             xs[g] = xi[g[rng.permutation(len(g))]]
-        samples[s] = conditional_mutual_information_indices(xs, yi, z_cols, n_bins)
+        samples[s] = conditional_mutual_information_indices(
+            xs, yi, z_cols, n_bins, correct)
     mu = float(np.mean(samples))
     sigma = float(np.std(samples))
     return {"mu": mu, "sigma": sigma, "threshold": mu + c * sigma}
@@ -274,13 +289,14 @@ def surrogate_mi_stats(
     n_surrogates: int,
     c: float,
     rng: np.random.Generator,
+    correct: bool = False,
 ) -> dict[str, float]:
     """サロゲート MI 分布から (μ_ss, σ_ss, Δ) を返す [nats]。"""
     n = len(xi)
     samples = np.empty(n_surrogates, dtype=float)
     for s in range(n_surrogates):
         samples[s] = mutual_information_indices(
-            xi[rng.permutation(n)], yi[rng.permutation(n)], n_bins
+            xi[rng.permutation(n)], yi[rng.permutation(n)], n_bins, correct
         )
     mu = float(np.mean(samples))
     sigma = float(np.std(samples))
