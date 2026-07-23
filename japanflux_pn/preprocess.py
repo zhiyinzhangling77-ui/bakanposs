@@ -28,8 +28,15 @@ class PreprocessResult:
     valid: pd.Series             # 全 11 変数が揃う時刻 True (bool, 格子と同 index)
     site: str
     year: int
-    month: int
+    month: int                   # 代表月 (プール時は先頭月)
     config: AnalysisConfig
+    months: list[int] | None = None   # プール対象月 (単月なら [month])
+
+    @property
+    def month_label(self) -> str:
+        """出力ディレクトリ等に使う月ラベル ("07" or "07-08")。"""
+        ms = self.months or [self.month]
+        return f"{ms[0]:02d}" if len(ms) == 1 else f"{ms[0]:02d}-{ms[-1]:02d}"
 
     @property
     def valid_frame(self) -> pd.DataFrame:
@@ -55,6 +62,7 @@ class PreprocessResult:
             "site": self.site,
             "year": self.year,
             "month": self.month,
+            "months": "+".join(str(m) for m in (self.months or [self.month])),
             "n_points": self.n_points,
             "n_bins": self.config.n_bins,
             "anomaly_window_days": self.config.anomaly_window_days,
@@ -185,21 +193,49 @@ def slice_and_anomaly(
     return compute_anomaly(raw, config, keep_index=keep)
 
 
+def slice_span_and_anomaly(
+    raw_all: pd.DataFrame, year: int, months: list[int], config: AnalysisConfig
+) -> tuple[pd.DataFrame, pd.Series]:
+    """連続する複数月を 1 本の連続区間としてプールし、アノマリ + valid mask を作る。
+
+    ``months`` は同一年内の連続月を想定 (例 [7, 8])。先頭月の月初から末尾月の月末
+    までを 1 つのレギュラ格子に張り、前方窓バッファを足してアノマリ化する。区間内は
+    連続なので、後段のラグ三つ組は ``gap_guard`` で欠測跨ぎだけを避ければよい。
+    """
+    months = sorted(set(months))
+    first_start = pd.Timestamp(year=year, month=months[0], day=1)
+    last_start = pd.Timestamp(year=year, month=months[-1], day=1)
+    span_end = last_start + pd.offsets.MonthBegin(1)
+    buf_end = span_end + pd.Timedelta(days=config.anomaly_window_days)
+    step = pd.Timedelta(minutes=24 * 60 // config.steps_per_day)
+
+    grid = _regular_grid(first_start, buf_end - step, config.steps_per_day)
+    raw = raw_all.reindex(grid)
+    keep = _regular_grid(first_start, span_end - step, config.steps_per_day)
+    return compute_anomaly(raw, config, keep_index=keep)
+
+
 def load_corevars_hh(
     site_code: str,
     year: int,
-    month: int,
+    month: int | list[int],
     config: AnalysisConfig | None = None,
 ) -> PreprocessResult:
     """サイト・年・月を指定して COREVARS HH を前処理する。
 
-    対象月 + 前方窓バッファ (window_days 日) の範囲を読み、5 日アノマリ後に対象月
-    のみへ絞る。
+    ``month`` は単月 (int) または同一年内の連続複数月 (list, 例 [7, 8]) を受ける。
+    複数月ならプールして n を稼ぎ、TE 推定器の有限標本 floor を下げる用途。対象区間
+    + 前方窓バッファ (window_days 日) の範囲を読み、5 日アノマリ後に対象区間へ絞る。
     """
     config = config or AnalysisConfig()
     site = get_site(site_code)
     raw_all = load_raw_all(site, config)
-    anom, valid = slice_and_anomaly(raw_all, year, month, config)
+    months = [month] if isinstance(month, int) else sorted(set(month))
+    if len(months) == 1:
+        anom, valid = slice_and_anomaly(raw_all, year, months[0], config)
+    else:
+        anom, valid = slice_span_and_anomaly(raw_all, year, months, config)
     return PreprocessResult(
-        anomaly=anom, valid=valid, site=site_code, year=year, month=month, config=config
+        anomaly=anom, valid=valid, site=site_code, year=year,
+        month=months[0], months=months, config=config,
     )
