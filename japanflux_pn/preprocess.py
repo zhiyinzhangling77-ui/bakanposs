@@ -144,6 +144,47 @@ def read_corevars_raw(
     return df
 
 
+def find_corevars_files(site: SiteSpec) -> list[Path]:
+    """サイトの COREVARS HH ファイル一覧 (ソート済み)。無ければ例外。"""
+    files = sorted(Path(site.data_dir).glob(site.corevars_hh_glob))
+    if not files:
+        raise FileNotFoundError(
+            f"no COREVARS HH file under {site.data_dir!r} "
+            f"matching {site.corevars_hh_glob!r}"
+        )
+    return files
+
+
+def load_raw_all(site: SiteSpec, config: AnalysisConfig) -> pd.DataFrame:
+    """サイトの全 COREVARS HH を連結し、RK_VARS 列の生 DataFrame にする。
+
+    複数ファイル (年分割) を時刻でソート・重複除去して 1 本にまとめる。年スキャンで
+    繰り返し使うため読み込みを 1 回に集約する用途。
+    """
+    files = find_corevars_files(site)
+    raw_all = pd.concat([read_corevars_raw(f, site, config) for f in files])
+    return raw_all[~raw_all.index.duplicated(keep="first")].sort_index()
+
+
+def slice_and_anomaly(
+    raw_all: pd.DataFrame, year: int, month: int, config: AnalysisConfig
+) -> tuple[pd.DataFrame, pd.Series]:
+    """連結済み生データから対象月を切り出し、5 日アノマリ + valid mask を作る。
+
+    対象月 + 前方窓バッファ (window_days 日) をレギュラ格子へ張り直し、アノマリ後に
+    対象月のみへ絞る。:func:`load_corevars_hh` と年スキャンで共有するコア。
+    """
+    month_start = pd.Timestamp(year=year, month=month, day=1)
+    month_end = month_start + pd.offsets.MonthBegin(1)
+    buf_end = month_end + pd.Timedelta(days=config.anomaly_window_days)
+    step = pd.Timedelta(minutes=24 * 60 // config.steps_per_day)
+
+    grid = _regular_grid(month_start, buf_end - step, config.steps_per_day)
+    raw = raw_all.reindex(grid)
+    keep = _regular_grid(month_start, month_end - step, config.steps_per_day)
+    return compute_anomaly(raw, config, keep_index=keep)
+
+
 def load_corevars_hh(
     site_code: str,
     year: int,
@@ -157,32 +198,8 @@ def load_corevars_hh(
     """
     config = config or AnalysisConfig()
     site = get_site(site_code)
-    files = sorted(Path(site.data_dir).glob(site.corevars_hh_glob))
-    if not files:
-        raise FileNotFoundError(
-            f"no COREVARS HH file under {site.data_dir!r} "
-            f"matching {site.corevars_hh_glob!r}"
-        )
-    raw_all = pd.concat([read_corevars_raw(f, site, config) for f in files])
-    raw_all = raw_all[~raw_all.index.duplicated(keep="first")].sort_index()
-
-    month_start = pd.Timestamp(year=year, month=month, day=1)
-    month_end = month_start + pd.offsets.MonthBegin(1)  # 排他的上限
-    buf_end = month_end + pd.Timedelta(days=config.anomaly_window_days)
-
-    grid = _regular_grid(
-        month_start,
-        buf_end - pd.Timedelta(minutes=24 * 60 // config.steps_per_day),
-        config.steps_per_day,
-    )
-    raw = raw_all.reindex(grid)
-
-    keep = _regular_grid(
-        month_start,
-        month_end - pd.Timedelta(minutes=24 * 60 // config.steps_per_day),
-        config.steps_per_day,
-    )
-    anom, valid = compute_anomaly(raw, config, keep_index=keep)
+    raw_all = load_raw_all(site, config)
+    anom, valid = slice_and_anomaly(raw_all, year, month, config)
     return PreprocessResult(
         anomaly=anom, valid=valid, site=site_code, year=year, month=month, config=config
     )
