@@ -6,6 +6,13 @@ import re
 from dataclasses import dataclass
 
 H1_RE = re.compile(r"^#\s+(.*\S)\s*$")
+# 見出しに混じる Markdown 強調記号(** * __ `)を除去するための正規表現
+_EMPHASIS_RE = re.compile(r"(\*\*|__|\*|`)")
+
+
+def clean_heading(text: str) -> str:
+    """見出しテキストから強調記号を取り除く(YAML title / ファイル名用)。"""
+    return _EMPHASIS_RE.sub("", text).strip()
 
 
 @dataclass
@@ -47,7 +54,7 @@ def split_by_h1(markdown: str) -> tuple[str, list[Chapter]]:
         m = None if in_code else H1_RE.match(line)
         if m:
             flush()
-            cur_title = m.group(1).strip()
+            cur_title = clean_heading(m.group(1).strip())
             cur_body = [line]
         elif cur_title is None:
             frontmatter.append(line)
