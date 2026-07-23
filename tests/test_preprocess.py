@@ -67,6 +67,36 @@ def test_compute_anomaly_listwise_deletion():
     assert list(anom.columns) == RK_VARS
 
 
+def test_slice_span_pools_consecutive_months():
+    """[7, 8] プールは 7 月単月より点数が多く、区間は 7/1〜8/31 に収まる。"""
+    cfg = AnalysisConfig()
+    # 2020-07-01 .. 2020-09-30 の連続格子に全変数の生値を用意
+    idx = pd.date_range("2020-07-01", "2020-09-30 23:30", freq="30min")
+    rng = np.random.default_rng(3)
+    raw_all = pd.DataFrame({v: rng.random(len(idx)) for v in RK_VARS}, index=idx)
+
+    _, valid7 = pp.slice_and_anomaly(raw_all, 2020, 7, cfg)
+    anom78, valid78 = pp.slice_span_and_anomaly(raw_all, 2020, [7, 8], cfg)
+
+    assert int(valid78.sum()) > int(valid7.sum())        # プールで n 増加
+    assert anom78.index.min() == pd.Timestamp("2020-07-01")
+    assert anom78.index.max() < pd.Timestamp("2020-09-01")  # 8 月末まで
+    assert list(anom78.columns) == RK_VARS
+
+
+def test_month_label_single_and_pooled():
+    cfg = AnalysisConfig()
+    grid = _make_grid(4)
+    raw = pd.DataFrame({v: np.ones(len(grid)) for v in RK_VARS}, index=grid)
+    anom, valid = pp.compute_anomaly(raw, cfg)
+    single = pp.PreprocessResult(anomaly=anom, valid=valid, site="T",
+                                 year=2020, month=7, config=cfg, months=[7])
+    pooled = pp.PreprocessResult(anomaly=anom, valid=valid, site="T",
+                                 year=2020, month=7, config=cfg, months=[7, 8])
+    assert single.month_label == "07"
+    assert pooled.month_label == "07-08"
+
+
 def test_step_index_matches_grid_positions():
     """step_index が格子上の整数位置と一致する。"""
     cfg = AnalysisConfig()

@@ -35,18 +35,19 @@ DIAG_PAIRS: list[tuple[str, str]] = [
 ]
 
 
-def run(site: str, year: int, month: int, config: AnalysisConfig | None = None,
+def run(site: str, year: int, month: int | list[int],
+        config: AnalysisConfig | None = None,
         outroot: str | Path | None = None) -> NetworkResult:
     config = config or AnalysisConfig()
     pre = load_corevars_hh(site, year, month, config)
     if pre.n_points < 100:
         print(f"[warn] 有効データ点数 {pre.n_points} が少ない (推奨 500-1500)")
-    print(f"[preprocess] {site} {year}-{month:02d}: n_points={pre.n_points}")
+    print(f"[preprocess] {site} {year}-{pre.month_label}: n_points={pre.n_points}")
 
     net = build_network(pre)
 
     outroot = Path(outroot) if outroot else Path(__file__).parent / "outputs"
-    outdir = outroot / f"{site}_{year}{month:02d}"
+    outdir = outroot / f"{site}_{year}{pre.month_label}"
     outdir.mkdir(parents=True, exist_ok=True)
     net.save(outdir)
     print(f"[output] {outdir}  (adjacency CSV + meta)")
@@ -90,7 +91,9 @@ def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description="JapanFlux2024 process-network analysis")
     p.add_argument("--site", required=True, help="サイトコード (例 JP-Tak)")
     p.add_argument("--year", type=int, required=True)
-    p.add_argument("--month", type=int, default=7, help="対象月 (既定 7)")
+    p.add_argument("--month", type=int, nargs="+", default=[7],
+                   help="対象月。単月 (既定 7) か連続複数月 (例: --month 7 8) で "
+                        "プールし n を稼ぐ")
     p.add_argument("--bins", type=int, default=None, help="ビン数 m (既定 11)")
     p.add_argument("--surrogates", type=int, default=None, help="サロゲート数 M (既定 100)")
     p.add_argument("--peak-min-run", type=int, default=None,
