@@ -30,6 +30,17 @@ export ANTHROPIC_API_KEY=sk-ant-...   # 要約に必要。未設定なら要約�
 
 `marker-pdf` は初回実行時にモデルをダウンロードします(数百 MB〜)。
 
+**実行時の注意(ディレクトリ)**: `python -m pdf2md ...` は `pdf2md` パッケージが
+見えるディレクトリ(=この `pdf2md/` フォルダ)から実行してください。リポジトリの
+ルート等から実行すると `No module named pdf2md.__main__` になります。どこからでも
+呼びたい場合は一度だけ editable install すると `pdf2md` コマンドが使えます:
+
+```bash
+cd pdf2md
+./.venv/bin/pip install -e .
+# 以後どのディレクトリからでも(venv 有効化中):  pdf2md sample --input ... など
+```
+
 **GPU メモリが少ない場合(例: 4GB)**: そのままだと CUDA out of memory になることが
 あります。`--device cpu` を付ければ CPU で確実に動きます(自動でも OOM を検知したら
 CPU で 1 回再試行します)。
