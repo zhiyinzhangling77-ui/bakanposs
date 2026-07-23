@@ -35,9 +35,11 @@ class SiteSpec:
     """1 サイトのデータ位置とメタ情報。"""
 
     code: str                        # 例 "JP-Tak"
-    data_dir: str                    # COREVARS HH CSV が入るディレクトリ
-    # COREVARS 30 分値ファイルの glob。{code} などは使わずディレクトリ内を探す。
-    corevars_hh_glob: str = "*COREVARS_HH_*.csv"
+    data_dir: str                    # サイトのルート (配布 ID サブフォルダを内包)
+    # COREVARS 30 分値ファイルの glob。JapanFlux2024 は
+    #   <root>/<配布ID>/DATA/COREVARS/FLX_<code>_JapanFLUX2024_COREVARS_HH_*.csv
+    # のように配布 ID フォルダが挟まるため、ルートから再帰的に探す (** を使用)。
+    corevars_hh_glob: str = "**/*COREVARS_HH_*.csv"
     var_overrides: dict[str, str] = field(default_factory=dict)
     description: str = ""
 
