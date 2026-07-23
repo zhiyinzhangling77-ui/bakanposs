@@ -17,7 +17,6 @@ import numpy as np
 from .config import AnalysisConfig
 from .preprocess import load_corevars_hh
 from .network import build_network, NetworkResult
-from . import viz
 
 
 # sanity check で見る主要ペア (R&K Bondville の期待挙動)
@@ -50,13 +49,25 @@ def run(site: str, year: int, month: int, config: AnalysisConfig | None = None,
     outdir = outroot / f"{site}_{year}{month:02d}"
     outdir.mkdir(parents=True, exist_ok=True)
     net.save(outdir)
-    viz.draw_network(net, outdir / "network.png")
-    viz.plot_type_matrix(net, outdir / "coupling_type.png")
-    viz.plot_lag_diagnostics(net, DIAG_PAIRS, outdir / "lag_diagnostics.png")
-    print(f"[output] {outdir}")
+    print(f"[output] {outdir}  (adjacency CSV + meta)")
+    _draw_figures(net, outdir)
 
     _print_sanity(net)
     return net
+
+
+def _draw_figures(net: NetworkResult, outdir: Path) -> None:
+    """描画ライブラリがあれば図を出す。無ければ警告してスキップ (解析本体は済)。"""
+    try:
+        from . import viz
+    except ImportError as e:  # matplotlib / networkx 未導入
+        print(f"[warn] 図の生成をスキップ: {e.name} が未導入 "
+              f"(`pip install networkx matplotlib` で有効化)")
+        return
+    viz.draw_network(net, outdir / "network.png")
+    viz.plot_type_matrix(net, outdir / "coupling_type.png")
+    viz.plot_lag_diagnostics(net, DIAG_PAIRS, outdir / "lag_diagnostics.png")
+    print(f"[output] {outdir}  (figures: network / coupling_type / lag_diagnostics .png)")
 
 
 def _print_sanity(net: NetworkResult) -> None:
