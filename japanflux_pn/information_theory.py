@@ -90,6 +90,66 @@ def mutual_information(x: np.ndarray, y: np.ndarray, n_bins: int) -> float:
 
 
 # ---------------------------------------------------------------------------
+# 条件付き相互情報量 I(X;Y|Z) — 共通駆動の分離
+# ---------------------------------------------------------------------------
+def _encode(cols: list[np.ndarray], n_bins: int) -> np.ndarray:
+    """複数ビンインデックス列を混合基数で 1 整数コードへ。"""
+    code = np.zeros(len(cols[0]), dtype=np.int64)
+    for c in cols:
+        code = code * n_bins + c
+    return code
+
+
+def conditional_mutual_information_indices(
+    xi: np.ndarray, yi: np.ndarray, z_cols: list[np.ndarray], n_bins: int
+) -> float:
+    """I(X;Y|Z) = H(X,Z) + H(Y,Z) - H(Z) - H(X,Y,Z) [nats]。
+
+    ``z_cols`` は条件付け集合 Z のビンインデックス列リスト (1 本でも複数でも可)。
+    ペアワイズ MI が共通駆動 Z を通じて生む見かけの結合を除いた「Z を与えた上での
+    X-Y の直接依存」を測る。Z が空なら通常の I(X;Y) に一致。
+    """
+    z = list(z_cols)
+    h_xz = _entropy_of_indices([xi, *z], n_bins)
+    h_yz = _entropy_of_indices([yi, *z], n_bins)
+    h_z = _entropy_of_indices(z, n_bins) if z else 0.0
+    h_xyz = _entropy_of_indices([xi, yi, *z], n_bins)
+    return h_xz + h_yz - h_z - h_xyz
+
+
+def surrogate_cmi_stats(
+    xi: np.ndarray,
+    yi: np.ndarray,
+    z_cols: list[np.ndarray],
+    n_bins: int,
+    n_surrogates: int,
+    c: float,
+    rng: np.random.Generator,
+) -> dict[str, float]:
+    """条件独立ヌルからの (μ_ss, σ_ss, Δ) [nats]。
+
+    Z のビン層 (stratum) 内で X を置換する。これは (X,Z) 同時分布を厳密に保ちつつ
+    Z を与えた上での X-Y 依存だけを壊すので、``I(X;Y|Z)`` の条件独立に対する正しい
+    ヌル分布になる。観測 CMI が Δ = μ_ss + c·σ_ss を超えれば「Z で説明できない直接
+    依存が有意」と判定できる。
+    """
+    z_code = _encode(list(z_cols), n_bins)
+    order = np.argsort(z_code, kind="stable")
+    bounds = np.flatnonzero(np.diff(z_code[order])) + 1
+    groups = [g for g in np.split(order, bounds) if len(g) > 1]
+
+    samples = np.empty(n_surrogates, dtype=float)
+    for s in range(n_surrogates):
+        xs = xi.copy()
+        for g in groups:                      # 各 Z 層内で X をシャッフル
+            xs[g] = xi[g[rng.permutation(len(g))]]
+        samples[s] = conditional_mutual_information_indices(xs, yi, z_cols, n_bins)
+    mu = float(np.mean(samples))
+    sigma = float(np.std(samples))
+    return {"mu": mu, "sigma": sigma, "threshold": mu + c * sigma}
+
+
+# ---------------------------------------------------------------------------
 # Transfer entropy (Knuth 2005 form, R&K 式 (5))
 # ---------------------------------------------------------------------------
 def _lag_triples(
