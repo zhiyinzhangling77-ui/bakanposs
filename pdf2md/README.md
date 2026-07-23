@@ -28,7 +28,22 @@ source .venv/bin/activate
 export ANTHROPIC_API_KEY=sk-ant-...   # 要約に必要。未設定なら要約はスキップされ本文は保存されます
 ```
 
-`marker-pdf` と `mineru` は初回実行時にモデルをダウンロードします(数百 MB〜)。
+`marker-pdf` は初回実行時にモデルをダウンロードします(数百 MB〜)。
+
+**GPU メモリが少ない場合(例: 4GB)**: そのままだと CUDA out of memory になることが
+あります。`--device cpu` を付ければ CPU で確実に動きます(自動でも OOM を検知したら
+CPU で 1 回再試行します)。
+
+**MinerU(日本語・中国語フォールバック)について**: MinerU は Pillow のバージョンが
+marker と衝突するため、**同じ venv には入れません**。使う場合は別 venv を作ります:
+
+```bash
+python3 -m venv .venv-mineru
+source .venv-mineru/bin/activate
+pip install -r requirements-mineru.txt PyMuPDF anthropic
+# この venv から実行すると marker が無いので自動的に mineru が使われます
+python -m pdf2md sample --input <PDF> --pages 5 --prefer mineru
+```
 
 ---
 
@@ -42,7 +57,8 @@ python -m pdf2md sample --input "<PDFフォルダ>" --pages 5
 表示された Markdown の品質(数式・表・見出し・文字化けの有無)を目で確認します。
 **ここで OK になるまで本処理に進みません。**
 
-日本語・中国語で marker の結果が悪ければ `--prefer mineru` を試してください。
+日本語・中国語で marker の結果が悪ければ、上記の別 venv で MinerU を試してください。
+低VRAM GPU で落ちるときは `--device cpu`。`--input` はフォルダでも単一 .pdf でも可。
 
 ### ② 目次(見出し構造)を確認
 ```bash

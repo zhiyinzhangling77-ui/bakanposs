@@ -1,0 +1,12 @@
+# MinerU(日本語・中国語向けフォールバック)用の依存。
+#
+# 注意: MinerU は Pillow>=11 を要求し、marker-pdf(Pillow<11)と同じ venv に
+#       共存できません。**専用の別 venv** を作ってここを入れてください:
+#
+#   python3 -m venv .venv-mineru
+#   source .venv-mineru/bin/activate
+#   pip install -r requirements-mineru.txt PyMuPDF anthropic
+#   # その venv から実行すると marker は無いので自動的に mineru が使われます:
+#   python -m pdf2md sample --input <PDF> --pages 5 --prefer mineru
+
+mineru>=2.0.0

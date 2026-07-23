@@ -29,7 +29,7 @@ def _confirm(question: str) -> bool:
 def cmd_sample(args: argparse.Namespace) -> int:
     save_to = Path(args.save) if args.save else None
     sample = pipeline.run_sample(
-        Path(args.input), args.pdf, args.pages, args.prefer, save_to
+        Path(args.input), args.pdf, args.pages, args.prefer, save_to, args.device
     )
     print(sample)
     if save_to:
@@ -97,6 +97,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         prefer=args.prefer,
         model=args.model,
         make_summary=not args.no_summary,
+        device=args.device,
     )
     print(report.as_markdown())
     print(f"\n[ログ: {output_dir / '_conversion_log.md'}]", file=sys.stderr)
@@ -115,6 +116,8 @@ def build_parser() -> argparse.ArgumentParser:
     ps.add_argument("--pdf", help="対象PDFのファイル名(省略時は最初の1冊)")
     ps.add_argument("--pages", type=int, default=5, help="変換するページ数(既定 5)")
     ps.add_argument("--prefer", choices=["marker", "mineru"], default="marker")
+    ps.add_argument("--device", choices=["auto", "cpu", "cuda", "mps"], default="auto",
+                    help="計算デバイス。低VRAM GPUで落ちるなら cpu(既定 auto)")
     ps.add_argument("--save", help="サンプルの保存先 .md パス(任意)")
     ps.set_defaults(func=cmd_sample)
 
@@ -128,6 +131,8 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--chapters", help="変換する章の指定 例:'1,3,5-7'(省略時は全章)")
     pr.add_argument("--only", help="このファイル名の1冊だけ処理")
     pr.add_argument("--prefer", choices=["marker", "mineru"], default="marker")
+    pr.add_argument("--device", choices=["auto", "cpu", "cuda", "mps"], default="auto",
+                    help="計算デバイス。低VRAM GPUで落ちるなら cpu(既定 auto)")
     pr.add_argument("--model", default="claude-opus-4-8", help="要約に使う Claude モデル")
     pr.add_argument("--no-summary", action="store_true", help="Claude 要約を付けない")
     pr.add_argument("--reviewed-sample", action="store_true",

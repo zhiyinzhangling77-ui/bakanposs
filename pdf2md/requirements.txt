@@ -1,8 +1,11 @@
-# PDF → Markdown 変換パイプラインの依存関係
-# 注: marker-pdf / mineru は torch を含む大きなモデル依存を引き込みます。
-#     GPU 環境では CUDA 対応の torch を先に入れると速いです(README 参照)。
+# PDF → Markdown 変換パイプラインの依存関係(marker 主バックエンド)
+#
+# 重要: marker-pdf 2.x は Surya 2(vLLM + Docker 前提)を引き込むため、
+#       ローカル推論で完結する 1.x 系にピン留めしています。
+# 重要: MinerU は Pillow のバージョン制約が marker と衝突する(marker: Pillow<11 /
+#       MinerU: Pillow>=11)ため、ここには含めません。MinerU を使う場合は
+#       別の venv を作り requirements-mineru.txt を入れてください(README 参照)。
 
-marker-pdf>=1.0.0     # 主バックエンド(レイアウト/数式/表に強い)
-mineru>=2.0.0         # フォールバック(日本語・中国語に強い)
-PyMuPDF>=1.24.0       # 目次(埋め込みアウトライン)抽出
-anthropic>=0.40.0     # 各章の Claude 要約(3行要約+重要語10個)
+marker-pdf>=1.0.0,<2.0.0   # 主バックエンド(1.10 系 + surya 0.17 でローカル推論)
+PyMuPDF>=1.24.0            # 目次(埋め込みアウトライン)抽出
+anthropic>=0.40.0         # 各章の Claude 要約(3行要約+重要語10個)

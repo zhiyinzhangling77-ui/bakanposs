@@ -29,8 +29,8 @@ echo
 echo "==> インストール確認"
 python - <<'PY'
 import shutil
-for exe in ("marker_single", "mineru"):
-    print(f"  {exe}: {'OK' if shutil.which(exe) else '見つかりません'}")
+print(f"  marker_single: {'OK' if shutil.which('marker_single') else '見つかりません'}")
+print("  mineru: 既定では入れません(marker と Pillow が衝突するため。別venv=requirements-mineru.txt)")
 try:
     import torch
     dev = "cuda" if torch.cuda.is_available() else (
@@ -46,8 +46,9 @@ cat <<'EOF'
   source .venv/bin/activate
   export ANTHROPIC_API_KEY=sk-ant-...          # 要約に必要(未設定なら要約はスキップ)
 
-  # 1) まず品質サンプル(先頭5ページ)
-  python -m pdf2md sample --input <PDFフォルダ> --pages 5
+  # 1) まず品質サンプル(先頭5ページ)。--input は単一 .pdf でも可
+  python -m pdf2md sample --input <PDFまたはフォルダ> --pages 5
+  #   低VRAMのGPUで CUDA OOM になる場合は --device cpu を付ける(自動再試行もあり)
 
   # 2) 目次を確認
   python -m pdf2md toc --input <PDFフォルダ>

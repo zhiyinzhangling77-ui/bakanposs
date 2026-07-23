@@ -24,6 +24,7 @@ def run_sample(
     pages: int,
     prefer: str,
     save_to: Path | None,
+    device: str = "auto",
 ) -> str:
     pdfs = find_pdfs(input_dir)
     if not pdfs:
@@ -36,7 +37,7 @@ def run_sample(
     if not target.exists():
         raise FileNotFoundError(target)
 
-    device = convert.detect_device()
+    eff_device = convert.detect_device() if device == "auto" else device
     page_range = f"0-{max(0, pages - 1)}"
     res = convert.convert(target, page_range=page_range, device=device, prefer=prefer)
     cleaned, _ = clean.clean_markdown(res.markdown)
@@ -44,7 +45,7 @@ def run_sample(
     header = (
         f"# 品質サンプル: {target.name}\n\n"
         f"- バックエンド: {res.backend}\n"
-        f"- デバイス: {device}\n"
+        f"- デバイス: {eff_device}\n"
         f"- ページ: 先頭 {pages} ページ\n\n---\n\n"
     )
     sample = header + cleaned
@@ -167,6 +168,7 @@ def run_pipeline(
     prefer: str,
     model: str,
     make_summary: bool,
+    device: str = "auto",
 ) -> RunReport:
     pdfs = find_pdfs(input_dir)
     if only:
@@ -174,7 +176,7 @@ def run_pipeline(
     if not pdfs:
         raise FileNotFoundError("対象 PDF がありません。")
 
-    device = convert.detect_device()
+    # device は各 convert 呼び出しへ渡す("auto" は convert 内で判定・OOM時CPU再試行)
     output_dir.mkdir(parents=True, exist_ok=True)
     report = RunReport()
     for p in pdfs:
@@ -182,7 +184,7 @@ def run_pipeline(
             process_one_pdf(
                 p, output_dir, chapters_spec, prefer, model, make_summary, device
             )
-        )
+        )  # device="auto" 可。convert 内で判定し、CUDA OOM 時は自動で CPU 再試行
     log_path = output_dir / "_conversion_log.md"
     log_path.write_text(report.as_markdown(), encoding="utf-8")
     return report
