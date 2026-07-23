@@ -18,6 +18,19 @@ from . import pipeline
 from .split import _sanitize
 
 
+def _page_range_to_zero_based(spec: str | None) -> str | None:
+    """toc が表示する 1 始まりのページ番号(例 '3-40' や '5')を
+    marker/convert が使う 0 始まりレンジ('2-39' / '4-4')へ変換する。"""
+    if not spec:
+        return None
+    spec = spec.strip()
+    if "-" in spec:
+        a, _, b = spec.partition("-")
+        return f"{int(a) - 1}-{int(b) - 1}"
+    n = int(spec)
+    return f"{n - 1}-{n - 1}"
+
+
 def _confirm(question: str) -> bool:
     try:
         ans = input(f"{question} [y/N]: ").strip().lower()
@@ -98,6 +111,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         model=args.model,
         make_summary=not args.no_summary,
         device=args.device,
+        page_range=_page_range_to_zero_based(args.page_range),
     )
     print(report.as_markdown())
     print(f"\n[ログ: {output_dir / '_conversion_log.md'}]", file=sys.stderr)
@@ -128,7 +142,12 @@ def build_parser() -> argparse.ArgumentParser:
     pr = sub.add_parser("run", help="本処理: 変換→ノイズ除去→章分割→要約付与→保存")
     pr.add_argument("--input", required=True, help="PDF が入ったフォルダ、または単一の .pdf ファイル")
     pr.add_argument("--output", required=True, help="Obsidian の保存先フォルダ")
-    pr.add_argument("--chapters", help="変換する章の指定 例:'1,3,5-7'(省略時は全章)")
+    pr.add_argument("--chapters",
+                    help="書き出す章の指定 例:'1,3,5-7'(省略時は全章)。"
+                         "注: これは変換後の絞り込み。CPUで速くしたいなら --page-range を使う")
+    pr.add_argument("--page-range",
+                    help="変換するページ範囲(toc のページ番号=1始まり。例 '3-40')。"
+                         "指定するとその範囲だけ変換=大幅に高速。省略時は全ページ")
     pr.add_argument("--only", help="このファイル名の1冊だけ処理")
     pr.add_argument("--prefer", choices=["marker", "mineru"], default="marker")
     pr.add_argument("--device", choices=["auto", "cpu", "cuda", "mps"], default="auto",

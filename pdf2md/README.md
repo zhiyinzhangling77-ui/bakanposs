@@ -80,6 +80,16 @@ python -m pdf2md run --input "<PDFフォルダ>" --output "<保存先>" --review
     --only "book.pdf" --no-summary --model claude-opus-4-8
 ```
 
+**速度の注意(重要)**: `--chapters` は「変換後に書き出す章を絞る」だけで、変換自体は
+全ページ実行します。CPU で1冊フルは遅いので、**特定の章だけ速く変換したいときは
+`--page-range` を使ってください**。`toc` に出るページ番号(1始まり)で指定します:
+
+```bash
+# 例: toc で第2章が p.15〜p.48 と分かったら、その範囲だけ変換(高速)
+python -m pdf2md run --input <PDF> --output <保存先> --reviewed-sample \
+    --device cpu --page-range "15-48"
+```
+
 - `--reviewed-sample` が無いと本処理は始まりません(サンプル確認の徹底のため)。
 - 保存先に既存 `.md` があると、上書き確認のプロンプトが出ます(`--yes` で自動承認)。
 - 出力は `<保存先>/<書名>/NN_章タイトル.md`、ログは `<保存先>/_conversion_log.md`。

@@ -119,10 +119,13 @@ def process_one_pdf(
     model: str,
     make_summary: bool,
     device: str,
+    page_range: str | None = None,
 ) -> FileOutcome:
     outcome = FileOutcome(pdf=pdf.name, ok=False)
     try:
-        res = convert.convert(pdf, page_range=None, device=device, prefer=prefer)
+        res = convert.convert(
+            pdf, page_range=page_range, device=device, prefer=prefer
+        )
         outcome.backend = res.backend
         cleaned, _ = clean.clean_markdown(res.markdown)
         frontmatter, chapters = split.split_by_h1(cleaned)
@@ -169,6 +172,7 @@ def run_pipeline(
     model: str,
     make_summary: bool,
     device: str = "auto",
+    page_range: str | None = None,
 ) -> RunReport:
     pdfs = find_pdfs(input_dir)
     if only:
@@ -182,7 +186,8 @@ def run_pipeline(
     for p in pdfs:
         report.outcomes.append(
             process_one_pdf(
-                p, output_dir, chapters_spec, prefer, model, make_summary, device
+                p, output_dir, chapters_spec, prefer, model,
+                make_summary, device, page_range,
             )
         )  # device="auto" 可。convert 内で判定し、CUDA OOM 時は自動で CPU 再試行
     log_path = output_dir / "_conversion_log.md"
