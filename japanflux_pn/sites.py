@@ -13,20 +13,25 @@ from dataclasses import dataclass, field
 from .config import RK_VARS
 
 
-# R&K 表記 → JapanFlux2024 (FLUXNET2015 互換) の既定カラム名。
+# R&K 表記 → JapanFlux2024 の既定カラム名。
+# JapanFlux2024 は FLUXNET2015 とほぼ同名だが 3 点だけ規約が違う:
+#   - 土壌系は層インデックス無し (TS_F_MDS / SWC_F_MDS)
+#   - 炭素フラックスは可変 u* 閾値の基準値を `_vUT` と表記 (FLUXNET2015 の
+#     `_VUT_REF` 相当、v は小文字・_REF 無し)。USTAR05/50/95 は分位変種なので不使用
+#   - GER/GEP は daytime 分割法 (DT) で統一
 # サイト固有に上書きしたい場合は SiteSpec.var_overrides で差し替える。
 DEFAULT_VAR_MAP: dict[str, str] = {
     "Rg":  "SW_IN_F",
     "Ta":  "TA_F",
     "VPD": "VPD_F",
-    "Ts":  "TS_F_MDS_1",
+    "Ts":  "TS_F_MDS",
     "P":   "P_F",
-    "th":  "SWC_F_MDS_1",
+    "th":  "SWC_F_MDS",
     "gH":  "H_F_MDS",
     "gLE": "LE_F_MDS",
-    "GER": "RECO_DT_VUT_REF",
-    "NEE": "NEE_VUT_REF",
-    "GEP": "GPP_DT_VUT_REF",
+    "GER": "RECO_DT_vUT",
+    "NEE": "NEE_vUT",
+    "GEP": "GPP_DT_vUT",
 }
 
 
