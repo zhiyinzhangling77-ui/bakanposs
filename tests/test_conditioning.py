@@ -61,6 +61,19 @@ def test_cmi_equals_mi_when_z_independent():
     assert cmi == mi or abs(cmi - mi) < 0.6 * mi + 0.05
 
 
+def test_miller_madow_reduces_cmi_dimensional_bias():
+    """独立な X,Y,Z: プラグイン CMI は正バイアス、MM 補正で 0 に近づく。"""
+    m = 11
+    rng = np.random.default_rng(9)
+    n = 3000
+    xi, yi, zi = (it.digitize_series(rng.normal(size=n), m) for _ in range(3))
+    plug = it.conditional_mutual_information_indices(xi, yi, [zi], m, False)
+    corr = it.conditional_mutual_information_indices(xi, yi, [zi], m, True)
+    assert plug > 0.05                 # 3D ヒストの正バイアス (真値 0)
+    assert corr < plug                 # MM がバイアスを縮める
+    assert abs(corr) < 0.5 * plug
+
+
 def _synth_pre(n=3000):
     """Rg が Ta と VPD を共通駆動、gLE は VPD に直接依存する合成フレーム。"""
     cfg = AnalysisConfig(n_surrogates=30, seed=0)

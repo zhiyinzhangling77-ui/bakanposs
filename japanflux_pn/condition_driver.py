@@ -66,19 +66,22 @@ def condition_on_driver(
     mi_sig = pd.DataFrame(False, index=RK_VARS, columns=RK_VARS)
     cmi_sig = pd.DataFrame(False, index=RK_VARS, columns=RK_VARS)
 
+    # Miller-Madow 補正で 2D(MI) と 3D(CMI) の推定バイアスを揃え、条件付けで
+    # 見かけ上 MI が増える (負の drop) 次元アーティファクトを抑える。
+    MM = True
     for a, b in combinations(RK_VARS, 2):
-        i_ab = it.mutual_information_indices(idx[a], idx[b], m)
+        i_ab = it.mutual_information_indices(idx[a], idx[b], m, MM)
         mi_stats = it.surrogate_mi_stats(idx[a], idx[b], m, cfg.n_surrogates,
-                                          cfg.sig_c, rng)
+                                          cfg.sig_c, rng, MM)
         mi.loc[a, b] = mi.loc[b, a] = 100.0 * i_ab / logm
         sig_i = i_ab > mi_stats["threshold"]
         mi_sig.loc[a, b] = mi_sig.loc[b, a] = bool(sig_i)
 
         if a == driver or b == driver:
             continue  # 駆動変数自身を条件付けるのは自明
-        c_ab = it.conditional_mutual_information_indices(idx[a], idx[b], z_cols, m)
+        c_ab = it.conditional_mutual_information_indices(idx[a], idx[b], z_cols, m, MM)
         c_stats = it.surrogate_cmi_stats(idx[a], idx[b], z_cols, m,
-                                         cfg.n_surrogates, cfg.sig_c, rng)
+                                         cfg.n_surrogates, cfg.sig_c, rng, MM)
         cmi.loc[a, b] = cmi.loc[b, a] = 100.0 * c_ab / logm
         sig_c = c_ab > c_stats["threshold"]
         cmi_sig.loc[a, b] = cmi_sig.loc[b, a] = bool(sig_c)
