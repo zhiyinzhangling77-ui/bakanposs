@@ -41,6 +41,18 @@ class CleanStats:
     removed_page_numbers: int = 0
     removed_repeated: int = 0
     dropped_sections: int = 0
+    removed_decorative: int = 0
+
+
+def _is_decorative(s: str) -> bool:
+    """記号だけの装飾行(フルーロン等)か。文字・数字・構造記号を含めば False。"""
+    s = s.strip()
+    if not s or any(c.isalnum() for c in s):
+        return False
+    # 構造的に意味のある記号(数式・表・水平線・見出し)は保護
+    if any(c in s for c in "$|#-=*_"):
+        return False
+    return len(s) <= 12
 
 
 def _is_protected(line: str) -> bool:
@@ -112,6 +124,21 @@ def _remove_page_numbers(text: str, stats: CleanStats) -> str:
     return "\n".join(out)
 
 
+def _remove_decorative(text: str, stats: CleanStats) -> str:
+    out: list[str] = []
+    in_code = False
+    for line in text.splitlines():
+        if line.lstrip().startswith("```"):
+            in_code = not in_code
+            out.append(line)
+            continue
+        if not in_code and _is_decorative(line):
+            stats.removed_decorative += 1
+            continue
+        out.append(line)
+    return "\n".join(out)
+
+
 def _remove_repeated_headers(
     text: str, stats: CleanStats, min_count: int = 6, max_len: int = 60
 ) -> str:
@@ -163,6 +190,7 @@ def clean_markdown(
     remove_page_numbers: bool = True,
     remove_repeated: bool = True,
     normalize_headings: bool = True,
+    remove_decorative: bool = True,
 ) -> tuple[str, CleanStats]:
     stats = CleanStats()
     if normalize_headings:
@@ -171,6 +199,8 @@ def clean_markdown(
         text = _drop_noise_sections(text, stats)
     if remove_page_numbers:
         text = _remove_page_numbers(text, stats)
+    if remove_decorative:
+        text = _remove_decorative(text, stats)
     if remove_repeated:
         text = _remove_repeated_headers(text, stats)
     text = MULTI_BLANK_RE.sub("\n\n", text).strip() + "\n"

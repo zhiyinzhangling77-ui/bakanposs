@@ -114,6 +114,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         page_range=_page_range_to_zero_based(args.page_range),
         split_mode=args.split,
         chapter_pattern=args.chapter_pattern,
+        title=args.title,
     )
     print(report.as_markdown())
     print(f"\n[ログ: {output_dir / '_conversion_log.md'}]", file=sys.stderr)
@@ -157,6 +158,9 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--chapter-pattern",
                     help="--split pattern のとき章境界とみなす見出しの正規表現"
                          "(省略時は 'Chapter N'/'第N章'/'N.' 等を自動判定)")
+    pr.add_argument("--title",
+                    help="--split none のときの章タイトルを明示指定"
+                         "(例 'Ch01 Introduction')。ファイル名にも使われる")
     pr.add_argument("--only", help="このファイル名の1冊だけ処理")
     pr.add_argument("--prefer", choices=["marker", "mineru"], default="marker")
     pr.add_argument("--device", choices=["auto", "cpu", "cuda", "mps"], default="auto",
