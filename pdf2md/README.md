@@ -90,6 +90,21 @@ python -m pdf2md run --input <PDF> --output <保存先> --reviewed-sample \
     --device cpu --page-range "15-48"
 ```
 
+**分割の注意 & 推奨運用**: 既定の `--split h1` は「`#` 見出しごとに1ファイル」ですが、
+marker は**章の“節”見出しも `#`(H1)にする**ことが多く、1つの章が十数ファイルに
+過剰分割されがちです。おすすめは次の2択:
+
+- **`--page-range` で1章ずつ変換 + `--split none`**(範囲まるごと1ファイル)。
+  → 章の切れ目を自分で決められて、過剰分割も起きない。**いちばん確実**。
+  ```bash
+  # 第2章(p.15〜48)を1ファイルとして書き出す
+  python -m pdf2md run --input <PDF> --output <保存先> --reviewed-sample \
+      --device cpu --page-range "15-48" --split none
+  ```
+- **`--split pattern`**: 「Chapter N」「第N章」「N.」のような**章見出しだけ**を境界にする
+  (本が章番号を振っていて marker がそれを保持している場合に有効)。必要なら
+  `--chapter-pattern '正規表現'` で境界を自分で指定。
+
 - `--reviewed-sample` が無いと本処理は始まりません(サンプル確認の徹底のため)。
 - 保存先に既存 `.md` があると、上書き確認のプロンプトが出ます(`--yes` で自動承認)。
 - 出力は `<保存先>/<書名>/NN_章タイトル.md`、ログは `<保存先>/_conversion_log.md`。

@@ -112,6 +112,8 @@ def cmd_run(args: argparse.Namespace) -> int:
         make_summary=not args.no_summary,
         device=args.device,
         page_range=_page_range_to_zero_based(args.page_range),
+        split_mode=args.split,
+        chapter_pattern=args.chapter_pattern,
     )
     print(report.as_markdown())
     print(f"\n[ログ: {output_dir / '_conversion_log.md'}]", file=sys.stderr)
@@ -148,6 +150,13 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--page-range",
                     help="変換するページ範囲(toc のページ番号=1始まり。例 '3-40')。"
                          "指定するとその範囲だけ変換=大幅に高速。省略時は全ページ")
+    pr.add_argument("--split", choices=["h1", "none", "pattern"], default="h1",
+                    help="分割方法。h1=# ごと(既定) / none=分割せず範囲まるごと1ファイル"
+                         "(--page-rangeで1章ずつ変換する運用に最適) / "
+                         "pattern=章見出しの正規表現だけで分割")
+    pr.add_argument("--chapter-pattern",
+                    help="--split pattern のとき章境界とみなす見出しの正規表現"
+                         "(省略時は 'Chapter N'/'第N章'/'N.' 等を自動判定)")
     pr.add_argument("--only", help="このファイル名の1冊だけ処理")
     pr.add_argument("--prefer", choices=["marker", "mineru"], default="marker")
     pr.add_argument("--device", choices=["auto", "cpu", "cuda", "mps"], default="auto",

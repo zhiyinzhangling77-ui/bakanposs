@@ -64,6 +64,84 @@ def split_by_h1(markdown: str) -> tuple[str, list[Chapter]]:
     return "\n".join(frontmatter).strip(), chapters
 
 
+ANY_HEADING_RE = re.compile(r"^(#{1,6})\s+(.*\S)\s*$")
+
+# mode="pattern" で --chapter-pattern 未指定のときに使う既定(章の見出しっぽいもの)
+DEFAULT_CHAPTER_PATTERN = r"(?i)^\s*(chapter\s+\d+|第\s*\d+\s*[章節]|\d+[\.\s])"
+
+
+def split_none(markdown: str, fallback_title: str) -> tuple[str, list[Chapter]]:
+    """分割しない: 変換範囲まるごとを1章として返す。
+
+    `--page-range` で1章ずつ変換する運用に最適(marker が節見出しを # にして
+    しまい過剰分割する問題を回避できる)。タイトルは最初の見出し、無ければ
+    fallback_title(通常は PDF 名)。
+    """
+    title = fallback_title
+    for line in markdown.splitlines():
+        m = ANY_HEADING_RE.match(line)
+        if m:
+            title = clean_heading(m.group(2).strip())
+            break
+    return "", [Chapter(index=1, title=title, body=markdown.strip() + "\n")]
+
+
+def split_by_pattern(
+    markdown: str, pattern: str | None
+) -> tuple[str, list[Chapter]]:
+    """見出し(任意レベル)のうち、正規表現に一致するものだけを章境界にする。"""
+    rx = re.compile(pattern or DEFAULT_CHAPTER_PATTERN)
+    lines = markdown.splitlines()
+    frontmatter: list[str] = []
+    chapters: list[Chapter] = []
+    cur_title: str | None = None
+    cur_body: list[str] = []
+    in_code = False
+
+    def flush():
+        if cur_title is not None:
+            chapters.append(
+                Chapter(len(chapters) + 1, cur_title, "\n".join(cur_body).strip() + "\n")
+            )
+
+    for line in lines:
+        if line.lstrip().startswith("```"):
+            in_code = not in_code
+        m = None if in_code else ANY_HEADING_RE.match(line)
+        is_boundary = bool(m and rx.search(m.group(2).strip()))
+        if is_boundary:
+            flush()
+            cur_title = clean_heading(m.group(2).strip())
+            cur_body = [line]
+        elif cur_title is None:
+            frontmatter.append(line)
+        else:
+            cur_body.append(line)
+    flush()
+    return "\n".join(frontmatter).strip(), chapters
+
+
+def split_chapters(
+    markdown: str,
+    mode: str = "h1",
+    pattern: str | None = None,
+    fallback_title: str = "section",
+) -> tuple[str, list[Chapter]]:
+    """分割モードを選んで (冒頭部, 章リスト) を返す。
+
+    mode: "h1"(# ごと・従来) / "none"(分割しない) / "pattern"(章見出し正規表現)
+    """
+    if mode == "none":
+        return split_none(markdown, fallback_title)
+    if mode == "pattern":
+        fm, chs = split_by_pattern(markdown, pattern)
+        if chs:
+            return fm, chs
+        # パターンに1つも一致しなければ分割せず1章にまとめる(過剰分割を避ける)
+        return split_none(markdown, fallback_title)
+    return split_by_h1(markdown)
+
+
 def chapter_filename(ch: Chapter) -> str:
     return f"{ch.index:02d}_{_sanitize(ch.title)}.md"
 

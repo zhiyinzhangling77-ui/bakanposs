@@ -120,6 +120,8 @@ def process_one_pdf(
     make_summary: bool,
     device: str,
     page_range: str | None = None,
+    split_mode: str = "h1",
+    chapter_pattern: str | None = None,
 ) -> FileOutcome:
     outcome = FileOutcome(pdf=pdf.name, ok=False)
     try:
@@ -128,7 +130,9 @@ def process_one_pdf(
         )
         outcome.backend = res.backend
         cleaned, _ = clean.clean_markdown(res.markdown)
-        frontmatter, chapters = split.split_by_h1(cleaned)
+        frontmatter, chapters = split.split_chapters(
+            cleaned, mode=split_mode, pattern=chapter_pattern, fallback_title=pdf.stem
+        )
 
         if not chapters:
             # 見出しが取れない場合は 1 ファイルとして扱う
@@ -173,6 +177,8 @@ def run_pipeline(
     make_summary: bool,
     device: str = "auto",
     page_range: str | None = None,
+    split_mode: str = "h1",
+    chapter_pattern: str | None = None,
 ) -> RunReport:
     pdfs = find_pdfs(input_dir)
     if only:
@@ -187,7 +193,7 @@ def run_pipeline(
         report.outcomes.append(
             process_one_pdf(
                 p, output_dir, chapters_spec, prefer, model,
-                make_summary, device, page_range,
+                make_summary, device, page_range, split_mode, chapter_pattern,
             )
         )  # device="auto" 可。convert 内で判定し、CUDA OOM 時は自動で CPU 再試行
     log_path = output_dir / "_conversion_log.md"

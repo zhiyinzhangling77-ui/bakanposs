@@ -17,6 +17,8 @@ import re
 from dataclasses import dataclass
 
 HEADING_RE = re.compile(r"^(#{1,6})\s+(.*\S)\s*$")
+# 見出し行の Markdown 強調記号(** * __ `)を除去するための正規表現
+_EMPHASIS_RE = re.compile(r"(\*\*|__|\*|`)")
 
 # セクション見出しが「ノイズ節」かどうか(索引・参考文献)
 NOISE_SECTION_RE = re.compile(
@@ -137,13 +139,34 @@ def _remove_repeated_headers(
     return "\n".join(out)
 
 
+def _normalize_headings(text: str) -> str:
+    """見出し行(#〜######)から強調記号を除去。`## **X**` → `## X`。"""
+    out: list[str] = []
+    in_code = False
+    for line in text.splitlines():
+        if line.lstrip().startswith("```"):
+            in_code = not in_code
+            out.append(line)
+            continue
+        m = HEADING_RE.match(line) if not in_code else None
+        if m:
+            title = _EMPHASIS_RE.sub("", m.group(2)).strip()
+            out.append(f"{m.group(1)} {title}")
+        else:
+            out.append(line)
+    return "\n".join(out)
+
+
 def clean_markdown(
     text: str,
     drop_index_refs: bool = True,
     remove_page_numbers: bool = True,
     remove_repeated: bool = True,
+    normalize_headings: bool = True,
 ) -> tuple[str, CleanStats]:
     stats = CleanStats()
+    if normalize_headings:
+        text = _normalize_headings(text)
     if drop_index_refs:
         text = _drop_noise_sections(text, stats)
     if remove_page_numbers:
