@@ -114,12 +114,18 @@ def extract_links(results, var_names, config: AnalysisConfig) -> pd.DataFrame:
                 contemp_undirected = (tau == 0 and mark == "o-o")
                 if not (directed or contemp_undirected):
                     continue
+                if i == j:
+                    kind = "auto"          # 自己相関 (自己回帰項)
+                elif directed:
+                    kind = "directed"      # 変数間の有向因果
+                else:
+                    kind = "contemp_undirected"
                 rows.append({
                     "src": var_names[i],
                     "dst": var_names[j],
                     "lag_h": config.lag_hours(tau),
                     "strength": float(val[i, j, tau]),
-                    "kind": "directed" if directed else "contemp_undirected",
+                    "kind": kind,
                 })
     df = pd.DataFrame(rows)
     if not df.empty:
@@ -140,13 +146,30 @@ def report(site: str, year: int, months: list[int], test: str = "parcorr",
     results, pcmci, var_names = run_pcmci(pre, pc_alpha=pc_alpha, test=test)
     links = extract_links(results, var_names, config)
 
-    directed = links[links["kind"] == "directed"] if not links.empty else links
-    contemp = links[links["kind"] == "contemp_undirected"] if not links.empty else links
-    print(f"\n=== PCMCI+ 有向因果リンク ({len(directed)} 本) ===")
+    if links.empty:
+        print("\n(有意なリンク無し)")
+        return links
+    directed = links[links["kind"] == "directed"]
+    contemp = links[links["kind"] == "contemp_undirected"]
+    auto = links[links["kind"] == "auto"]
+
+    # 変数間の有向因果 (自己相関を除いた本命)
+    print(f"\n=== PCMCI+ 変数間 有向因果リンク ({len(directed)} 本) ===")
+    print(f"  (自己相関 X→X {len(auto)} 本は除外)")
     print(f"  {'link':<14} {'lag':>6} {'|strength|':>10}")
     for _, r in directed.iterrows():
         arrow = f"{RK_LABELS[r['src']]}→{RK_LABELS[r['dst']]}"
-        print(f"  {arrow:<14} {r['lag_h']:5.1f}h {abs(r['strength']):10.3f}")
+        flag = "  ⚠逆向き(Rg外生)" if r["dst"] == "Rg" else ""
+        print(f"  {arrow:<14} {r['lag_h']:5.1f}h {abs(r['strength']):10.3f}{flag}")
+
+    # ハブ構造: 出次数 (何変数を駆動するか) / 入次数
+    out_deg = directed.groupby("src")["dst"].nunique().sort_values(ascending=False)
+    in_deg = directed.groupby("dst")["src"].nunique().sort_values(ascending=False)
+    print(f"\n  [ソースハブ] 出次数: "
+          + ", ".join(f"{RK_LABELS[v]}={d}" for v, d in out_deg.head(4).items()))
+    print(f"  [シンクハブ] 入次数: "
+          + ", ".join(f"{RK_LABELS[v]}={d}" for v, d in in_deg.head(4).items()))
+
     if len(contemp):
         print(f"\n  同時 (向き未確定) {len(contemp)} 本: "
               + ", ".join(f"{RK_LABELS[r['src']]}–{RK_LABELS[r['dst']]}"
