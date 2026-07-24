@@ -40,11 +40,13 @@ def _require_tigramite():
         raise ImportError(
             "tigramite が未導入です。`pip install tigramite` を実行してください。"
         ) from e
+    cmiknn_err = None
     try:
         from tigramite.independence_tests.cmiknn import CMIknn
-    except Exception:  # noqa: BLE001
+    except Exception as e:  # noqa: BLE001
         CMIknn = None
-    return PCMCI, tp, ParCorr, CMIknn
+        cmiknn_err = e
+    return PCMCI, tp, ParCorr, CMIknn, cmiknn_err
 
 
 def run_pcmci(
@@ -59,7 +61,7 @@ def run_pcmci(
 
     完全被覆 (欠測無し) のレギュラ系列を前提。健全年 7+8 月プールがこれに該当。
     """
-    PCMCI, tp, ParCorr, CMIknn = _require_tigramite()
+    PCMCI, tp, ParCorr, CMIknn, cmiknn_err = _require_tigramite()
     cfg = pre.config
     tau_max = int(tau_max if tau_max is not None else cfg.lag_max)
 
@@ -75,7 +77,11 @@ def run_pcmci(
 
     if test == "cmiknn":
         if CMIknn is None:
-            raise ImportError("CMIknn が使えません (tigramite のバージョン確認)。")
+            raise ImportError(
+                "CMIknn を import できません。多くは numba/scikit-learn 未導入が原因: "
+                "`pip install numba scikit-learn`。 元エラー: "
+                f"{type(cmiknn_err).__name__}: {cmiknn_err}"
+            )
         cond = CMIknn(significance="shuffle_test", knn=knn)
     elif test == "parcorr":
         cond = ParCorr(significance="analytic")
