@@ -115,6 +115,7 @@ def cmd_run(args: argparse.Namespace) -> int:
         split_mode=args.split,
         chapter_pattern=args.chapter_pattern,
         title=args.title,
+        by_toc=args.by_toc,
     )
     print(report.as_markdown())
     print(f"\n[ログ: {output_dir / '_conversion_log.md'}]", file=sys.stderr)
@@ -161,6 +162,10 @@ def build_parser() -> argparse.ArgumentParser:
     pr.add_argument("--title",
                     help="--split none のときの章タイトルを明示指定"
                          "(例 'Ch01 Introduction')。ファイル名にも使われる")
+    pr.add_argument("--by-toc", action="store_true",
+                    help="PDF埋め込み目次の章ごとに、そのページ範囲だけを変換して"
+                         "1章1ファイルに自動保存(章リストの手入力不要)。"
+                         "--page-range/--split/--title は無視される")
     pr.add_argument("--only", help="このファイル名の1冊だけ処理")
     pr.add_argument("--prefer", choices=["marker", "mineru"], default="marker")
     pr.add_argument("--device", choices=["auto", "cpu", "cuda", "mps"], default="auto",

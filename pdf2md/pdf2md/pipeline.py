@@ -111,6 +111,75 @@ def _targets_would_overwrite(book_dir: Path) -> list[Path]:
     return [p for p in book_dir.glob("*.md")]
 
 
+def _write_chapter(
+    book_dir: Path, idx: int, title: str, body: str, pdf_name: str,
+    make_summary: bool, model: str, outcome: FileOutcome,
+) -> None:
+    """1章分を要約ヘッダ付きでファイルに書き出す(共通処理)。"""
+    title = split.clean_heading(title)
+    if make_summary:
+        summ = summarize.summarize_chapter(body, model=model)
+    else:
+        summ = summarize.SummaryResult(
+            text=summarize._fallback_header("要約なしで実行"), ok=False
+        )
+    outcome.summaries_ok += int(summ.ok)
+    outcome.summaries_failed += int(not summ.ok)
+    header = summarize.build_chapter_header(pdf_name, title, idx, summ)
+    fname = f"{idx:02d}_{split._sanitize(title)}.md"
+    (book_dir / fname).write_text(header + body, encoding="utf-8")
+    outcome.chapters_written += 1
+
+
+def _process_by_toc(
+    pdf: Path,
+    output_root: Path,
+    chapters_spec: str | None,
+    prefer: str,
+    model: str,
+    make_summary: bool,
+    device: str,
+) -> FileOutcome:
+    """埋め込み目次のトップレベル章ごとに、そのページ範囲だけを変換して1章1ファイル。"""
+    outcome = FileOutcome(pdf=pdf.name, ok=False)
+    entries = toc.extract_pdf_outline(pdf)
+    chapters = toc.top_level_chapters(entries)
+    if not chapters:
+        outcome.note = "埋め込み目次なし → --by-toc 不可(--page-range を使ってください)"
+        return outcome
+    total_pages = toc.page_count(pdf) or chapters[-1].page
+    selected = split.parse_selection(chapters_spec, len(chapters))
+    book_dir = output_root / split._sanitize(pdf.stem, maxlen=80)
+    book_dir.mkdir(parents=True, exist_ok=True)
+
+    fails: list[str] = []
+    for idx, ch in enumerate(chapters, start=1):
+        if idx not in selected:
+            continue
+        start = ch.page                       # 1 始まり
+        end = chapters[idx].page - 1 if idx < len(chapters) else total_pages
+        if end < start:
+            end = start
+        pr = f"{start - 1}-{end - 1}"          # 0 始まりに変換
+        try:
+            res = convert.convert(pdf, page_range=pr, device=device, prefer=prefer)
+            outcome.backend = res.backend
+            cleaned, _ = clean.clean_markdown(res.markdown)
+            _, chs = split.split_none(cleaned, fallback_title=ch.title,
+                                      forced_title=ch.title)
+            _write_chapter(book_dir, idx, ch.title, chs[0].body, pdf.name,
+                           make_summary, model, outcome)
+        except Exception as e:  # noqa: BLE001 — 章単位で失敗はスキップ
+            fails.append(f"Ch{idx}(p.{start}-{end}): {str(e)[:80]}")
+
+    outcome.ok = outcome.chapters_written > 0
+    if fails:
+        outcome.note = " / ".join(fails)[:300]
+    elif not outcome.ok:
+        outcome.note = "書き出した章がありません"
+    return outcome
+
+
 def process_one_pdf(
     pdf: Path,
     output_root: Path,
@@ -123,7 +192,12 @@ def process_one_pdf(
     split_mode: str = "h1",
     chapter_pattern: str | None = None,
     title: str | None = None,
+    by_toc: bool = False,
 ) -> FileOutcome:
+    if by_toc:
+        return _process_by_toc(
+            pdf, output_root, chapters_spec, prefer, model, make_summary, device
+        )
     outcome = FileOutcome(pdf=pdf.name, ok=False)
     try:
         res = convert.convert(
@@ -182,6 +256,7 @@ def run_pipeline(
     split_mode: str = "h1",
     chapter_pattern: str | None = None,
     title: str | None = None,
+    by_toc: bool = False,
 ) -> RunReport:
     pdfs = find_pdfs(input_dir)
     if only:
@@ -196,7 +271,8 @@ def run_pipeline(
         report.outcomes.append(
             process_one_pdf(
                 p, output_dir, chapters_spec, prefer, model,
-                make_summary, device, page_range, split_mode, chapter_pattern, title,
+                make_summary, device, page_range, split_mode, chapter_pattern,
+                title, by_toc,
             )
         )  # device="auto" 可。convert 内で判定し、CUDA OOM 時は自動で CPU 再試行
     log_path = output_dir / "_conversion_log.md"

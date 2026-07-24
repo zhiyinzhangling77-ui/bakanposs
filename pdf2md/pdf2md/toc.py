@@ -34,6 +34,21 @@ def extract_pdf_outline(pdf: Path) -> list[TocEntry]:
     return entries
 
 
+def page_count(pdf: Path) -> int:
+    """PDF の総ページ数。取得できなければ 0。"""
+    try:
+        import fitz
+    except Exception:
+        return 0
+    try:
+        doc = fitz.open(str(pdf))
+        n = doc.page_count
+        doc.close()
+        return n
+    except Exception:
+        return 0
+
+
 def top_level_chapters(entries: list[TocEntry]) -> list[TocEntry]:
     """アウトラインから最上位(章)レベルだけを抜き出す。"""
     if not entries:
