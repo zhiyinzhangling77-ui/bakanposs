@@ -136,6 +136,23 @@ python -m pdf2md run --input "$PDF" --output <保存先> --reviewed-sample \
 
 ---
 
+## 2.5 学習用の派生物(mdを作った“後”の工程)
+
+トークンを抑えて深く理解するための2コマンド。**変換で章 .md ができた後**に使う。
+
+```bash
+# 地図: 各章の3行要約+重要語を1枚に集めた _INDEX.md(API不要=0トークン)
+python -m pdf2md index --dir "<保存先>/<書名>" --title "本のタイトル"
+
+# 凝縮ノート: 各章 → Claude が自分用スタディノート(重要概念/関係/誤解/クイズ)
+#   API必要(ANTHROPIC_API_KEY か ant auth login)。一度きりの投資。
+python -m pdf2md notes --dir "<保存先>/<書名>" --model claude-opus-4-8
+```
+
+- `_INDEX.md` は Obsidian の `[[wikilink]]` で各章へ飛べる“地図”。**これを常時開き、必要な章だけ精読**するとトークンを最小化できる。
+- `notes` は `<書名>/_notes/NN_..._notes.md` を作る(既存はスキップ、`--overwrite` で再生成)。
+- おすすめの流れ: **要約ON で変換 → `index` で地図 → `notes` で凝縮 → その凝縮ノートで学習/自己テスト**。
+
 ## 3. 出力される章ファイルの形
 
 ```markdown
