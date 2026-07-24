@@ -22,6 +22,7 @@ test:
 from __future__ import annotations
 
 import argparse
+import time
 from pathlib import Path
 
 import numpy as np
@@ -49,6 +50,35 @@ def _patch_numpy_corrcoef() -> None:
 
     _compat._ddof_shim = True
     np.corrcoef = _compat
+
+
+def _make_progress_pcmci(PCMCI):
+    """PC-stable の変数ごとに進捗 (k/N・経過・ETA) を出す PCMCI サブクラス。
+
+    ``_run_pc_stable_single`` は各ターゲット変数の条件選択を担い、cmiknn ではここが
+    支配的コスト。1 変数終わるごとに経過時間から ETA を外挿して表示する。位相が
+    向き付け (orientation) に移ると N を超えるので、その旨を出す。
+    """
+    class _ProgressPCMCI(PCMCI):
+        def _run_pc_stable_single(self, j, *args, **kwargs):
+            if not hasattr(self, "_prog_t0"):
+                self._prog_t0 = time.time()
+                self._prog_done = 0
+            res = super()._run_pc_stable_single(j, *args, **kwargs)
+            self._prog_done += 1
+            n = self.N
+            el = time.time() - self._prog_t0
+            k = self._prog_done
+            if k <= n:
+                rate = el / k
+                eta = rate * (n - k)
+                print(f"  [PC {100*k/n:3.0f}%] {k}/{n} vars | "
+                      f"elapsed {el/60:5.1f}min | ETA(PC) ~{eta/60:5.1f}min "
+                      f"({rate/60:.1f}min/var)", flush=True)
+            else:
+                print(f"  [orient] test {k-n} | elapsed {el/60:5.1f}min", flush=True)
+            return res
+    return _ProgressPCMCI
 
 
 def _require_tigramite():
@@ -111,7 +141,8 @@ def run_pcmci(
     else:
         raise ValueError(f"unknown test {test!r}; 'parcorr' or 'cmiknn'")
 
-    pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond, verbosity=verbosity)
+    PCMCIcls = _make_progress_pcmci(PCMCI) if verbosity >= 1 else PCMCI
+    pcmci = PCMCIcls(dataframe=dataframe, cond_ind_test=cond, verbosity=0)
     results = pcmci.run_pcmciplus(tau_min=1, tau_max=tau_max, pc_alpha=pc_alpha,
                                   max_conds_dim=max_conds_dim)
     return results, pcmci, list(RK_VARS)
