@@ -31,6 +31,26 @@ from .config import AnalysisConfig, RK_VARS, RK_LABELS
 from .preprocess import load_corevars_hh, PreprocessResult
 
 
+def _patch_numpy_corrcoef() -> None:
+    """NumPy 2.x で削除された corrcoef の ddof/bias 引数を握り潰す互換シム。
+
+    tigramite 5.2 のブロックシャッフル有意化 (_get_acf) が ``np.corrcoef(..., ddof=0)``
+    を呼ぶが、NumPy 2.0 で ddof/bias は削除された (元々 no-op)。cmiknn を通すため、
+    これらのキーワードを落として本来の corrcoef に委譲する。
+    """
+    if getattr(np.corrcoef, "_ddof_shim", False):
+        return
+    _orig = np.corrcoef
+
+    def _compat(*args, **kwargs):
+        kwargs.pop("ddof", None)
+        kwargs.pop("bias", None)
+        return _orig(*args, **kwargs)
+
+    _compat._ddof_shim = True
+    np.corrcoef = _compat
+
+
 def _require_tigramite():
     try:
         from tigramite.pcmci import PCMCI
@@ -82,6 +102,7 @@ def run_pcmci(
                 "`pip install numba scikit-learn`。 元エラー: "
                 f"{type(cmiknn_err).__name__}: {cmiknn_err}"
             )
+        _patch_numpy_corrcoef()   # NumPy 2.x とのブロックシャッフル互換
         cond = CMIknn(significance="shuffle_test", knn=knn)
     elif test == "parcorr":
         cond = ParCorr(significance="analytic")
@@ -141,15 +162,18 @@ def extract_links(results, var_names, config: AnalysisConfig) -> pd.DataFrame:
 
 
 def report(site: str, year: int, months: list[int], test: str = "parcorr",
-           pc_alpha: float = 0.01, config: AnalysisConfig | None = None,
+           pc_alpha: float = 0.01, tau_max: int | None = None,
+           config: AnalysisConfig | None = None,
            outroot: str | Path | None = None) -> pd.DataFrame:
     config = config or AnalysisConfig()
     pre = load_corevars_hh(site, year, months, config)
+    tau_max = int(tau_max if tau_max is not None else config.lag_max)
     print(f"[preprocess] {site} {year}-{pre.month_label}: n_points={pre.n_points}")
-    print(f"[pcmci] test={test} pc_alpha={pc_alpha} tau_max={config.lag_max} "
-          f"({config.lag_hours(config.lag_max):.0f} h)")
+    print(f"[pcmci] test={test} pc_alpha={pc_alpha} tau_max={tau_max} "
+          f"({config.lag_hours(tau_max):.0f} h)")
 
-    results, pcmci, var_names = run_pcmci(pre, pc_alpha=pc_alpha, test=test)
+    results, pcmci, var_names = run_pcmci(pre, tau_max=tau_max, pc_alpha=pc_alpha,
+                                          test=test)
     links = extract_links(results, var_names, config)
 
     if links.empty:
@@ -196,10 +220,13 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--month", type=int, nargs="+", default=[7])
     p.add_argument("--test", default="parcorr", choices=["parcorr", "cmiknn"])
     p.add_argument("--pc-alpha", type=float, default=0.01)
+    p.add_argument("--tau-max", type=int, default=None,
+                   help="最大ラグ (step)。既定は config の lag_max=36。cmiknn は "
+                        "重いので 6 など短縮推奨")
     p.add_argument("--outroot", default=None)
     args = p.parse_args(argv)
     report(args.site, args.year, args.month, args.test, args.pc_alpha,
-           outroot=args.outroot)
+           tau_max=args.tau_max, outroot=args.outroot)
 
 
 if __name__ == "__main__":
