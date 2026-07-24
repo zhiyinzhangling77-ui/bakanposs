@@ -75,6 +75,8 @@ def run_pcmci(
     pc_alpha: float = 0.01,
     test: str = "parcorr",
     knn: float = 0.1,
+    sig_samples: int = 250,
+    max_conds_dim: int | None = None,
     verbosity: int = 0,
 ):
     """PCMCI+ を回して (results, pcmci, var_names) を返す。
@@ -103,14 +105,15 @@ def run_pcmci(
                 f"{type(cmiknn_err).__name__}: {cmiknn_err}"
             )
         _patch_numpy_corrcoef()   # NumPy 2.x とのブロックシャッフル互換
-        cond = CMIknn(significance="shuffle_test", knn=knn)
+        cond = CMIknn(significance="shuffle_test", knn=knn, sig_samples=sig_samples)
     elif test == "parcorr":
         cond = ParCorr(significance="analytic")
     else:
         raise ValueError(f"unknown test {test!r}; 'parcorr' or 'cmiknn'")
 
     pcmci = PCMCI(dataframe=dataframe, cond_ind_test=cond, verbosity=verbosity)
-    results = pcmci.run_pcmciplus(tau_min=1, tau_max=tau_max, pc_alpha=pc_alpha)
+    results = pcmci.run_pcmciplus(tau_min=1, tau_max=tau_max, pc_alpha=pc_alpha,
+                                  max_conds_dim=max_conds_dim)
     return results, pcmci, list(RK_VARS)
 
 
@@ -163,17 +166,23 @@ def extract_links(results, var_names, config: AnalysisConfig) -> pd.DataFrame:
 
 def report(site: str, year: int, months: list[int], test: str = "parcorr",
            pc_alpha: float = 0.01, tau_max: int | None = None,
-           config: AnalysisConfig | None = None,
+           sig_samples: int = 250, max_conds_dim: int | None = None,
+           knn: float = 0.1, config: AnalysisConfig | None = None,
            outroot: str | Path | None = None) -> pd.DataFrame:
     config = config or AnalysisConfig()
     pre = load_corevars_hh(site, year, months, config)
     tau_max = int(tau_max if tau_max is not None else config.lag_max)
     print(f"[preprocess] {site} {year}-{pre.month_label}: n_points={pre.n_points}")
     print(f"[pcmci] test={test} pc_alpha={pc_alpha} tau_max={tau_max} "
-          f"({config.lag_hours(tau_max):.0f} h)")
+          f"({config.lag_hours(tau_max):.0f} h)"
+          + (f" sig_samples={sig_samples} knn={knn} "
+             f"max_conds_dim={max_conds_dim}" if test == "cmiknn" else ""))
 
-    results, pcmci, var_names = run_pcmci(pre, tau_max=tau_max, pc_alpha=pc_alpha,
-                                          test=test)
+    # cmiknn は重いので進捗を出す (verbosity=1)
+    results, pcmci, var_names = run_pcmci(
+        pre, tau_max=tau_max, pc_alpha=pc_alpha, test=test, knn=knn,
+        sig_samples=sig_samples, max_conds_dim=max_conds_dim,
+        verbosity=1 if test == "cmiknn" else 0)
     links = extract_links(results, var_names, config)
 
     if links.empty:
@@ -223,10 +232,17 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--tau-max", type=int, default=None,
                    help="最大ラグ (step)。既定は config の lag_max=36。cmiknn は "
                         "重いので 6 など短縮推奨")
+    p.add_argument("--sig-samples", type=int, default=250,
+                   help="cmiknn シャッフル数 (既定 250)。速度と精度のトレードオフ")
+    p.add_argument("--knn", type=float, default=0.1,
+                   help="cmiknn 近傍数 (割合 or 整数, 既定 0.1)。小さいほど速い")
+    p.add_argument("--max-conds-dim", type=int, default=None,
+                   help="PC-stable の条件次元上限 (小さいほど速い、既定 無制限)")
     p.add_argument("--outroot", default=None)
     args = p.parse_args(argv)
     report(args.site, args.year, args.month, args.test, args.pc_alpha,
-           tau_max=args.tau_max, outroot=args.outroot)
+           tau_max=args.tau_max, sig_samples=args.sig_samples,
+           max_conds_dim=args.max_conds_dim, knn=args.knn, outroot=args.outroot)
 
 
 if __name__ == "__main__":
