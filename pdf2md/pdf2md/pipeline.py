@@ -145,7 +145,20 @@ def _process_by_toc(
     entries = toc.extract_pdf_outline(pdf)
     chapters = toc.top_level_chapters(entries)
     if not chapters:
-        outcome.note = "埋め込み目次なし → --by-toc 不可(--page-range を使ってください)"
+        # 目次が無いPDF(論文など) → 全体を1ファイルとして変換(フォールバック)
+        try:
+            res = convert.convert(pdf, page_range=None, device=device, prefer=prefer)
+            outcome.backend = res.backend
+            cleaned, _ = clean.clean_markdown(res.markdown)
+            _, chs = split.split_none(cleaned, fallback_title=pdf.stem)
+            book_dir = output_root / split._sanitize(pdf.stem, maxlen=80)
+            book_dir.mkdir(parents=True, exist_ok=True)
+            _write_chapter(book_dir, 1, chs[0].title, chs[0].body, pdf.name,
+                           make_summary, model, outcome)
+            outcome.ok = outcome.chapters_written > 0
+            outcome.note = "目次なし → 全体を1ファイルに変換"
+        except Exception as e:  # noqa: BLE001
+            outcome.note = f"目次なし・全体変換も失敗: {str(e)[:120]}"
         return outcome
     total_pages = toc.page_count(pdf) or chapters[-1].page
     selected = split.parse_selection(chapters_spec, len(chapters))
