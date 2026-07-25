@@ -62,6 +62,30 @@ nohup bash -c '
 
 ---
 
+## 完了を知る/通知する(無人ジョブの“終わったら教えて”)
+
+plain な nohup/at ジョブは終わっても自動では知らせてくれない。スクリプト末尾に
+**完了マーカー＋通知**を足すと、朝に一目で分かる。
+
+```bash
+# run_*.sh の末尾に追記(重い処理の後)
+echo "=== DONE: $(date) ===" >> ~/jobs/myjob.log
+touch ~/jobs/myjob.DONE                       # 完了フラグ(存在チェックで判定)
+command -v notify-send >/dev/null && \
+  notify-send "変換完了" "$(tail -1 ~/jobs/myjob.log)"   # デスクトップ通知(GUIセッション時)
+```
+
+確認は:
+```bash
+ls ~/jobs/*.DONE 2>/dev/null && echo "終わってる"    # フラグの有無で判定
+grep -E 'DONE|成功|失敗|FAILED' ~/jobs/myjob.log      # 結果サマリ
+```
+
+> メール等で飛ばしたい場合は、通知行を `mail`/`curl`(Slack Webhook 等)に置き換える。
+> ただし外部送信は認証情報が絡むので、鍵の扱いに注意(スクリプト直書きは避ける)。
+
+---
+
 ## Claude Code 側のプロンプトを減らす(対話作業を速く)
 
 無人ジョブ(上)とは別に、**普段の対話**での確認を減らしたいときは、プロジェクトの

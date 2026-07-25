@@ -14,7 +14,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from . import pipeline
+from . import pipeline, study
 from .split import _sanitize
 
 
@@ -65,6 +65,35 @@ def cmd_toc(args: argparse.Namespace) -> int:
         "(指定なしなら全章)。",
         file=sys.stderr,
     )
+    return 0
+
+
+def cmd_index(args: argparse.Namespace) -> int:
+    folder = Path(args.dir)
+    if not folder.is_dir():
+        print(f"フォルダがありません: {folder}", file=sys.stderr)
+        return 1
+    index_path = study.build_index(folder, book_title=args.title)
+    n = len(study.chapter_files(folder))
+    print(f"作成: {index_path}  ({n} 章の要約マップ)")
+    print("Obsidian でこの _INDEX.md を“地図”として開き、必要な章だけ辿ってください。",
+          file=sys.stderr)
+    return 0
+
+
+def cmd_notes(args: argparse.Namespace) -> int:
+    folder = Path(args.dir)
+    if not folder.is_dir():
+        print(f"フォルダがありません: {folder}", file=sys.stderr)
+        return 1
+    report = study.generate_notes(folder, model=args.model, overwrite=args.overwrite)
+    print(f"凝縮ノート: 作成 {report.made} / スキップ {report.skipped} "
+          f"/ 失敗 {report.failed}  → {folder / '_notes'}")
+    for line in report.notes:
+        print(f"  - {line}", file=sys.stderr)
+    if report.failed and report.made == 0:
+        print("APIキー未設定なら ANTHROPIC_API_KEY か `ant auth login` を設定してください。",
+              file=sys.stderr)
     return 0
 
 
@@ -176,6 +205,21 @@ def build_parser() -> argparse.ArgumentParser:
                     help="sample を確認済み(このフラグが無いと本処理しない)")
     pr.add_argument("--yes", action="store_true", help="上書き確認等を自動承認")
     pr.set_defaults(func=cmd_run)
+
+    pi = sub.add_parser("index",
+                        help="作成済みの章から要約マップ _INDEX.md を作る(API不要=0トークン)")
+    pi.add_argument("--dir", required=True,
+                    help="章 .md が入ったフォルダ(例 <保存先>/<書名>)")
+    pi.add_argument("--title", help="インデックスの見出しに使う本のタイトル(任意)")
+    pi.set_defaults(func=cmd_index)
+
+    pn = sub.add_parser("notes",
+                        help="各章から Claude で凝縮スタディノートを作る(API必要・一度きり)")
+    pn.add_argument("--dir", required=True, help="章 .md が入ったフォルダ")
+    pn.add_argument("--model", default="claude-opus-4-8", help="使う Claude モデル")
+    pn.add_argument("--overwrite", action="store_true",
+                    help="既存の _notes を上書きする(既定はスキップ)")
+    pn.set_defaults(func=cmd_notes)
     return p
 
 
