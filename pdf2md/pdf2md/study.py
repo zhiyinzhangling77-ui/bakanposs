@@ -9,8 +9,22 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass, field
 from pathlib import Path
+
+
+def _api_key_problem() -> str | None:
+    """APIキーの分かりやすい不備を返す(無ければ None)。"""
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    if key:
+        try:
+            key.encode("ascii")
+        except UnicodeEncodeError:
+            return ("ANTHROPIC_API_KEY に日本語等の非ASCII文字が入っています"
+                    "(例: 'sk-ant-本物のキー' のまま貼っていませんか?)。"
+                    "console.anthropic.com の本物のキーを設定してください")
+    return None
 
 
 @dataclass
@@ -148,6 +162,10 @@ def generate_note(body: str, model: str = "claude-opus-4-8", max_tokens: int = 2
         import anthropic
     except Exception:
         return "", False, "anthropic SDK 未インストール"
+
+    problem = _api_key_problem()
+    if problem:
+        return "", False, problem
 
     text = body.strip()
     if len(text) > NOTE_MAX_INPUT_CHARS:
