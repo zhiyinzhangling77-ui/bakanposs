@@ -101,6 +101,50 @@ def mutual_information(x: np.ndarray, y: np.ndarray, n_bins: int) -> float:
 
 
 # ---------------------------------------------------------------------------
+# 部分情報分解 (PID, Williams & Beer 2010 の I_min) — 冗長/固有/相乗
+# ---------------------------------------------------------------------------
+def specific_information(ti: np.ndarray, ai: np.ndarray, n_bins: int):
+    """源 A が目標の各結果 s について与える specific information i(s;A) と p(s)。
+
+    i(s;A) = Σ_a p(a|s) log( p(s,a)/(p(s)p(a)) ) [nats]。Σ_s p(s)·i(s;A) = I(T;A)。
+    """
+    n = len(ti)
+    joint = (np.bincount(ti * n_bins + ai, minlength=n_bins * n_bins)
+             .reshape(n_bins, n_bins).astype(float) / n)
+    p_t = joint.sum(axis=1)
+    p_a = joint.sum(axis=0)
+    with np.errstate(divide="ignore", invalid="ignore"):
+        ratio = joint / (p_t[:, None] * p_a[None, :])
+        logr = np.where(joint > 0, np.log(ratio), 0.0)
+        p_a_given_s = np.where(p_t[:, None] > 0, joint / p_t[:, None], 0.0)
+    i_spec = np.sum(p_a_given_s * logr, axis=1)
+    return i_spec, p_t
+
+
+def pid_williams_beer(ti: np.ndarray, s1: np.ndarray, s2: np.ndarray,
+                      n_bins: int) -> dict[str, float]:
+    """目標 T と 2 源 S1, S2 の I(T; S1,S2) を R/U1/U2/S に分解 [nats]。
+
+    Williams & Beer (2010) の I_min 冗長性:
+        R = Σ_s p(s)·min( i(s;S1), i(s;S2) )
+        U1 = I(T;S1) − R,  U2 = I(T;S2) − R,  S = I(T;S1,S2) − I(T;S1) − I(T;S2) + R
+    冗長 R は「両源が共有する情報」= 共通駆動の定量化。U は各源固有、S は相乗。
+    """
+    i1, p_t = specific_information(ti, s1, n_bins)
+    i2, _ = specific_information(ti, s2, n_bins)
+    R = float(np.sum(p_t * np.minimum(i1, i2)))
+    I1 = float(np.sum(p_t * i1))    # = I(T;S1)
+    I2 = float(np.sum(p_t * i2))    # = I(T;S2)
+    I_joint = (_entropy_of_indices([ti], n_bins)
+               + _entropy_of_indices([s1, s2], n_bins)
+               - _entropy_of_indices([ti, s1, s2], n_bins))
+    U1, U2 = I1 - R, I2 - R
+    S = I_joint - I1 - I2 + R
+    return {"R": R, "U1": U1, "U2": U2, "S": S,
+            "I1": I1, "I2": I2, "I_joint": I_joint}
+
+
+# ---------------------------------------------------------------------------
 # 条件付き相互情報量 I(X;Y|Z) — 共通駆動の分離
 # ---------------------------------------------------------------------------
 def _encode(cols: list[np.ndarray], n_bins: int) -> np.ndarray:
