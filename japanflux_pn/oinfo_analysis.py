@@ -72,19 +72,21 @@ def report(site: str, year: int, months: list[int], obins: int = OINFO_BINS_DEFA
           f"(O-info bins={obins})")
     tbl = o_information_subsystems(pre, obins)
 
-    print(f"\n=== O-information: 系レベルの冗長(Ω>0) vs 相乗(Ω<0) ===")
-    print(f"  (z=シャッフルヌルからの偏差, |z|≥2.36 で有意)")
-    print(f"  {'subsystem':<22} {'Omega':>8} {'z':>7}  判定")
+    print(f"\n=== O-information: 系レベルの冗長 vs 相乗 (シャッフルヌル比) ===")
+    print(f"  ※ 4変数ヒストは疎で Ω が負にバイアスするため、絶対符号でなく z で判定。")
+    print(f"    z>0(有意)=独立より冗長, z<0(有意)=独立より相乗。|z|≥2.36 で有意。")
+    print(f"  {'subsystem':<22} {'Omega':>8} {'null_mu':>8} {'z':>7}  判定")
     for _, r in tbl.iterrows():
         z = r["z"]
         if not np.isfinite(z) or abs(z) < 2.36:
             verdict = "有意でない"
         elif z > 0:
-            verdict = "冗長支配 (共通駆動)"
+            verdict = "冗長的 (共通駆動)"
         else:
-            verdict = "★相乗支配 (創発)"
+            verdict = "★相乗的 (創発)"
         name = r["subsystem"]
-        print(f"  {name:<22} {r['Omega']:8.3f} {z:7.1f}  {verdict}")
+        print(f"  {name:<22} {r['Omega']:8.3f} {r['null_mu']:8.3f} "
+              f"{z:7.1f}  {verdict}")
 
     if outroot is not None:
         outdir = Path(outroot)
