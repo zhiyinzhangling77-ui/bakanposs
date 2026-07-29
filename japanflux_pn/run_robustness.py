@@ -42,14 +42,30 @@ def collect_links_for_years(
     tau_max: int, pc_alpha: float, config: AnalysisConfig,
     sig_samples: int, knn: float, max_conds_dim: int | None,
 ) -> dict[int, pd.DataFrame | None]:
-    """年ごとに PCMCI の有向リンクを取る。欠測年やエラー年は None。"""
-    from .preprocess import load_corevars_hh
+    """年ごとに PCMCI の有向リンクを取る。欠測年やエラー年は None。
+
+    巨大な COREVARS CSV は 1 回だけ読み (load_raw_all)、各年はメモリ上で切り出す。
+    """
+    from .preprocess import (load_raw_all, slice_and_anomaly,
+                             slice_span_and_anomaly, PreprocessResult)
+    from .sites import get_site
+
+    site_spec = get_site(site)
+    print(f"  [読込] {site} の COREVARS を 1 回だけロード中...", flush=True)
+    t_load = time.time()
+    raw_all = load_raw_all(site_spec, config)          # ← 1 回だけ
+    print(f"  [読込] 完了 ({time.time()-t_load:.0f}s)\n", flush=True)
 
     out: dict[int, pd.DataFrame | None] = {}
     for y in years:
         t0 = time.time()
         try:
-            pre = load_corevars_hh(site, y, months, config)
+            if len(months) == 1:
+                anom, valid = slice_and_anomaly(raw_all, y, months[0], config)
+            else:
+                anom, valid = slice_span_and_anomaly(raw_all, y, months, config)
+            pre = PreprocessResult(anomaly=anom, valid=valid, site=site, year=y,
+                                   month=months[0], config=config, months=months)
             if not bool(pre.valid.all()):
                 print(f"  {site} {y}: 欠測 {int((~pre.valid).sum())} 点 → skip", flush=True)
                 out[y] = None
