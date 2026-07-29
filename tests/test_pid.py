@@ -61,6 +61,38 @@ def test_specific_information_sums_to_mi():
     assert abs(mi_from_spec - mi_direct) < 1e-9
 
 
+def test_interaction_information_sign():
+    """冗長 (共通駆動) は II>0、相乗 (XOR) は II<0。"""
+    rng = np.random.default_rng(5)
+    n = 8000
+    # 共通駆動: T,S2 が共通の Z に依存 → 正味冗長 II>0
+    z = rng.integers(0, 4, size=n)
+    t = (z + rng.integers(0, 2, size=n)) % 4
+    s2 = (z + rng.integers(0, 2, size=n)) % 4
+    ii_red = it.interaction_information_indices(t, z, s2, 4)
+    assert ii_red > 0.05
+
+    # XOR 相乗: II<0
+    a = rng.integers(0, 2, size=n)
+    b = rng.integers(0, 2, size=n)
+    tx = np.bitwise_xor(a, b)
+    ii_syn = it.interaction_information_indices(tx, a, b, 2)
+    assert ii_syn < -0.3
+
+
+def test_mm_reduces_spurious_synergy_bias():
+    """独立 3 変数: plugin II は 3D バイアスで負(見かけ相乗)、MM で 0 に近づく。"""
+    m = 11
+    rng = np.random.default_rng(6)
+    n = 2000
+    t, s1, s2 = (it.digitize_series(rng.normal(size=n), m) for _ in range(3))
+    ii_plug = it.interaction_information_indices(t, s1, s2, m, False)
+    ii_mm = it.interaction_information_indices(t, s1, s2, m, True)
+    assert ii_plug < -0.02              # 3D バイアスで見かけの相乗
+    assert ii_mm > ii_plug              # MM が押し戻す
+    assert abs(ii_mm) < abs(ii_plug)
+
+
 def _synth_pre(n=4000):
     """Rg が Ta・VPD・gLE を共通駆動、GER は Ta 独自の熱情報も持つ合成。"""
     cfg = AnalysisConfig(seed=0)

@@ -71,6 +71,70 @@ def pid_with_driver(pre: PreprocessResult, driver: str = "Rg") -> PIDResult:
     return PIDResult(driver=driver, table=table, config=cfg)
 
 
+def calibrate(pre: PreprocessResult, driver: str = "Rg") -> pd.DataFrame:
+    """相乗モードの頑健性較正: 測度不変な相互作用情報 II（plugin と Miller-Madow）と
+    I_min / MMI の S を並べる。II<0 が正味相乗（測度非依存）。MM で 3D バイアスを除く。"""
+    cfg = pre.config
+    m = cfg.n_bins
+    vf = pre.valid_frame
+    idx = {v: it.digitize_series(vf[v].to_numpy(dtype=float), m) for v in RK_VARS}
+    dz = idx[driver]
+    logm = cfg.log_m
+
+    rows = []
+    others = [v for v in RK_VARS if v != driver]
+    for y in others:
+        for x in others:
+            if x == y:
+                continue
+            wb = it.pid_williams_beer(idx[y], dz, idx[x], m)
+            mmi = it.pid_mmi(idx[y], dz, idx[x], m)
+            ii_plug = it.interaction_information_indices(idx[y], dz, idx[x], m, False)
+            ii_mm = it.interaction_information_indices(idx[y], dz, idx[x], m, True)
+            rows.append({
+                "target": y, "source": x,
+                "I_YX_pct": 100.0 * wb["I2"] / logm,
+                "S_imin_pct": 100.0 * wb["S"] / logm,
+                "S_mmi_pct": 100.0 * mmi["S"] / logm,
+                "II_plugin_pct": 100.0 * ii_plug / logm,   # >0 冗長, <0 相乗
+                "II_mm_pct": 100.0 * ii_mm / logm,          # バイアス補正版
+            })
+    return pd.DataFrame(rows)
+
+
+def report_calibration(site: str, year: int, months: list[int], driver: str = "Rg",
+                       config: AnalysisConfig | None = None) -> pd.DataFrame:
+    config = config or AnalysisConfig()
+    pre = load_corevars_hh(site, year, months, config)
+    print(f"[preprocess] {site} {year}-{pre.month_label}: n_points={pre.n_points}")
+    tbl = calibrate(pre, driver)
+    sig = tbl[tbl["I_YX_pct"] >= 3.0].copy()
+
+    # I_min で相乗が大きかったペアが、測度不変 II とバイアス補正でも相乗のままか
+    syn_imin = sig.sort_values("S_imin_pct", ascending=False).head(12)
+    print(f"\n=== 相乗モードの較正 (II<0=正味相乗, 測度非依存) ===")
+    print(f"  {'Y←X':<12} {'I(Y;X)':>7} {'S_Imin':>7} {'S_MMI':>7} "
+          f"{'II_plug':>8} {'II_mm':>7}  判定")
+    for _, r in syn_imin.iterrows():
+        lab = f"{r['target']}←{r['source']}"
+        verdict = "相乗(頑健)" if r["II_mm_pct"] < -0.5 else (
+                  "相乗(弱/消)" if r["II_mm_pct"] < 0.5 else "→冗長に反転")
+        print(f"  {lab:<12} {r['I_YX_pct']:6.1f} {r['S_imin_pct']:6.1f} "
+              f"{r['S_mmi_pct']:6.1f} {r['II_plugin_pct']:7.1f} "
+              f"{r['II_mm_pct']:6.1f}  {verdict}")
+
+    # フラックス冗長ペアが II で正味冗長のままか (対照)
+    red = sig.sort_values("II_mm_pct", ascending=False).head(6)
+    print(f"\n  [対照: 正味冗長 II_mm>0 上位] "
+          + ", ".join(f"{r['target']}←{r['source']}({r['II_mm_pct']:.1f})"
+                      for _, r in red.iterrows()))
+    n_syn_mm = int((sig["II_mm_pct"] < -0.5).sum())
+    n_red_mm = int((sig["II_mm_pct"] > 0.5).sum())
+    print(f"\n  MM 補正後: 正味相乗 {n_syn_mm} / 正味冗長 {n_red_mm} "
+          f"/ ほぼ0 {len(sig)-n_syn_mm-n_red_mm} (計 {len(sig)} ペア)")
+    return tbl
+
+
 def report(site: str, year: int, months: list[int], driver: str = "Rg",
            config: AnalysisConfig | None = None,
            outroot: str | Path | None = None) -> PIDResult:
@@ -121,6 +185,8 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--driver", default="Rg")
     p.add_argument("--bins", type=int, default=None)
     p.add_argument("--qc-max", type=int, default=None)
+    p.add_argument("--calibrate", action="store_true",
+                   help="相乗モードの較正 (測度不変な II + Miller-Madow 補正)")
     p.add_argument("--outroot", default=None)
     args = p.parse_args(argv)
     kw = {}
@@ -128,8 +194,11 @@ def main(argv: list[str] | None = None) -> None:
         kw["n_bins"] = args.bins
     if args.qc_max is not None:
         kw["qc_max"] = args.qc_max
-    report(args.site, args.year, args.month, args.driver,
-           AnalysisConfig(**kw), args.outroot)
+    config = AnalysisConfig(**kw)
+    if args.calibrate:
+        report_calibration(args.site, args.year, args.month, args.driver, config)
+    else:
+        report(args.site, args.year, args.month, args.driver, config, args.outroot)
 
 
 if __name__ == "__main__":

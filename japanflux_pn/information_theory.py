@@ -121,6 +121,40 @@ def specific_information(ti: np.ndarray, ai: np.ndarray, n_bins: int):
     return i_spec, p_t
 
 
+def interaction_information_indices(
+    ti: np.ndarray, s1: np.ndarray, s2: np.ndarray, n_bins: int,
+    correct: bool = False,
+) -> float:
+    """相互作用情報 II = I(T;S1) + I(T;S2) − I(T;S1,S2) [nats]。
+
+    PID 測度に依らない不変量。II>0 なら正味冗長 (R>S)、II<0 なら正味相乗 (S>R)。
+    ``correct=True`` で Miller-Madow 補正し、3 次元 I_joint の正バイアス（見かけの
+    相乗）を抑える。相乗モードの頑健性チェックに使う。
+    """
+    i1 = mutual_information_indices(ti, s1, n_bins, correct)
+    i2 = mutual_information_indices(ti, s2, n_bins, correct)
+    i_joint = (_entropy_of_indices([ti], n_bins, correct)
+               + _entropy_of_indices([s1, s2], n_bins, correct)
+               - _entropy_of_indices([ti, s1, s2], n_bins, correct))
+    return i1 + i2 - i_joint
+
+
+def pid_mmi(ti: np.ndarray, s1: np.ndarray, s2: np.ndarray,
+            n_bins: int) -> dict[str, float]:
+    """MMI 冗長性 R = min(I1, I2) による PID（第 2 の測度、I_min の上界）。
+
+    R_MMI は冗長の最大値なので、I_min と挟めば R/U/S の幅が分かる。
+    """
+    i1 = mutual_information_indices(ti, s1, n_bins)
+    i2 = mutual_information_indices(ti, s2, n_bins)
+    i_joint = (_entropy_of_indices([ti], n_bins)
+               + _entropy_of_indices([s1, s2], n_bins)
+               - _entropy_of_indices([ti, s1, s2], n_bins))
+    R = min(i1, i2)
+    return {"R": R, "U1": i1 - R, "U2": i2 - R, "S": i_joint - i1 - i2 + R,
+            "I1": i1, "I2": i2, "I_joint": i_joint}
+
+
 def pid_williams_beer(ti: np.ndarray, s1: np.ndarray, s2: np.ndarray,
                       n_bins: int) -> dict[str, float]:
     """目標 T と 2 源 S1, S2 の I(T; S1,S2) を R/U1/U2/S に分解 [nats]。
