@@ -89,3 +89,24 @@ def get_site(code: str) -> SiteSpec:
     if code not in SITES:
         raise KeyError(f"unknown site {code!r}; known: {sorted(SITES)}")
     return SITES[code]
+
+
+def resolve_qc_columns(header: list[str], site: SiteSpec) -> dict[str, str | None]:
+    """各 R&K 変数の QC 列を解決する。
+
+    値列 + ``_QC`` が実ヘッダにあればそれを、無ければ None（＝QC 無しで常に実測扱い）。
+    派生炭素 (RECO/GPP) は自前 QC を持たないため NEE の QC を代理に使う。
+    """
+    hset = set(header)
+    vmap = site.var_map()
+    nee_qc = vmap["NEE"] + "_QC"
+    out: dict[str, str | None] = {}
+    for v in RK_VARS:
+        own = vmap[v] + "_QC"
+        if own in hset:
+            out[v] = own
+        elif v in ("GER", "GEP") and nee_qc in hset:
+            out[v] = nee_qc          # 派生炭素は NEE の品質を継承
+        else:
+            out[v] = None
+    return out

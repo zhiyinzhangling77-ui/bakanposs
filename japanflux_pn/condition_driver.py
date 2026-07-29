@@ -139,6 +139,8 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--driver", default="Rg", help="条件付ける共通駆動変数 (既定 Rg)")
     p.add_argument("--bins", type=int, default=None)
     p.add_argument("--surrogates", type=int, default=None)
+    p.add_argument("--qc-max", type=int, default=None,
+                   help="QC≤この値のみ残す (0=実測, 1=実測+良質補完)。既定 None=gap-fill込み")
     p.add_argument("--outroot", default=None)
     args = p.parse_args(argv)
 
@@ -147,6 +149,8 @@ def main(argv: list[str] | None = None) -> None:
         kw["n_bins"] = args.bins
     if args.surrogates is not None:
         kw["n_surrogates"] = args.surrogates
+    if args.qc_max is not None:
+        kw["qc_max"] = args.qc_max
     config = AnalysisConfig(**kw)
     report(args.site, args.year, args.month, args.driver, config, args.outroot)
 
