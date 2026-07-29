@@ -43,6 +43,21 @@ def _spearman(x: np.ndarray, y: np.ndarray) -> float:
     return float(np.corrcoef(rx, ry)[0, 1])
 
 
+def _spearman_p(x: np.ndarray, y: np.ndarray, n_perm: int = 5000,
+                seed: int = 0) -> tuple[float, float]:
+    """Spearman r と、順列検定による両側 p 値 (年ラベルをシャッフル)。"""
+    r_obs = _spearman(x, y)
+    if not np.isfinite(r_obs):
+        return r_obs, np.nan
+    rng = np.random.default_rng(seed)
+    y = np.asarray(y, dtype=float)
+    count = 0
+    for _ in range(n_perm):
+        if abs(_spearman(x, rng.permutation(y))) >= abs(r_obs) - 1e-12:
+            count += 1
+    return r_obs, (count + 1) / (n_perm + 1)
+
+
 def year_metrics(raw_all: pd.DataFrame, year: int, months: list[int],
                  config: AnalysisConfig) -> dict | None:
     """1 年のストレス指標（生平均）と結合指標（アノマリ MI）をまとめる。"""
@@ -113,14 +128,16 @@ def report(site: str, config: AnalysisConfig | None = None,
         rT = _spearman(df[col].to_numpy(), df["Ta_mean"].to_numpy())
         print(f"  {a+'→'+b:<12} {rV:8.2f} {rS:8.2f} {rT:8.2f}")
 
-    # 目玉: 光利用結合 I(Rg;GPP) が乾燥で下がるか
-    rV = _spearman(df["I_Rg_GEP"].to_numpy(), df["VPD_mean"].to_numpy())
-    rS = _spearman(df["I_Rg_GEP"].to_numpy(), df["SWC_mean"].to_numpy())
-    print(f"\n  [仮説検定] I(Rg;GPP) vs 乾燥:")
-    print(f"    VPD↑ で結合↓ (負相関を期待): r={rV:+.2f}")
-    print(f"    土壌水分↑ で結合↑ (正相関を期待): r={rS:+.2f}")
-    verdict = ("支持 (乾燥で光合成が放射から脱結合)" if (rV <= -0.4 or rS >= 0.4)
-               else "不明瞭 (このサイト/期間では弱い)")
+    # 目玉: 光利用結合 I(Rg;GPP) が乾燥で下がるか (順列検定 p 値つき)
+    rV, pV = _spearman_p(df["I_Rg_GEP"].to_numpy(), df["VPD_mean"].to_numpy())
+    rS, pS = _spearman_p(df["I_Rg_GEP"].to_numpy(), df["SWC_mean"].to_numpy())
+    print(f"\n  [仮説検定] I(Rg;GPP) vs 乾燥 (順列検定 5000):")
+    print(f"    VPD↑ で結合↓ (負相関を期待): r={rV:+.2f}  p={pV:.3f}")
+    print(f"    土壌水分↑ で結合↑ (正相関を期待): r={rS:+.2f}  p={pS:.3f}")
+    sig = (rV <= -0.4 and pV < 0.05) or (rS >= 0.4 and pS < 0.05)
+    verdict = ("支持・有意 (乾燥で光合成が放射から脱結合)" if sig
+               else ("傾向あり・非有意" if (rV <= -0.4 or rS >= 0.4)
+                     else "不明瞭 (このサイト/期間では弱い)"))
     print(f"    → {verdict}")
 
     if outroot is not None:

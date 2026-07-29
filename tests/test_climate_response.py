@@ -16,6 +16,16 @@ def test_spearman_monotonic():
     assert abs(cr._spearman(x, np.array([3, 1, 4, 1, 5.0]))) < 0.9
 
 
+def test_spearman_p_significance():
+    """強い単調関係は小さい p、無相関は大きい p。"""
+    x = np.arange(12, dtype=float)
+    r_mono, p_mono = cr._spearman_p(x, 3 * x - 2, n_perm=2000)
+    assert r_mono > 0.99 and p_mono < 0.01
+    rng = np.random.default_rng(0)
+    r_rand, p_rand = cr._spearman_p(x, rng.permutation(x), n_perm=2000)
+    assert p_rand > 0.10                      # 無相関は有意でない
+
+
 def test_spearman_constant_is_nan():
     x = np.array([1.0, 2, 3])
     assert np.isnan(cr._spearman(x, np.array([5.0, 5, 5])))
