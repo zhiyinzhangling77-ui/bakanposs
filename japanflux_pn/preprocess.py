@@ -17,7 +17,7 @@ import numpy as np
 import pandas as pd
 
 from .config import AnalysisConfig, RK_VARS
-from .sites import SiteSpec, get_site
+from .sites import SiteSpec, get_site, resolve_qc_columns
 
 
 @dataclass
@@ -138,18 +138,31 @@ def read_corevars_raw(
     """COREVARS HH CSV を読み、RK_VARS 列 (実カラム→R&K表記) の生 DataFrame にする。
 
     TIMESTAMP_START (YYYYMMDDHHMM) を index に採用し、欠測センチネルを NaN 化する。
+    ``config.qc_max`` が設定されていれば、対応する ``_QC`` 列が閾値を超える (低品質
+    gap-fill) 値を NaN 化する（実測寄りデータでの感度解析用）。
     """
     vmap = site.var_map()
-    usecols = ["TIMESTAMP_START"] + [vmap[v] for v in RK_VARS]
-    df = pd.read_csv(path, usecols=lambda c: c in usecols)
+    val_cols = [vmap[v] for v in RK_VARS]
+    header = list(pd.read_csv(path, nrows=0).columns)
+    qcmap = (resolve_qc_columns(header, site) if config.qc_max is not None
+             else {v: None for v in RK_VARS})
+    qc_cols = sorted({c for c in qcmap.values() if c})
+    want = set(["TIMESTAMP_START"] + val_cols + qc_cols)
+
+    df = pd.read_csv(path, usecols=lambda c: c in want)
     ts = pd.to_datetime(df["TIMESTAMP_START"].astype("int64").astype(str), format="%Y%m%d%H%M")
     df = df.drop(columns=["TIMESTAMP_START"])
     df.index = ts
-    # 実カラム名 → R&K 表記へリネーム
-    inv = {vmap[v]: v for v in RK_VARS}
-    df = df.rename(columns=inv)[RK_VARS]
     df = df.replace(config.na_sentinel, np.nan)
-    return df
+
+    out = pd.DataFrame(index=df.index)
+    for v in RK_VARS:
+        s = df[vmap[v]]
+        qc = qcmap[v]
+        if config.qc_max is not None and qc is not None:
+            s = s.where(df[qc] <= config.qc_max)   # QC>閾値 (or QC欠測) → NaN
+        out[v] = s
+    return out[RK_VARS]
 
 
 def find_corevars_files(site: SiteSpec) -> list[Path]:

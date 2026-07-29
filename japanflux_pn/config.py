@@ -44,6 +44,12 @@ class AnalysisConfig:
     anomaly_window_days: int = 5     # 5 日周期アノマリ (R&K §3)
     na_sentinel: float = -9999.0     # FLUXNET2015 欠測センチネル
 
+    # --- 品質フィルタ -------------------------------------------------------
+    # None: gap-fill 込みの値をそのまま使う (既定, R&K/FLUXNET LEVEL-4 相当)。
+    # int: QC ≤ この値の時刻のみ残し、QC>閾値 (低品質補完) は NaN 化する。
+    #   0 = 実測のみ, 1 = 実測+良質補完。gap-fill が同期(I)を膨らませていないかの検証用。
+    qc_max: int | None = None
+
     # --- 確率推定 -----------------------------------------------------------
     n_bins: int = 11                 # 固定区間ビン数 m (R&K)
 

@@ -21,25 +21,8 @@ import numpy as np
 import pandas as pd
 
 from .config import AnalysisConfig, RK_VARS
-from .sites import SiteSpec, get_site
+from .sites import SiteSpec, get_site, resolve_qc_columns
 from .preprocess import find_corevars_files, _regular_grid
-
-
-def resolve_qc_columns(header: list[str], site: SiteSpec) -> dict[str, str | None]:
-    """各 R&K 変数の QC 列を解決する。無ければ None（派生炭素は NEE の QC を代理）。"""
-    hset = set(header)
-    vmap = site.var_map()
-    nee_qc = vmap["NEE"] + "_QC"
-    out: dict[str, str | None] = {}
-    for v in RK_VARS:
-        own = vmap[v] + "_QC"
-        if own in hset:
-            out[v] = own
-        elif v in ("GER", "GEP") and nee_qc in hset:
-            out[v] = nee_qc          # 派生炭素は NEE の品質を継承
-        else:
-            out[v] = None            # QC 無し → 常に実測扱い
-    return out
 
 
 def _load_values_and_qc(files: list[Path], site: SiteSpec, config: AnalysisConfig):

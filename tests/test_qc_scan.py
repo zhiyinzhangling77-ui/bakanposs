@@ -46,6 +46,25 @@ def test_resolve_qc_columns_and_derived_inherit(tmp_path):
     assert qcmap["Rg"] is None
 
 
+def test_read_corevars_raw_applies_qc_mask(tmp_path):
+    """config.qc_max=0 で QC>0 の値が NaN 化される（実測のみ残る）。"""
+    from japanflux_pn import preprocess as pp
+
+    site = _site(tmp_path)
+    f = pp.find_corevars_files(site)[0]
+
+    # qc_max=None: gap-fill 込み → Ts は全点有限
+    raw_full = pp.read_corevars_raw(f, site, AnalysisConfig())
+    assert raw_full["Ts"].notna().all()
+
+    # qc_max=0: Ts_QC>0 の点が NaN、実測(QC=0)のみ残る (~50%)
+    raw_qc = pp.read_corevars_raw(f, site, AnalysisConfig(qc_max=0))
+    frac = raw_qc["Ts"].notna().mean()
+    assert 0.3 < frac < 0.7
+    # QC 列が無い Rg は qc_max=0 でも全点残る
+    assert raw_qc["Rg"].notna().all()
+
+
 def test_qc_scan_listwise_drops_with_strict_qc(tmp_path):
     site = _site(tmp_path)
     cfg = AnalysisConfig()

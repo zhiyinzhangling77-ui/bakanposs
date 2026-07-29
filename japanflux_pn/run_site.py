@@ -98,6 +98,8 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--surrogates", type=int, default=None, help="サロゲート数 M (既定 100)")
     p.add_argument("--peak-min-run", type=int, default=None,
                    help="連続有意ラグ帯の最小長 (既定 1=忠実R&K, 実データ推奨 2)")
+    p.add_argument("--qc-max", type=int, default=None,
+                   help="QC≤この値のみ残す (0=実測, 1=実測+良質補完)。既定 None=gap-fill込み")
     p.add_argument("--outroot", default=None)
     args = p.parse_args(argv)
 
@@ -108,6 +110,8 @@ def main(argv: list[str] | None = None) -> None:
         kw["n_surrogates"] = args.surrogates
     if args.peak_min_run is not None:
         kw["peak_min_run"] = args.peak_min_run
+    if args.qc_max is not None:
+        kw["qc_max"] = args.qc_max
     config = AnalysisConfig(**kw)
     run(args.site, args.year, args.month, config, args.outroot)
 
