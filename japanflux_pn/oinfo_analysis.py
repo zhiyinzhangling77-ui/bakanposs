@@ -63,6 +63,72 @@ def o_information_subsystems(pre: PreprocessResult, obins: int = OINFO_BINS_DEFA
     return pd.DataFrame(rows)
 
 
+def scan_years(site: str, obins: int = OINFO_BINS_DEFAULT,
+               config: AnalysisConfig | None = None) -> pd.DataFrame:
+    """健全全年で各サブシステムの O-info z を計算 (相乗崩壊の年々安定性の検証)。"""
+    from .run_robustness import SITE_YEARS
+    from .sites import get_site
+    from .preprocess import (load_raw_all, slice_and_anomaly,
+                             slice_span_and_anomaly, PreprocessResult)
+
+    config = config or AnalysisConfig()
+    years, months = SITE_YEARS[site]
+    raw_all = load_raw_all(get_site(site), config)
+    rows = []
+    for y in years:
+        if len(months) == 1:
+            anom, valid = slice_and_anomaly(raw_all, y, months[0], config)
+        else:
+            anom, valid = slice_span_and_anomaly(raw_all, y, months, config)
+        if int(valid.sum()) < 500:
+            continue
+        pre = PreprocessResult(anomaly=anom, valid=valid, site=site, year=y,
+                               month=months[0], config=config, months=months)
+        tbl = o_information_subsystems(pre, obins)
+        for _, r in tbl.iterrows():
+            rows.append({"year": y, "subsystem": r["subsystem"],
+                         "Omega": r["Omega"], "z": r["z"]})
+        print(f"  {site} {y}: done", flush=True)
+    return pd.DataFrame(rows)
+
+
+def report_years(site: str, obins: int = OINFO_BINS_DEFAULT,
+                 config: AnalysisConfig | None = None,
+                 outroot: str | Path | None = None) -> pd.DataFrame:
+    print(f"===== {site} O-information 複数年安定性 (obins={obins}) =====")
+    long = scan_years(site, obins, config)
+    if long.empty:
+        print("  (有効年なし)")
+        return long
+    n_years = long["year"].nunique()
+    print(f"\n=== 各サブシステムの相乗/冗長の年々一貫性 (有効 {n_years} 年) ===")
+    print(f"  {'subsystem':<22} {'mean z':>7} {'相乗年':>7} {'冗長年':>7}  傾向")
+    summary = []
+    for name, g in long.groupby("subsystem", sort=False):
+        mz = float(g["z"].mean())
+        n_syn = int((g["z"] <= -2.36).sum())
+        n_red = int((g["z"] >= 2.36).sum())
+        tot = len(g)
+        if n_syn >= 0.6 * tot:
+            trend = "★相乗が安定"
+        elif n_red >= 0.6 * tot:
+            trend = "冗長が安定"
+        else:
+            trend = "混在/不安定"
+        summary.append({"subsystem": name, "mean_z": mz,
+                        "n_synergy": n_syn, "n_redundant": n_red, "n_years": tot})
+        print(f"  {name:<22} {mz:7.1f} {n_syn:4d}/{tot:<2d} {n_red:4d}/{tot:<2d}  {trend}")
+
+    if outroot is not None:
+        outdir = Path(outroot)
+        outdir.mkdir(parents=True, exist_ok=True)
+        long.to_csv(outdir / f"{site}_oinfo_multiyear.csv", index=False)
+        pd.DataFrame(summary).to_csv(
+            outdir / f"{site}_oinfo_multiyear_summary.csv", index=False)
+        print(f"\n[output] {outdir}/{site}_oinfo_multiyear*.csv")
+    return long
+
+
 def report(site: str, year: int, months: list[int], obins: int = OINFO_BINS_DEFAULT,
            config: AnalysisConfig | None = None,
            outroot: str | Path | None = None) -> pd.DataFrame:
@@ -99,18 +165,26 @@ def report(site: str, year: int, months: list[int], obins: int = OINFO_BINS_DEFA
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description="O-information 高次情報構造")
     p.add_argument("--site", required=True)
-    p.add_argument("--year", type=int, required=True)
+    p.add_argument("--year", type=int, default=None,
+                   help="対象年 (--multiyear 時は不要)")
     p.add_argument("--month", type=int, nargs="+", default=[7])
     p.add_argument("--obins", type=int, default=OINFO_BINS_DEFAULT,
                    help=f"O-info 用ビン数 (既定 {OINFO_BINS_DEFAULT}, 疎性対策で粗め)")
+    p.add_argument("--multiyear", action="store_true",
+                   help="健全全年で相乗/冗長の年々安定性を集計 (--year 無視)")
     p.add_argument("--qc-max", type=int, default=None)
     p.add_argument("--outroot", default=None)
     args = p.parse_args(argv)
     kw = {}
     if args.qc_max is not None:
         kw["qc_max"] = args.qc_max
-    report(args.site, args.year, args.month, args.obins,
-           AnalysisConfig(**kw), args.outroot)
+    config = AnalysisConfig(**kw)
+    if args.multiyear:
+        report_years(args.site, args.obins, config, args.outroot)
+    else:
+        if args.year is None:
+            p.error("--year は必須です (--multiyear なら不要)")
+        report(args.site, args.year, args.month, args.obins, config, args.outroot)
 
 
 if __name__ == "__main__":
