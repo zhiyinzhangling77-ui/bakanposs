@@ -155,6 +155,56 @@ def pid_mmi(ti: np.ndarray, s1: np.ndarray, s2: np.ndarray,
             "I1": i1, "I2": i2, "I_joint": i_joint}
 
 
+# ---------------------------------------------------------------------------
+# O-information (Rosas et al. 2019) — 系全体の冗長支配 vs 相乗支配
+# ---------------------------------------------------------------------------
+def total_correlation_indices(cols: list[np.ndarray], n_bins: int,
+                              correct: bool = False) -> float:
+    """全相関 TC = Σ_i H(X_i) − H(X)。変数間で共有された依存の総量（冗長寄り）。"""
+    h_all = _entropy_of_indices(cols, n_bins, correct)
+    return sum(_entropy_of_indices([c], n_bins, correct) for c in cols) - h_all
+
+
+def o_information_indices(cols: list[np.ndarray], n_bins: int,
+                          correct: bool = False) -> float:
+    """O-information Ω(X) = (n−2)H(X) + Σ_i [H(X_i) − H(X_{−i})] [nats]。
+
+    Ω>0 なら冗長支配（共通駆動で情報が重複）、Ω<0 なら相乗支配（情報が組にしか宿らない
+    創発構造）。TC − DTC に等しい。``correct`` で Miller-Madow バイアス補正。
+    n≥3 の変数集合に対して定義。
+    """
+    n = len(cols)
+    if n < 3:
+        raise ValueError("O-information は 3 変数以上で定義")
+    h_all = _entropy_of_indices(cols, n_bins, correct)
+    omega = (n - 2) * h_all
+    for i in range(n):
+        rest = [cols[j] for j in range(n) if j != i]
+        omega += _entropy_of_indices([cols[i]], n_bins, correct)
+        omega -= _entropy_of_indices(rest, n_bins, correct)
+    return omega
+
+
+def surrogate_o_information_stats(
+    cols: list[np.ndarray], n_bins: int, n_surrogates: int, c: float,
+    rng: np.random.Generator, correct: bool = False,
+) -> dict[str, float]:
+    """各変数を独立にシャッフルした O-information のヌル分布 (μ, σ)。
+
+    シャッフルは全依存を壊すので真の Ω=0。推定値はサプシステムと同じ疎性の
+    有限標本バイアスを含むため、観測 Ω をこのヌルと比べれば（MM が不完全でも）
+    冗長/相乗の有意判定が正しく行える。z = (Ω_obs − μ)/σ。
+    """
+    n = len(cols[0])
+    samples = np.empty(n_surrogates, dtype=float)
+    for s in range(n_surrogates):
+        shuf = [col[rng.permutation(n)] for col in cols]
+        samples[s] = o_information_indices(shuf, n_bins, correct)
+    mu = float(np.mean(samples))
+    sigma = float(np.std(samples))
+    return {"mu": mu, "sigma": sigma, "threshold": mu + c * sigma}
+
+
 def pid_williams_beer(ti: np.ndarray, s1: np.ndarray, s2: np.ndarray,
                       n_bins: int) -> dict[str, float]:
     """目標 T と 2 源 S1, S2 の I(T; S1,S2) を R/U1/U2/S に分解 [nats]。
