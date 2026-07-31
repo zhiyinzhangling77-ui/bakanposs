@@ -29,7 +29,7 @@ def _write_csv_with_qc(path, year, seed=0):
 def _site(tmp_path):
     d = tmp_path / "JP-QC"
     d.mkdir()
-    _write_csv_with_qc(d / "JP-QC_COREVARS_HH_2003-2003.csv", 2003)
+    _write_csv_with_qc(d / "JP-QC_ALLVARS_HH_2003-2003.csv", 2003)
     return SiteSpec(code="JP-QC", data_dir=str(d))
 
 
