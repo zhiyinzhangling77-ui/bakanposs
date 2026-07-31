@@ -155,7 +155,48 @@ def fig_oinfo():
     fig.savefig(OUT/"fig5_oinfo_synergy.png"); plt.close(fig)
 
 
+# ---------------------------------------------------------------------------
+# Fig 2b (clearer): coupling BEFORE vs AFTER removing the common driver (Rg)
+# ---------------------------------------------------------------------------
+def fig_conditioning():
+    # (pair, I(X;Y) before, I(X;Y|Rg) after)  — JP-Tak
+    flux = [("gH-GEP",10.9,1.4),("gLE-GEP",11.2,2.3),
+            ("gH-gLE",8.7,1.1),("NEE-GEP",21.9,6.9)]
+    therm = [("Ta-Ts",19.1,21.8),("Ta-GER",17.5,20.7),
+             ("Ts-GER",13.6,18.7),("th-GER",7.8,12.6)]
+    labels = [l for l,_,_ in flux] + [l for l,_,_ in therm]
+    before = [b for _,b,_ in flux] + [b for _,b,_ in therm]
+    after  = [a for _,_,a in flux] + [a for _,_,a in therm]
+    x = np.array([0,1,2,3, 4.8,5.8,6.8,7.8])
+    w = 0.38
+    fig, ax = plt.subplots(figsize=(8.6, 5.6))
+    ax.bar(x-w/2, before, w, label="Coupling I(X;Y)  (before)", color=BLUE)
+    ax.bar(x+w/2, after,  w, label="After removing radiation  I(X;Y | Rg)",
+           color="#bcd4e8", edgecolor="#7fa8cc")
+    ax.set_xticks(x); ax.set_xticklabels(labels, rotation=30, ha="right")
+    ax.set_ylabel("Coupling strength  I  (%)")
+    ax.set_ylim(0, 30)
+    ax.set_title("Removing the common driver (radiation Rg):\n"
+                 "flux couplings collapse — temperature–respiration survive",
+                 fontsize=14)
+    ax.axvspan(-0.6, 3.6, color="#eef4fa", zorder=0)
+    ax.axvspan(4.2, 8.4, color="#fdf2e6", zorder=0)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=2,
+              fontsize=10.5, frameon=False)
+    ax.text(1.5, 27.5, "Energy / carbon fluxes\n(the sun's shadow)", ha="center",
+            fontsize=11, color=BLUE, fontweight="bold")
+    ax.text(6.3, 27.5, "Temperature – respiration\n(real, direct)", ha="center",
+            fontsize=11, color=ORANGE, fontweight="bold")
+    for xi, b, a in zip(x[:4], before[:4], after[:4]):
+        ax.annotate("", xy=(xi+w/2, a+0.6), xytext=(xi-w/2, b-0.6),
+                    arrowprops=dict(arrowstyle="->", color=RED, lw=1.4))
+    ax.text(1.5, 4.5, "collapse", color=RED, ha="center", fontsize=11,
+            style="italic")
+    fig.savefig(OUT/"fig2b_conditioning.png"); plt.close(fig)
+
+
 if __name__ == "__main__":
     fig_climate(); fig_pid(); fig_skeleton(); fig_robustness(); fig_oinfo()
+    fig_conditioning()
     for p in sorted(OUT.glob("*.png")):
         print(f"[fig] {p}  ({p.stat().st_size//1024} KB)")
