@@ -25,7 +25,7 @@ from .config import AnalysisConfig, RK_VARS
 from .sites import get_site
 from .preprocess import (load_raw_all, slice_and_anomaly, slice_span_and_anomaly)
 from . import information_theory as it
-from .run_robustness import SITE_YEARS
+from .run_robustness import get_site_years
 
 
 # ストレス指標と結合指標
@@ -94,7 +94,7 @@ def year_metrics(raw_all: pd.DataFrame, year: int, months: list[int],
 
 def scan(site: str, config: AnalysisConfig | None = None) -> pd.DataFrame:
     config = config or AnalysisConfig()
-    years, months = SITE_YEARS[site]
+    years, months = get_site_years(site)
     raw_all = load_raw_all(get_site(site), config)
     rows = []
     for y in years:
@@ -150,7 +150,8 @@ def report(site: str, config: AnalysisConfig | None = None,
 
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description="気候ストレスへの情報構造応答")
-    p.add_argument("--site", required=True, choices=list(SITE_YEARS))
+    p.add_argument("--site", required=True,
+                   help="サイトコード (手登録外でも 11/11 なら自動で健全年検出)")
     p.add_argument("--outroot", default=None)
     args = p.parse_args(argv)
     report(args.site, outroot=args.outroot)
