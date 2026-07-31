@@ -17,7 +17,25 @@ import numpy as np
 import pandas as pd
 
 from .config import AnalysisConfig, RK_VARS
-from .sites import SiteSpec, get_site, resolve_qc_columns
+from .sites import (
+    BASE_RH_COL,
+    SiteSpec,
+    VPD_FROM_TA_RH,
+    get_site,
+    resolve_qc_columns,
+)
+
+
+def _vpd_from_ta_rh(ta_c: np.ndarray, rh_pct: np.ndarray) -> np.ndarray:
+    """気温[°C]・相対湿度[%]から飽差 VPD[hPa] を導出する。
+
+    BASE 形式 (韓国・中国) は VPD 列を持たないため、飽和水蒸気圧 e_s を
+    Magnus-Tetens (Alduchov & Eskridge 1996) で求め、VPD = e_s·(1−RH/100)。
+    単位 hPa は JapanFlux2024 の VPD_F と一致する。入力欠測は NaN 伝播。
+    """
+    es = 6.1094 * np.exp(17.625 * ta_c / (ta_c + 243.04))   # hPa
+    vpd = es * (1.0 - rh_pct / 100.0)
+    return np.where(np.isfinite(ta_c) & np.isfinite(rh_pct), vpd, np.nan)
 
 
 @dataclass
@@ -142,12 +160,16 @@ def read_corevars_raw(
     gap-fill) 値を NaN 化する（実測寄りデータでの感度解析用）。
     """
     vmap = site.var_map()
-    val_cols = [vmap[v] for v in RK_VARS]
+    # 実在する値列のみ (VPD 導出マーカは実列ではないので除く)。
+    val_cols = [vmap[v] for v in RK_VARS if not vmap[v].startswith("@")]
+    derived_vpd = vmap["VPD"] == VPD_FROM_TA_RH
     header = list(pd.read_csv(path, nrows=0).columns)
     qcmap = (resolve_qc_columns(header, site) if config.qc_max is not None
              else {v: None for v in RK_VARS})
     qc_cols = sorted({c for c in qcmap.values() if c})
     want = set(["TIMESTAMP_START"] + val_cols + qc_cols)
+    if derived_vpd:                     # VPD 導出には TA と RH の実列が要る
+        want |= {vmap["Ta"], BASE_RH_COL}
 
     df = pd.read_csv(path, usecols=lambda c: c in want)
     ts = pd.to_datetime(df["TIMESTAMP_START"].astype("int64").astype(str), format="%Y%m%d%H%M")
@@ -157,7 +179,17 @@ def read_corevars_raw(
 
     out = pd.DataFrame(index=df.index)
     for v in RK_VARS:
-        s = df[vmap[v]]
+        col = vmap[v]
+        if col == VPD_FROM_TA_RH:       # BASE 形式: TA + RH から VPD を導出
+            s = pd.Series(
+                _vpd_from_ta_rh(
+                    df[vmap["Ta"]].to_numpy(dtype=float),
+                    df[BASE_RH_COL].to_numpy(dtype=float),
+                ),
+                index=df.index,
+            )
+        else:
+            s = df[col]
         qc = qcmap[v]
         if config.qc_max is not None and qc is not None:
             s = s.where(df[qc] <= config.qc_max)   # QC>閾値 (or QC欠測) → NaN
