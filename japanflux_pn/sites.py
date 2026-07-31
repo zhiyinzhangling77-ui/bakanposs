@@ -8,7 +8,10 @@ FLUXNET2015 の基本名は共通だが ``TS_F_MDS_1`` / ``SWC_F_MDS_1`` の層�
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
+from functools import lru_cache
+from pathlib import Path
 
 from .config import RK_VARS
 
@@ -143,10 +146,59 @@ SITES: dict[str, SiteSpec] = {
 }
 
 
+# ---------------------------------------------------------------------------
+# ローカルディスクからの自動発見 (/mnt/hdd/JAPANFLUX に大量サイトがある場合)
+# ---------------------------------------------------------------------------
+JAPANFLUX_ROOT = "/mnt/hdd/JAPANFLUX"
+# JapanFlux2024 ファイル名 FLX_<code>_JapanFLUX2024_COREVARS_HH_*.csv から
+# サイトコード (例 "JP-Tak") を取り出す。国コード2文字 + "-" + サイト名。
+_CODE_RE = re.compile(r"FLX_([A-Za-z]{2}-[A-Za-z0-9]+)_", re.IGNORECASE)
+
+
+def _code_from_filename(name: str) -> str | None:
+    m = _CODE_RE.search(name)
+    return m.group(1) if m else None
+
+
+@lru_cache(maxsize=8)
+def discover_japanflux_sites(
+    root: str = JAPANFLUX_ROOT,
+    glob: str = "**/*COREVARS_HH_*.csv",
+) -> dict[str, SiteSpec]:
+    """``root`` 以下を走査し、見つかった COREVARS HH から SiteSpec を組む。
+
+    ファイル名からサイトコードを抽出し、``root`` 直下のフォルダを data_dir に採る。
+    手登録の :data:`SITES` に無いサイトも ``get_site`` から使えるようにする。
+    root が存在しない環境 (このリポジトリのCI等) では空 dict を返す。
+    """
+    root_p = Path(root)
+    found: dict[str, SiteSpec] = {}
+    if not root_p.exists():
+        return found
+    for f in sorted(root_p.glob(glob)):
+        code = _code_from_filename(f.name)
+        if code is None or code in found:
+            continue
+        try:
+            site_root = root_p / f.relative_to(root_p).parts[0]
+        except (ValueError, IndexError):
+            site_root = f.parent
+        found[code] = SiteSpec(
+            code=code, data_dir=str(site_root),
+            description="auto-discovered JapanFlux2024 site",
+        )
+    return found
+
+
 def get_site(code: str) -> SiteSpec:
-    if code not in SITES:
-        raise KeyError(f"unknown site {code!r}; known: {sorted(SITES)}")
-    return SITES[code]
+    """サイトを取得。手登録 :data:`SITES` を優先し、無ければローカル自動発見を試す。"""
+    if code in SITES:
+        return SITES[code]
+    disc = discover_japanflux_sites()
+    if code in disc:
+        return disc[code]
+    known = sorted(set(SITES) | set(disc))
+    raise KeyError(f"unknown site {code!r}; known: {known}")
 
 
 def resolve_qc_columns(header: list[str], site: SiteSpec) -> dict[str, str | None]:
