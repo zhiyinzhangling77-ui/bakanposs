@@ -43,17 +43,29 @@ IGBP_INFO: dict[str, tuple[str, str]] = {
 }
 IGBP_CODES = set(IGBP_INFO)
 
-# BADM 風ファイルを探す glob (JapanFlux2024: DATA/BADM/..., 名称は多様)
-_BADM_GLOBS = ("**/*BADM*.csv", "**/*Site_General*.csv", "**/*BIF*.csv", "**/*.csv")
+# BADM 風ファイルを探す glob (JapanFlux2024: 名称は多様)
+_BADM_GLOBS = ("**/*BADM*.csv", "**/*Site_General*.csv", "**/*BIF*.csv")
 
 
-def _iter_badm_files(data_dir: str) -> list[Path]:
-    root = Path(data_dir)
+def _iter_badm_files(data_dir: str, code: str | None = None) -> list[Path]:
+    """サイトの BADM 風 csv を探す。data_dir 下だけでなく、その親 (JAPANFLUX root)
+    直下の「サイトコードを含む BADM 兄弟フォルダ」も探す。
+
+    自動発見サイトの data_dir は ALLVARS 専用フォルダ
+    (FLX_<code>_JapanFLUX2024_ALLVARS_...) で、BADM は root 直下の別配布フォルダ
+    (FLX_<code>_JapanFLUX2024_BADM_...) にあるため、両方を走査する。
+    """
     seen: list[Path] = []
-    for g in _BADM_GLOBS[:-1]:                 # まず BADM 明示のものを優先
-        for f in sorted(root.glob(g)):
-            if f not in seen:
-                seen.append(f)
+    roots = [Path(data_dir)]
+    if code:                                   # root 直下の <code> を含む兄弟フォルダ
+        parent = Path(data_dir).parent
+        roots += [p for p in sorted(parent.glob(f"*{code}*"))
+                  if p.is_dir() and p != Path(data_dir)]
+    for root in roots:
+        for g in _BADM_GLOBS:
+            for f in sorted(root.glob(g)):
+                if f not in seen:
+                    seen.append(f)
     return seen
 
 
@@ -79,17 +91,37 @@ def _igbp_from_frame(df: pd.DataFrame) -> str | None:
     return None
 
 
-def igbp_for_site(data_dir: str) -> str:
-    """サイトフォルダの BADM 群から IGBP コードを抽出 (見つからねば '?')。"""
-    for f in _iter_badm_files(data_dir):
+def igbp_for_site(data_dir: str, code: str | None = None) -> str:
+    """サイトの BADM 群から IGBP コードを抽出 (見つからねば '?')。"""
+    for f in _iter_badm_files(data_dir, code):
         try:
             df = pd.read_csv(f, header=None, dtype=str, on_bad_lines="skip")
         except Exception:  # noqa: BLE001
             continue
-        code = _igbp_from_frame(df)
-        if code:
-            return code
+        igbp = _igbp_from_frame(df)
+        if igbp:
+            return igbp
     return "?"
+
+
+def dump_badm(data_dir: str, code: str | None = None, max_files: int = 6,
+              max_rows: int = 25) -> None:
+    """診断用: 見つかった BADM ファイルと中身の先頭を表示する。"""
+    files = _iter_badm_files(data_dir, code)
+    print(f"### BADM 探索 (data_dir={data_dir}, code={code})")
+    print(f"  親: {Path(data_dir).parent}")
+    if not files:
+        print("  BADM 風ファイルが見つかりません。root 直下の配布フォルダ名を確認:")
+        for p in sorted(Path(data_dir).parent.glob(f"*{code or ''}*"))[:20]:
+            print(f"    {p.name}")
+        return
+    for f in files[:max_files]:
+        print(f"\n--- {f} ---")
+        try:
+            df = pd.read_csv(f, header=None, dtype=str, on_bad_lines="skip")
+            print(df.head(max_rows).to_string(max_cols=8))
+        except Exception as e:  # noqa: BLE001
+            print(f"  (読めません: {e})")
 
 
 def classify(root: str = JAPANFLUX_ROOT,
@@ -103,7 +135,7 @@ def classify(root: str = JAPANFLUX_ROOT,
         if spec is None:
             rows.append({"site": code, "igbp": "?", "type": "?", "label": "(未登録)"})
             continue
-        igbp = igbp_for_site(spec.data_dir)
+        igbp = igbp_for_site(spec.data_dir, code)
         lab, grp = IGBP_INFO.get(igbp, ("(不明)", "?"))
         rows.append({"site": code, "igbp": igbp, "type": grp, "label": lab})
     return pd.DataFrame(rows)
@@ -131,7 +163,17 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--root", default=JAPANFLUX_ROOT)
     p.add_argument("--sites", nargs="+", default=None)
     p.add_argument("--csv", default=None)
+    p.add_argument("--dump", default=None,
+                   help="診断: 指定サイトの BADM ファイルと中身を表示")
     args = p.parse_args(argv)
+    if args.dump:
+        from .rank_sites import _resolve_sites
+        spec = _resolve_sites(args.root).get(args.dump)
+        if spec is None:
+            print(f"unknown site {args.dump!r}")
+        else:
+            dump_badm(spec.data_dir, args.dump)
+        return
     report(args.root, args.sites, args.csv)
 
 
