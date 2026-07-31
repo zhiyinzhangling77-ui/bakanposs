@@ -229,8 +229,38 @@ def fig_oinfo_ci():
     fig.savefig(OUT/"fig5b_oinfo_ci.png"); plt.close(fig)
 
 
+# ---------------------------------------------------------------------------
+# Fig 5c (honest, 2 forests): belowground synergy in two subsystems x four sites
+# ---------------------------------------------------------------------------
+def fig_oinfo_twosub():
+    sites = ["Deciduous\nforest\n(JP-Tak)", "Evergreen\nforest\n(JP-Ta2)",
+             "Rice paddy\n(JP-Mse)", "Bog\n(JP-BBY)"]
+    # fraction of years synergistic (%)
+    resp = [19/21*100, 6/11*100, 0/8*100, 1/5*100]      # {Rg,Ta,θ,GER}
+    soil = [11/21*100, 10/11*100, 0/8*100, 1/5*100]     # {Ta,Ts,θ,GER}
+    x = np.arange(4); w = 0.38
+    fig, ax = plt.subplots(figsize=(8.4, 5.4))
+    ax.bar(x-w/2, resp, w, label="Respiration control  {Rg,Ta,θ,GER}", color=BLUE)
+    ax.bar(x+w/2, soil, w, label="Soil–thermal  {Ta,Ts,θ,GER}", color=ORANGE)
+    ax.axhline(50, color=GREY, ls=":", lw=1)
+    ax.axvspan(-0.5, 1.5, color="#eaf5ea", zorder=0)   # forests
+    ax.axvspan(1.5, 3.5, color="#f7ecec", zorder=0)    # managed / bog
+    ax.text(0.5, 104, "Natural forests", ha="center", color=GREEN,
+            fontsize=12, fontweight="bold")
+    ax.text(2.5, 104, "Managed paddy / bog", ha="center", color=RED,
+            fontsize=12, fontweight="bold")
+    ax.set_xticks(x); ax.set_xticklabels(sites, fontsize=10)
+    ax.set_ylabel("Years showing higher-order synergy  (%)")
+    ax.set_ylim(0, 116)
+    ax.set_title("Belowground synergy: present in BOTH natural forests\n"
+                 "(different subsystem each), absent in managed paddy", fontsize=14)
+    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.14), ncol=2,
+              fontsize=10.5, frameon=False)
+    fig.savefig(OUT/"fig5c_two_forests.png"); plt.close(fig)
+
+
 if __name__ == "__main__":
     fig_climate(); fig_pid(); fig_skeleton(); fig_robustness(); fig_oinfo()
-    fig_conditioning(); fig_oinfo_ci()
+    fig_conditioning(); fig_oinfo_ci(); fig_oinfo_twosub()
     for p in sorted(OUT.glob("*.png")):
         print(f"[fig] {p}  ({p.stat().st_size//1024} KB)")

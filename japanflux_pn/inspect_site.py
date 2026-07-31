@@ -24,8 +24,10 @@ import numpy as np
 import pandas as pd
 
 from .config import AnalysisConfig, RK_VARS
-from .sites import SiteSpec, DEFAULT_VAR_MAP, get_site
-from .preprocess import find_corevars_files, compute_anomaly, _regular_grid
+from .sites import BASE_RH_COL, SiteSpec, DEFAULT_VAR_MAP, VPD_FROM_TA_RH, get_site
+from .preprocess import (
+    find_corevars_files, compute_anomaly, _regular_grid, _vpd_from_ta_rh,
+)
 
 
 # 欠けた変数の override 候補を探すためのプレフィックス (FLUXNET2015 命名)
@@ -59,10 +61,12 @@ def check_mapping(header: list[str], site: SiteSpec) -> tuple[dict, dict]:
     """R&K 変数ごとに (present) と、欠けたものの候補列を返す。"""
     hset = set(header)
     vmap = site.var_map()
-    present = {v: vmap[v] for v in RK_VARS if vmap[v] in hset}
+    # 導出変数 (VPD@BASE) は TA+RH が揃えば「present」扱い。
+    present = {v: vmap[v] for v in RK_VARS
+               if vmap[v] in hset or vmap[v].startswith("@")}
     missing = {}
     for v in RK_VARS:
-        if vmap[v] in hset:
+        if vmap[v] in hset or vmap[v].startswith("@"):
             continue
         cands = sorted(
             c for c in header
@@ -97,10 +101,18 @@ def year_scan(
 ) -> pd.DataFrame:
     """年 × 月ごとに前処理後の有効点数と各変数の生欠測率を集計する。"""
     vmap = site.var_map()
-    real_cols = [vmap[v] for v in RK_VARS]
+    derived_vpd = vmap["VPD"] == VPD_FROM_TA_RH
+    real_cols = [vmap[v] for v in RK_VARS if not vmap[v].startswith("@")]
+    if derived_vpd:                     # VPD 導出のため RH も読む
+        real_cols = real_cols + [BASE_RH_COL]
     files = find_corevars_files(site)
     raw_real = _load_tolerant(files, real_cols, config.na_sentinel)
-    # 実カラム名 → R&K 表記へ (存在する列のみ)
+    if derived_vpd and vmap["Ta"] in raw_real.columns and BASE_RH_COL in raw_real.columns:
+        raw_real[vmap["VPD"]] = _vpd_from_ta_rh(
+            raw_real[vmap["Ta"]].to_numpy(dtype=float),
+            raw_real[BASE_RH_COL].to_numpy(dtype=float),
+        )
+    # 実カラム名 → R&K 表記へ (存在する列のみ; VPD マーカも含む)
     inv = {vmap[v]: v for v in RK_VARS if vmap[v] in raw_real.columns}
     raw = raw_real.rename(columns=inv)
     for v in RK_VARS:  # 欠けた変数は全 NaN 列として補い、listwise を厳密化
