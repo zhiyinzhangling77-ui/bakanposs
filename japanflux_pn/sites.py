@@ -80,6 +80,12 @@ _FORMAT_MAPS: dict[str, dict[str, str]] = {
     "base": DEFAULT_VAR_MAP_BASE,
 }
 
+# データソース名 → HH ファイル glob。SiteSpec.source で選択する。
+_SOURCE_GLOBS: dict[str, str] = {
+    "ALLVARS": "**/*ALLVARS_HH_*.csv",
+    "COREVARS": "**/*COREVARS_HH_*.csv",
+}
+
 
 @dataclass(frozen=True)
 class SiteSpec:
@@ -87,15 +93,26 @@ class SiteSpec:
 
     code: str                        # 例 "JP-Tak"
     data_dir: str                    # サイトのルート (配布 ID サブフォルダを内包)
-    # 30 分値ファイルの glob。JapanFlux2024 は
-    #   <root>/<配布ID>/DATA/COREVARS/FLX_<code>_JapanFLUX2024_COREVARS_HH_*.csv
-    # のように配布 ID フォルダが挟まるため、ルートから再帰的に探す (** を使用)。
-    # BASE 形式 (韓国・中国) は AMF_<code>_BASE_HH_*.csv 等。
-    corevars_hh_glob: str = "**/*COREVARS_HH_*.csv"
+    # データソース: "ALLVARS" (既定, 全変数・上位互換) / "COREVARS" (代表列のみ)。
+    # JapanFlux2024 は R&K の 11 変数について両者で同じ参照列名・同じ結果になるが、
+    # ALLVARS は NT/DT 分割・土壌の深さ別・u* 閾値の選択肢を残すため既定に採る。
+    source: str = "ALLVARS"
+    # 30 分値ファイルの glob を明示したい場合に指定 (None なら source から導出)。
+    # JapanFlux2024 は <root>/<配布ID>/DATA/<SOURCE>/FLX_<code>_JapanFLUX2024_
+    # <SOURCE>_HH_*.csv のように配布 ID フォルダが挟まるため ** で再帰探索する。
+    # BASE 形式 (韓国・中国) は AMF_<code>_BASE_HH_*.csv 等を明示する。
+    hh_glob: str | None = None
     # データ規約: "japanflux" (既定, FLUXNET2015 名) / "base" (AmeriFlux/ICOS/KoFlux)。
     fmt: str = "japanflux"
     var_overrides: dict[str, str] = field(default_factory=dict)
     description: str = ""
+
+    @property
+    def glob(self) -> str:
+        """HH ファイル探索 glob。明示指定を優先し、無ければ source から導出。"""
+        if self.hh_glob:
+            return self.hh_glob
+        return _SOURCE_GLOBS.get(self.source, _SOURCE_GLOBS["ALLVARS"])
 
     def var_map(self) -> dict[str, str]:
         """R&K 表記 → 実カラム名。形式ごとの既定に上書きを適用したもの。"""
@@ -133,13 +150,13 @@ SITES: dict[str, SiteSpec] = {
     ),
     # --- A3 (日中韓) 拡張テンプレート ---------------------------------------
     # AmeriFlux/ICOS/KoFlux BASE 形式 (30 分値, `_1_1_1` 位置修飾子)。
-    # 使い方: data_dir を実データのルートに、corevars_hh_glob を実ファイル名に
+    # 使い方: data_dir を実データのルートに、hh_glob を実ファイル名に
     # 合わせて変更 (または新エントリを複製) してから inspect_site を実行する。
     # VPD は TA+RH から自動導出、QC は _SSITC_TEST_ を使う。
     "A3-base": SiteSpec(
         code="A3-base",
-        data_dir="/mnt/hdd/A3/SITE",          # ← 実パスに変更
-        corevars_hh_glob="**/*BASE_HH_*.csv",  # ← 実ファイル名に合わせる
+        data_dir="/mnt/hdd/A3/SITE",     # ← 実パスに変更
+        hh_glob="**/*BASE_HH_*.csv",     # ← 実ファイル名に合わせる
         fmt="base",
         description="A3 (Korea/China) BASE-format 30-min site — edit data_dir/glob",
     ),
@@ -163,9 +180,9 @@ def _code_from_filename(name: str) -> str | None:
 @lru_cache(maxsize=8)
 def discover_japanflux_sites(
     root: str = JAPANFLUX_ROOT,
-    glob: str = "**/*COREVARS_HH_*.csv",
+    glob: str = "**/*ALLVARS_HH_*.csv",
 ) -> dict[str, SiteSpec]:
-    """``root`` 以下を走査し、見つかった COREVARS HH から SiteSpec を組む。
+    """``root`` 以下を走査し、見つかった ALLVARS HH から SiteSpec を組む。
 
     ファイル名からサイトコードを抽出し、``root`` 直下のフォルダを data_dir に採る。
     手登録の :data:`SITES` に無いサイトも ``get_site`` から使えるようにする。

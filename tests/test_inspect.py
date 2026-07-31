@@ -33,7 +33,7 @@ def good_site(tmp_path):
     d.mkdir()
     cols = [DEFAULT_VAR_MAP[v] for v in RK_VARS]
     for yr in (2003, 2004):
-        _write_fluxnet_csv(d / f"JP-TEST_COREVARS_HH_{yr}-{yr}.csv", cols, yr, seed=yr)
+        _write_fluxnet_csv(d / f"JP-TEST_ALLVARS_HH_{yr}-{yr}.csv", cols, yr, seed=yr)
     return SiteSpec(code="JP-TEST", data_dir=str(d))
 
 
@@ -59,7 +59,7 @@ def test_missing_column_suggests_candidate(tmp_path):
     d = tmp_path / "JP-ALT"
     d.mkdir()
     cols = [DEFAULT_VAR_MAP[v] for v in RK_VARS if v != "Ts"] + ["TS_F_MDS_2"]
-    _write_fluxnet_csv(d / "JP-ALT_COREVARS_HH_2010-2010.csv", cols, 2010)
+    _write_fluxnet_csv(d / "JP-ALT_ALLVARS_HH_2010-2010.csv", cols, 2010)
     site = SiteSpec(code="JP-ALT", data_dir=str(d))
     header = insp._read_header(insp.find_corevars_files(site)[0])
     present, missing = insp.check_mapping(header, site)

@@ -198,12 +198,12 @@ def read_corevars_raw(
 
 
 def find_corevars_files(site: SiteSpec) -> list[Path]:
-    """サイトの COREVARS HH ファイル一覧 (ソート済み)。無ければ例外。"""
-    files = sorted(Path(site.data_dir).glob(site.corevars_hh_glob))
+    """サイトの HH ファイル一覧 (ソート済み, 既定は ALLVARS)。無ければ例外。"""
+    files = sorted(Path(site.data_dir).glob(site.glob))
     if not files:
         raise FileNotFoundError(
-            f"no COREVARS HH file under {site.data_dir!r} "
-            f"matching {site.corevars_hh_glob!r}"
+            f"no {site.source} HH file under {site.data_dir!r} "
+            f"matching {site.glob!r}"
         )
     return files
 
