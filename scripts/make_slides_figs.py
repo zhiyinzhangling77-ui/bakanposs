@@ -195,8 +195,42 @@ def fig_conditioning():
     fig.savefig(OUT/"fig2b_conditioning.png"); plt.close(fig)
 
 
+# ---------------------------------------------------------------------------
+# Fig 5b (honest): fraction of years synergistic + Wilson 95% CI (shows sample size)
+# ---------------------------------------------------------------------------
+def _wilson(k, n, z=1.96):
+    if n == 0:
+        return 0.0, 0.0, 1.0
+    p = k / n
+    c = (k + z*z/2) / (n + z*z)
+    h = z/(n+z*z) * np.sqrt(k*(n-k)/n + z*z/4)
+    return p, max(0, c-h), min(1, c+h)
+
+
+def fig_oinfo_ci():
+    data = [("Forest\n(JP-Tak)", 19, 21, GREEN),
+            ("Rice paddy\n(JP-Mse)", 0, 8, RED),
+            ("Bog\n(JP-BBY)", 1, 5, GREY)]
+    fig, ax = plt.subplots(figsize=(7.2, 5.4))
+    for i, (name, k, n, col) in enumerate(data):
+        p, lo, hi = _wilson(k, n)
+        ax.bar(i, p*100, color=col, width=0.6, zorder=2)
+        ax.errorbar(i, p*100, yerr=[[ (p-lo)*100 ],[ (hi-p)*100 ]], fmt="none",
+                    ecolor="#333", capsize=8, lw=1.8, zorder=3)
+        ax.text(i, hi*100+3, f"{k}/{n} yr", ha="center", fontsize=12,
+                fontweight="bold")
+    ax.set_xticks(range(3)); ax.set_xticklabels([d[0] for d in data])
+    ax.set_ylabel("Years showing higher-order synergy  (%)\n"
+                  "in the soil–respiration system")
+    ax.set_ylim(0, 112)
+    ax.set_title("Synergy: consistent in forest, absent in paddy\n"
+                 "(whiskers = 95% CI; wide when few years)", fontsize=14)
+    ax.axhline(50, color=GREY, ls=":", lw=1)
+    fig.savefig(OUT/"fig5b_oinfo_ci.png"); plt.close(fig)
+
+
 if __name__ == "__main__":
     fig_climate(); fig_pid(); fig_skeleton(); fig_robustness(); fig_oinfo()
-    fig_conditioning()
+    fig_conditioning(); fig_oinfo_ci()
     for p in sorted(OUT.glob("*.png")):
         print(f"[fig] {p}  ({p.stat().st_size//1024} KB)")
