@@ -66,13 +66,13 @@ def o_information_subsystems(pre: PreprocessResult, obins: int = OINFO_BINS_DEFA
 def scan_years(site: str, obins: int = OINFO_BINS_DEFAULT,
                config: AnalysisConfig | None = None) -> pd.DataFrame:
     """健全全年で各サブシステムの O-info z を計算 (相乗崩壊の年々安定性の検証)。"""
-    from .run_robustness import SITE_YEARS
+    from .run_robustness import get_site_years
     from .sites import get_site
     from .preprocess import (load_raw_all, slice_and_anomaly,
                              slice_span_and_anomaly, PreprocessResult)
 
     config = config or AnalysisConfig()
-    years, months = SITE_YEARS[site]
+    years, months = get_site_years(site)
     raw_all = load_raw_all(get_site(site), config)
     rows = []
     for y in years:

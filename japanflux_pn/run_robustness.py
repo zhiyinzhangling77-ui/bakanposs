@@ -44,6 +44,34 @@ SITE_YEARS: dict[str, tuple[list[int], list[int]]] = {
     "MN-Kbu": ([2003, 2004, 2005, 2006, 2007], [7, 8]),
 }
 
+_AUTO_YEARS_CACHE: dict[tuple[str, tuple[int, ...]], tuple[list[int], list[int]]] = {}
+
+
+def get_site_years(site: str, months: list[int] | None = None
+                   ) -> tuple[list[int], list[int]]:
+    """解析対象年を返す。手登録 :data:`SITE_YEARS` を優先し、無ければ自動検出。
+
+    自動検出はデータの観測期間（ファイルの TIMESTAMP 範囲）から全年を採り、months は
+    既定 [7,8]。有効点数 <500 の疎な年は各ドライバが自動スキップするので、範囲を広めに
+    採ってよい（JP-Ta2 で確立した方針を全 11/11 サイトへ一般化）。これで rank_sites が
+    示した 31 サイトを手登録なしで robustness / oinfo / climate に流せる。
+    """
+    if site in SITE_YEARS:
+        return SITE_YEARS[site]
+    months = list(months) if months else [7, 8]
+    key = (site, tuple(months))
+    if key in _AUTO_YEARS_CACHE:
+        return _AUTO_YEARS_CACHE[key]
+    from .sites import get_site
+    from .preprocess import find_corevars_files
+    from . import inspect_site as insp
+    files = find_corevars_files(get_site(site))
+    lo, _ = insp._timestamp_span(files[0])
+    _, hi = insp._timestamp_span(files[-1])
+    res = (list(range(lo.year, hi.year + 1)), months)
+    _AUTO_YEARS_CACHE[key] = res
+    return res
+
 
 def collect_links_for_years(
     site: str, years: list[int], months: list[int], test: str,
@@ -128,7 +156,7 @@ def report(site: str, test: str = "parcorr", tau_max: int = 6, pc_alpha: float =
            config: AnalysisConfig | None = None,
            outroot: str | Path | None = None) -> pd.DataFrame:
     config = config or AnalysisConfig()
-    years, months = SITE_YEARS[site]
+    years, months = get_site_years(site)
     print(f"===== {site} 複数年ロバスト性 (test={test}, tau_max={tau_max}) =====")
     print(f"  候補年 {years[0]}–{years[-1]} ({len(years)} 年), months={months}\n", flush=True)
 
@@ -165,7 +193,8 @@ def report(site: str, test: str = "parcorr", tau_max: int = 6, pc_alpha: float =
 
 def main(argv: list[str] | None = None) -> None:
     p = argparse.ArgumentParser(description="複数年ロバスト性 (因果リンクの年々一貫性)")
-    p.add_argument("--site", required=True, choices=list(SITE_YEARS))
+    p.add_argument("--site", required=True,
+                   help="サイトコード (手登録外でも 11/11 なら自動で健全年検出)")
     p.add_argument("--test", default="parcorr", choices=["parcorr", "cmiknn"])
     p.add_argument("--tau-max", type=int, default=6)
     p.add_argument("--pc-alpha", type=float, default=0.01)
