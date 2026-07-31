@@ -157,7 +157,7 @@ def report(site_code: str, months: list[int], years: list[int] | None,
     print(f"### data_dir: {site.data_dir}\n")
 
     files = find_corevars_files(site)
-    print(f"[files] {len(files)} COREVARS HH file(s):")
+    print(f"[files] {len(files)} {site.source} HH file(s):")
     for f in files:
         try:
             lo, hi = _timestamp_span(f)
