@@ -74,10 +74,33 @@ BASE_QC_MAP: dict[str, str | None] = {
     "GEP": "FC_SSITC_TEST_1_1_1",
 }
 
+# --- A3 拡張: ChinaFlux 形式 (65 サイト・30 分 HH xlsx) -------------------------
+# 列名は独自 (DR/Ta_above/NEP_sc/ER_DT…)、時刻は Year/Month/Day/hour/min の 5 列、
+# ヘッダ行の次に「単位行」がある (自動スキップ)。gap-fill 済みの storage-corrected 値
+# (_sc) を採る。NEP=−NEE の符号逆・炭素の単位 (mg CO2/m^2/s) は、情報量が単調変換・
+# 符号反転・単位に不変なので解析結果に影響しない。ER_DT/GPP_DT は大文字/小文字が
+# サイトで揺れる (ER_dt 等) ため、reader 側で大小無視して解決する。
+CHINAFLUX_TIME_COLS = ["Year", "Month", "Day", "hour", "min"]
+
+DEFAULT_VAR_MAP_CHINAFLUX: dict[str, str] = {
+    "Rg":  "DR",         # 下向き短波放射
+    "Ta":  "Ta_above",   # 林冠上の気温
+    "VPD": "VPD",
+    "Ts":  "Ts",         # 地温
+    "P":   "Rain",       # 降水 ("P" は気圧なので使わない)
+    "th":  "SW1",        # 浅層土壌水分
+    "gH":  "H_sc",       # 顕熱 (貯熱補正)
+    "gLE": "LE_sc",      # 潜熱 (貯熱補正)
+    "GER": "ER_DT",      # 生態系呼吸 (昼分割; ER_dt も許容)
+    "NEE": "NEP_sc",     # NEP = −NEE (符号逆; 情報量に不変)
+    "GEP": "GPP_DT",     # 総一次生産 (昼分割; GPP_dt も許容)
+}
+
 # 形式名 → 既定 var_map。SiteSpec.fmt で選択する。
 _FORMAT_MAPS: dict[str, dict[str, str]] = {
     "japanflux": DEFAULT_VAR_MAP,
     "base": DEFAULT_VAR_MAP_BASE,
+    "chinaflux": DEFAULT_VAR_MAP_CHINAFLUX,
 }
 
 # データソース名 → HH ファイル glob。SiteSpec.source で選択する。
@@ -207,6 +230,34 @@ def discover_japanflux_sites(
     return found
 
 
+CHINAFLUX_ROOT = "/mnt/hdd/ChinaFlux"
+
+
+@lru_cache(maxsize=8)
+def discover_chinaflux_sites(root: str = CHINAFLUX_ROOT) -> dict[str, SiteSpec]:
+    """ChinaFlux ルート直下の各サイトフォルダを ChinaFlux 形式サイトとして登録する。
+
+    <root>/<CN-XXX>/<生態系名>/<年>/XXX_YYYY_HH_ALL.xlsx。data_dir はサイトフォルダ、
+    30 分 HH は ``**/*_HH_ALL.xlsx`` で再帰探索。生態系名フォルダから粗いタイプも拾える。
+    """
+    root_p = Path(root)
+    found: dict[str, SiteSpec] = {}
+    if not root_p.exists():
+        return found
+    for d in sorted(p for p in root_p.iterdir() if p.is_dir()):
+        code = d.name                         # 例 "CN-AaG"
+        eco = ""
+        subs = [s for s in d.iterdir() if s.is_dir()]
+        if subs:
+            eco = subs[0].name                # 例 "Ansai_grassland"
+        found[code] = SiteSpec(
+            code=code, data_dir=str(d), fmt="chinaflux",
+            hh_glob="**/*_HH_ALL.xlsx",
+            description=f"ChinaFlux site ({eco})" if eco else "ChinaFlux site",
+        )
+    return found
+
+
 def get_site(code: str) -> SiteSpec:
     """サイトを取得。手登録 :data:`SITES` を優先し、無ければローカル自動発見を試す。"""
     if code in SITES:
@@ -214,7 +265,10 @@ def get_site(code: str) -> SiteSpec:
     disc = discover_japanflux_sites()
     if code in disc:
         return disc[code]
-    known = sorted(set(SITES) | set(disc))
+    cn = discover_chinaflux_sites()
+    if code in cn:
+        return cn[code]
+    known = sorted(set(SITES) | set(disc) | set(cn))
     raise KeyError(f"unknown site {code!r}; known: {known}")
 
 
