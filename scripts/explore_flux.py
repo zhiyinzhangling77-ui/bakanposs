@@ -77,8 +77,37 @@ def _sample_leaf_dirs(root: Path, n: int = 2) -> None:
 
 
 def _find_csvs(root: Path, limit: int = 30) -> list[Path]:
-    """表形式らしきファイル（拡張子問わず tabular 拡張子）を集める。"""
-    return sorted(p for p in _all_files(root) if p.suffix.lower() in _TABULAR_EXT)
+    """表形式らしきファイル（tabular 拡張子 + xlsx）を集める。"""
+    exts = _TABULAR_EXT + (".xlsx", ".xls")
+    return sorted(p for p in _all_files(root) if p.suffix.lower() in exts)
+
+
+def _read_header_rows(path: Path, n_rows: int = 4) -> list[list[str]]:
+    """csv/txt/xlsx から先頭数行を「セルのリスト」で返す（区切り自動判定）。"""
+    if path.suffix.lower() in (".xlsx", ".xls"):
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+            ws = wb[wb.sheetnames[0]]
+            rows = []
+            for i, row in enumerate(ws.iter_rows(values_only=True)):
+                rows.append(["" if v is None else str(v) for v in row])
+                if i + 1 >= n_rows:
+                    break
+            wb.close()
+            return rows
+        except Exception as e:  # noqa: BLE001
+            return [[f"(xlsx 読めません: {e})"]]
+    # テキスト系
+    try:
+        with open(path, "r", errors="replace") as f:
+            lines = [f.readline().rstrip("\n") for _ in range(n_rows)]
+    except OSError as e:
+        return [[f"(読めません: {e})"]]
+    for sep in (",", "\t", ";"):
+        if len(lines[0].split(sep)) > 3:
+            return [ln.split(sep) for ln in lines if ln]
+    return [[lines[0]]]
 
 
 def _guess_format(header: list[str]) -> str:
@@ -145,19 +174,28 @@ def explore(root_str: str, max_headers: int = 5) -> None:
     _sample_leaf_dirs(root, n=3)       # ← 末端フォルダの実ファイルを覗く
 
     csvs = _find_csvs(root)
-    print(f"\n[表形式(.csv/.txt/.dat/.tsv) ファイル] {len(csvs)} 件（先頭のみ表示）")
-    for p in csvs[:30]:
+    print(f"\n[表形式(.csv/.txt/.dat/.tsv/.xlsx) ファイル] {len(csvs)} 件（先頭のみ表示）")
+    for p in csvs[:20]:
         try:
             rel = p.relative_to(root)
         except ValueError:
             rel = p
         print(f"  {rel}")
 
-    # 代表ヘッダ: 親フォルダ or 名前パターンが異なるものを優先して数個
+    # 代表ヘッダ: 30分値(HH) と 水田(CRK/paddy/rice) を優先しつつ、名前パターンが
+    # 異なるものを数個。
+    def _priority(p: Path) -> tuple:
+        nm = p.name.upper()
+        is_hh = ("HH" in nm) or ("_HH_" in nm)
+        is_paddy = any(k in nm for k in ("CRK", "PADDY", "RICE"))
+        is_all = "ALL" in nm and "LITE" not in nm
+        return (not is_paddy, not is_hh, not is_all, str(p))
+
+    ordered = sorted(csvs, key=_priority)
     seen_keys = set()
     picked = []
-    for p in csvs:
-        key = (p.parent.name, p.name.split("_")[0])
+    for p in ordered:
+        key = (p.parent.parent.name, "HH" in p.name.upper())
         if key not in seen_keys:
             seen_keys.add(key)
             picked.append(p)
@@ -166,18 +204,12 @@ def explore(root_str: str, max_headers: int = 5) -> None:
 
     for p in picked:
         print(f"\n--- ヘッダ: {p} ---")
-        try:
-            with open(p, "r", errors="replace") as f:
-                first = f.readline().rstrip("\n")
-        except OSError as e:
-            print(f"  (読めません: {e})")
-            continue
-        for sep in (",", "\t", ";"):
-            cols = first.split(sep)
-            if len(cols) > 3:
-                break
-        print(f"  区切り='{sep}'  列数={len(cols)}")
-        print(f"  列: {cols[:40]}")
+        rows = _read_header_rows(p, n_rows=4)
+        cols = rows[0] if rows else []
+        print(f"  列数={len(cols)}")
+        print(f"  列: {cols[:50]}")
+        if len(rows) > 1:
+            print(f"  2行目(単位/値?): {rows[1][:50]}")
         print(f"  推定フォーマット: {_guess_format(cols)}")
         print(f"  推定解像度: {_guess_resolution(cols, p)}")
         print("  R&K 11 変数への対応候補:")
