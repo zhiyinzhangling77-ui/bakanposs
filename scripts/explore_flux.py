@@ -33,14 +33,52 @@ def _list_dir(root: Path, limit: int = 40) -> None:
         print(f"  … 他 {len(entries)-limit} 件")
 
 
-def _find_csvs(root: Path, limit: int = 30) -> list[Path]:
-    csvs = []
+_TABULAR_EXT = (".csv", ".txt", ".dat", ".tsv")
+
+
+def _all_files(root: Path, cap: int = 5000) -> list[Path]:
+    out = []
     for p in root.rglob("*"):
-        if p.is_file() and p.suffix.lower() in (".csv", ".txt", ".dat"):
-            csvs.append(p)
-            if len(csvs) >= limit * 4:      # 走査を早めに打ち切り
+        if p.is_file():
+            out.append(p)
+            if len(out) >= cap:
                 break
-    return sorted(csvs)
+    return out
+
+
+def _ext_histogram(files: list[Path]) -> None:
+    from collections import Counter
+    c = Counter((p.suffix.lower() or "(拡張子なし)") for p in files)
+    print(f"\n[拡張子の内訳] 総ファイル {len(files)} 件")
+    for ext, n in c.most_common(15):
+        print(f"  {ext:<14} {n:>5}")
+
+
+def _sample_leaf_dirs(root: Path, n: int = 2) -> None:
+    """代表的な末端フォルダの中身を数個ずつ表示（実データの置き方を見る）。"""
+    subdirs = [p for p in sorted(root.rglob("*")) if p.is_dir()]
+    shown = 0
+    for d in subdirs:
+        files = [p for p in sorted(d.iterdir()) if p.is_file()]
+        if not files:
+            continue
+        print(f"\n  [フォルダ] {d}")
+        for p in files[:8]:
+            try:
+                size = f"{p.stat().st_size/1e6:6.1f}MB"
+            except OSError:
+                size = ""
+            print(f"     {size:>9}  {p.name}")
+        if len(files) > 8:
+            print(f"     … 他 {len(files)-8} 件")
+        shown += 1
+        if shown >= n:
+            break
+
+
+def _find_csvs(root: Path, limit: int = 30) -> list[Path]:
+    """表形式らしきファイル（拡張子問わず tabular 拡張子）を集める。"""
+    return sorted(p for p in _all_files(root) if p.suffix.lower() in _TABULAR_EXT)
 
 
 def _guess_format(header: list[str]) -> str:
@@ -102,8 +140,12 @@ def explore(root_str: str, max_headers: int = 5) -> None:
     print("=" * 70)
     _list_dir(root)
 
+    allf = _all_files(root)
+    _ext_histogram(allf)               # ← どんな拡張子で入っているか
+    _sample_leaf_dirs(root, n=3)       # ← 末端フォルダの実ファイルを覗く
+
     csvs = _find_csvs(root)
-    print(f"\n[csv/txt/dat ファイル] {len(csvs)} 件（先頭のみ表示）")
+    print(f"\n[表形式(.csv/.txt/.dat/.tsv) ファイル] {len(csvs)} 件（先頭のみ表示）")
     for p in csvs[:30]:
         try:
             rel = p.relative_to(root)
