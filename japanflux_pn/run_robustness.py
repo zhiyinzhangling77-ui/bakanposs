@@ -62,13 +62,26 @@ def get_site_years(site: str, months: list[int] | None = None
     key = (site, tuple(months))
     if key in _AUTO_YEARS_CACHE:
         return _AUTO_YEARS_CACHE[key]
+    import re
     from .sites import get_site
     from .preprocess import find_corevars_files
     from . import inspect_site as insp
-    files = find_corevars_files(get_site(site))
-    lo, _ = insp._timestamp_span(files[0])
-    _, hi = insp._timestamp_span(files[-1])
-    res = (list(range(lo.year, hi.year + 1)), months)
+    spec = get_site(site)
+    files = find_corevars_files(spec)
+    if spec.fmt == "chinaflux":
+        # ChinaFlux は年ごとに別ファイル。ファイルパスの 4 桁年を採る (xlsx は
+        # TIMESTAMP を軽く読めないため)。1990–2035 の範囲の数字を年とみなす。
+        yrs = set()
+        for f in files:
+            for m in re.findall(r"((?:19|20)\d{2})", f.name):
+                y = int(m)
+                if 1990 <= y <= 2035:
+                    yrs.add(y)
+        res = (sorted(yrs) or list(range(1990, 2025)), months)
+    else:
+        lo, _ = insp._timestamp_span(files[0])
+        _, hi = insp._timestamp_span(files[-1])
+        res = (list(range(lo.year, hi.year + 1)), months)
     _AUTO_YEARS_CACHE[key] = res
     return res
 

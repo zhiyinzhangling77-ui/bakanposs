@@ -19,6 +19,7 @@ import pandas as pd
 from .config import AnalysisConfig, RK_VARS
 from .sites import (
     BASE_RH_COL,
+    CHINAFLUX_TIME_COLS,
     SiteSpec,
     VPD_FROM_TA_RH,
     get_site,
@@ -197,9 +198,74 @@ def read_corevars_raw(
     return out[RK_VARS]
 
 
+def read_chinaflux_raw(
+    path: str | Path, site: SiteSpec, config: AnalysisConfig
+) -> pd.DataFrame:
+    """ChinaFlux の 30 分 HH xlsx を読み、RK_VARS 列の生 DataFrame にする。
+
+    ChinaFlux 特有の扱い:
+      - 時刻は Year/Month/Day/hour/min の 5 列から合成 (:data:`CHINAFLUX_TIME_COLS`)。
+      - ヘッダ行の直後に「単位行」があるので、Year が整数化できない行はスキップ。
+      - 列名は大小が揺れる (ER_DT / ER_dt) ため大小無視で解決する。
+      - 欠測は複数のセンチネル (-9999 / -99999 / -6999) を採るため、-6999 以下を NaN 化。
+    情報量は単調変換・符号反転・単位に不変なので、NEP=−NEE・mg CO2 単位は変換しない。
+    """
+    import openpyxl
+
+    vmap = site.var_map()
+    wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+    ws = wb[wb.sheetnames[0]]
+    it = ws.iter_rows(values_only=True)
+    header = [("" if c is None else str(c)) for c in next(it)]
+    low = {h.lower(): i for i, h in enumerate(header)}
+
+    def _idx(name: str) -> int:
+        if name in header:
+            return header.index(name)
+        if name.lower() in low:
+            return low[name.lower()]
+        raise KeyError(f"column {name!r} not in ChinaFlux header of {Path(path).name}")
+
+    t_idx = [_idx(c) for c in CHINAFLUX_TIME_COLS]
+    v_idx = {v: _idx(vmap[v]) for v in RK_VARS}
+
+    times: list[pd.Timestamp] = []
+    cols: dict[str, list[float]] = {v: [] for v in RK_VARS}
+    for row in it:
+        try:                                   # 単位行・空行を弾く (Year が整数でない)
+            y = int(float(row[t_idx[0]]))
+            mo = int(float(row[t_idx[1]])); d = int(float(row[t_idx[2]]))
+            hh = int(float(row[t_idx[3]])); mi = int(float(row[t_idx[4]]))
+            ts = pd.Timestamp(year=y, month=mo, day=d, hour=hh, minute=mi)
+        except (TypeError, ValueError):
+            continue
+        times.append(ts)
+        for v in RK_VARS:
+            try:
+                cols[v].append(float(row[v_idx[v]]))
+            except (TypeError, ValueError):
+                cols[v].append(np.nan)
+    wb.close()
+
+    out = pd.DataFrame(cols, index=pd.DatetimeIndex(times))
+    out = out[~out.index.duplicated(keep="first")].sort_index()
+    out = out.mask(out <= -6999.0)             # 複数センチネルをまとめて NaN 化
+    return out[RK_VARS]
+
+
+def read_site_raw(
+    path: str | Path, site: SiteSpec, config: AnalysisConfig
+) -> pd.DataFrame:
+    """サイトの形式に応じて 1 ファイルを読み分けるディスパッチャ。"""
+    if site.fmt == "chinaflux":
+        return read_chinaflux_raw(path, site, config)
+    return read_corevars_raw(path, site, config)   # japanflux / base (csv)
+
+
 def find_corevars_files(site: SiteSpec) -> list[Path]:
     """サイトの HH ファイル一覧 (ソート済み, 既定は ALLVARS)。無ければ例外。"""
-    files = sorted(Path(site.data_dir).glob(site.glob))
+    files = sorted(f for f in Path(site.data_dir).glob(site.glob)
+                   if not f.name.startswith("~$"))   # Excel 一時ファイルを除外
     if not files:
         raise FileNotFoundError(
             f"no {site.source} HH file under {site.data_dir!r} "
@@ -215,7 +281,7 @@ def load_raw_all(site: SiteSpec, config: AnalysisConfig) -> pd.DataFrame:
     繰り返し使うため読み込みを 1 回に集約する用途。
     """
     files = find_corevars_files(site)
-    raw_all = pd.concat([read_corevars_raw(f, site, config) for f in files])
+    raw_all = pd.concat([read_site_raw(f, site, config) for f in files])
     return raw_all[~raw_all.index.duplicated(keep="first")].sort_index()
 
 
