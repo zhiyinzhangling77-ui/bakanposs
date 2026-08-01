@@ -258,6 +258,35 @@ def discover_chinaflux_sites(root: str = CHINAFLUX_ROOT) -> dict[str, SiteSpec]:
     return found
 
 
+KOFLUX_ROOT = "/mnt/hdd/KoFlux"
+
+
+@lru_cache(maxsize=8)
+def discover_koflux_sites(root: str = KOFLUX_ROOT) -> dict[str, SiteSpec]:
+    """KoFlux の EC_data/data-KR-XXX-YYYY-YYYY.xlsx を BASE 形式サイトとして登録する。
+
+    列は AmeriFlux/ICOS "BASE" 規約 (`_1_1_1`) で xlsx。VPD は TA+RH から導出。
+    1 サイト 1 ファイル (全年) なので hh_glob はそのファイル名パターンに絞る。
+    """
+    ec = Path(root) / "EC_data"
+    found: dict[str, SiteSpec] = {}
+    if not ec.exists():
+        return found
+    for f in sorted(ec.glob("data-KR-*.xlsx")):
+        parts = f.stem.split("-")             # data-KR-CRK-2015-2021
+        if len(parts) < 3:
+            continue
+        code = f"{parts[1]}-{parts[2]}"       # "KR-CRK"
+        if code in found:
+            continue
+        found[code] = SiteSpec(
+            code=code, data_dir=str(ec), fmt="base",
+            hh_glob=f"data-{code}-*.xlsx",
+            description="KoFlux BASE-format site (xlsx)",
+        )
+    return found
+
+
 def get_site(code: str) -> SiteSpec:
     """サイトを取得。手登録 :data:`SITES` を優先し、無ければローカル自動発見を試す。"""
     if code in SITES:
@@ -268,7 +297,10 @@ def get_site(code: str) -> SiteSpec:
     cn = discover_chinaflux_sites()
     if code in cn:
         return cn[code]
-    known = sorted(set(SITES) | set(disc) | set(cn))
+    kr = discover_koflux_sites()
+    if code in kr:
+        return kr[code]
+    known = sorted(set(SITES) | set(disc) | set(cn) | set(kr))
     raise KeyError(f"unknown site {code!r}; known: {known}")
 
 
