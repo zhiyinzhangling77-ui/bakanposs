@@ -68,16 +68,17 @@ def get_site_years(site: str, months: list[int] | None = None
     from . import inspect_site as insp
     spec = get_site(site)
     files = find_corevars_files(spec)
-    if spec.fmt == "chinaflux":
-        # ChinaFlux は年ごとに別ファイル。ファイルパスの 4 桁年を採る (xlsx は
-        # TIMESTAMP を軽く読めないため)。1990–2035 の範囲の数字を年とみなす。
+    if files[0].suffix.lower() in (".xlsx", ".xls"):
+        # xlsx (ChinaFlux 年別 / KoFlux は年範囲入りの 1 ファイル)。TIMESTAMP を
+        # 軽く読めないので、ファイル名の 4 桁年から範囲を採る。疎な年は driver が skip。
         yrs = set()
         for f in files:
             for m in re.findall(r"((?:19|20)\d{2})", f.name):
                 y = int(m)
                 if 1990 <= y <= 2035:
                     yrs.add(y)
-        res = (sorted(yrs) or list(range(1990, 2025)), months)
+        res = (list(range(min(yrs), max(yrs) + 1)) if yrs
+               else list(range(1990, 2025)), months)
     else:
         lo, _ = insp._timestamp_span(files[0])
         _, hi = insp._timestamp_span(files[-1])

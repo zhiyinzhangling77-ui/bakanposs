@@ -151,6 +151,40 @@ def _regular_grid(start: pd.Timestamp, end: pd.Timestamp, steps_per_day: int) ->
     return pd.date_range(start=start, end=end, freq=freq)
 
 
+def _is_xlsx(path: str | Path) -> bool:
+    return str(path).lower().endswith((".xlsx", ".xls"))
+
+
+def _read_table_header(path: str | Path) -> list[str]:
+    """csv/xlsx のヘッダ列名だけを取る（BASE 形式が KoFlux では xlsx で来るため）。"""
+    if _is_xlsx(path):
+        import openpyxl
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        ws = wb[wb.sheetnames[0]]
+        header = [("" if c is None else str(c)) for c in next(ws.iter_rows(values_only=True))]
+        wb.close()
+        return header
+    return list(pd.read_csv(path, nrows=0).columns)
+
+
+def _read_table_columns(path: str | Path, want: set[str]) -> pd.DataFrame:
+    """csv/xlsx から ``want`` に含まれる列だけを読み込む（TIMESTAMP_START 形式想定）。"""
+    if _is_xlsx(path):
+        import openpyxl
+        wb = openpyxl.load_workbook(path, read_only=True, data_only=True)
+        ws = wb[wb.sheetnames[0]]
+        it = ws.iter_rows(values_only=True)
+        header = [("" if c is None else str(c)) for c in next(it)]
+        idx = {h: i for i, h in enumerate(header) if h in want}
+        data: dict[str, list] = {h: [] for h in idx}
+        for row in it:
+            for h, i in idx.items():
+                data[h].append(row[i] if i < len(row) else None)
+        wb.close()
+        return pd.DataFrame(data)
+    return pd.read_csv(path, usecols=lambda c: c in want)
+
+
 def read_corevars_raw(
     path: str | Path, site: SiteSpec, config: AnalysisConfig
 ) -> pd.DataFrame:
@@ -164,7 +198,7 @@ def read_corevars_raw(
     # 実在する値列のみ (VPD 導出マーカは実列ではないので除く)。
     val_cols = [vmap[v] for v in RK_VARS if not vmap[v].startswith("@")]
     derived_vpd = vmap["VPD"] == VPD_FROM_TA_RH
-    header = list(pd.read_csv(path, nrows=0).columns)
+    header = _read_table_header(path)
     qcmap = (resolve_qc_columns(header, site) if config.qc_max is not None
              else {v: None for v in RK_VARS})
     qc_cols = sorted({c for c in qcmap.values() if c})
@@ -172,8 +206,10 @@ def read_corevars_raw(
     if derived_vpd:                     # VPD 導出には TA と RH の実列が要る
         want |= {vmap["Ta"], BASE_RH_COL}
 
-    df = pd.read_csv(path, usecols=lambda c: c in want)
-    ts = pd.to_datetime(df["TIMESTAMP_START"].astype("int64").astype(str), format="%Y%m%d%H%M")
+    df = _read_table_columns(path, want)
+    ts = pd.to_datetime(
+        pd.to_numeric(df["TIMESTAMP_START"]).astype("int64").astype(str),
+        format="%Y%m%d%H%M")
     df = df.drop(columns=["TIMESTAMP_START"])
     df.index = ts
     df = df.replace(config.na_sentinel, np.nan)
