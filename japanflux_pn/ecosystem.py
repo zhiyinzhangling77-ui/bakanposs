@@ -43,6 +43,24 @@ IGBP_INFO: dict[str, tuple[str, str]] = {
 }
 IGBP_CODES = set(IGBP_INFO)
 
+# BADM がローカルに無い場合のフォールバック分類。
+# ★ = 以前アップされた BADM で確定 (SITE_METADATA.md)。それ以外は AsiaFlux/JapanFlux の
+# 公表サイト情報に基づく暫定（IGBP 細分類は要確認だが「森林/草原/水田/湿地」の粗グループは
+# 確度が高い）。BADM をダウンロードできれば igbp_for_site が自動でこれを上書きする。
+KNOWN_IGBP: dict[str, str] = {
+    # --- BADM 確定 (★) ---
+    "JP-Tak": "DBF", "JP-Ta2": "ENF", "JP-Mse": "CRO", "JP-BBY": "WET",
+    # --- 草原 (確度高: モンゴル・内モンゴル・青海) ---
+    "CN-HaM": "GRA", "MN-Kbu": "GRA", "MN-Hst": "GRA", "MN-Nkh": "GRA",
+    "MN-Skt": "GRA", "MN-Udg": "GRA",
+    "CN-In1": "GRA", "CN-In2": "GRA", "CN-In3": "GRA", "CN-In4": "GRA",
+    "CN-In5": "GRA", "CN-In6": "GRA", "CN-In7": "GRA", "CN-In8": "GRA",
+    # --- シベリア落葉針葉樹 (カラマツ, 確度高) ---
+    "RU-Ege": "DNF", "RU-SkP": "DNF", "RU-NeF": "DNF",
+}
+# 確定 (BADM) と暫定 (文献) の区別
+BADM_CONFIRMED = {"JP-Tak", "JP-Ta2", "JP-Mse", "JP-BBY"}
+
 # BADM 風ファイルを探す glob (JapanFlux2024: 名称は多様)
 _BADM_GLOBS = ("**/*BADM*.csv", "**/*Site_General*.csv", "**/*BIF*.csv")
 
@@ -132,12 +150,16 @@ def classify(root: str = JAPANFLUX_ROOT,
     rows = []
     for code in codes:
         spec = resolved.get(code)
-        if spec is None:
-            rows.append({"site": code, "igbp": "?", "type": "?", "label": "(未登録)"})
-            continue
-        igbp = igbp_for_site(spec.data_dir, code)
+        igbp = igbp_for_site(spec.data_dir, code) if spec is not None else "?"
+        src = "BADM"
+        if igbp == "?" and code in KNOWN_IGBP:      # ローカル BADM 無し → フォールバック
+            igbp = KNOWN_IGBP[code]
+            src = "確定" if code in BADM_CONFIRMED else "暫定(文献)"
+        elif igbp == "?" and spec is None:
+            src = "(未登録)"
         lab, grp = IGBP_INFO.get(igbp, ("(不明)", "?"))
-        rows.append({"site": code, "igbp": igbp, "type": grp, "label": lab})
+        rows.append({"site": code, "igbp": igbp, "type": grp,
+                     "label": lab, "source": src})
     return pd.DataFrame(rows)
 
 
@@ -145,9 +167,10 @@ def report(root: str = JAPANFLUX_ROOT, sites: list[str] | None = None,
            csv: str | None = None) -> pd.DataFrame:
     df = classify(root, sites)
     print(f"### サイト → IGBP → 生態系グループ ({len(df)} サイト)\n")
-    print(f"  {'site':<10} {'IGBP':>5}  {'グループ':<8} 詳細")
+    print(f"  {'site':<10} {'IGBP':>5}  {'グループ':<8} {'出所':<10} 詳細")
     for _, r in df.sort_values(["type", "site"]).iterrows():
-        print(f"  {r['site']:<10} {r['igbp']:>5}  {r['type']:<8} {r['label']}")
+        print(f"  {r['site']:<10} {r['igbp']:>5}  {r['type']:<8} "
+              f"{r.get('source',''):<10} {r['label']}")
     print("\n=== 生態系グループ別サイト数 ===")
     for grp, g in df.groupby("type"):
         print(f"  {grp:<8} {len(g):>3}  ({', '.join(g['site'])})")
