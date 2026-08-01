@@ -1,0 +1,156 @@
+#!/usr/bin/env python3
+"""任意のフラックスデータ配布フォルダの構造とヘッダを調べて表示する。
+
+ChinaFlux / KoFlux のような未知フォーマットの中身を確認するための道具。
+各ルートについて (1) 直下の一覧, (2) csv ファイル一覧, (3) 代表 csv のヘッダ列と
+推定フォーマット・推定解像度 を出す。列名から R&K 11 変数に対応しそうな列も推測する。
+
+    python scripts/explore_flux.py /mnt/hdd/KoFlux /mnt/hdd/ChinaFlux
+    python scripts/explore_flux.py /mnt/hdd/KoFlux --max-headers 6
+"""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+
+
+def _list_dir(root: Path, limit: int = 40) -> None:
+    print(f"\n[直下] {root}")
+    if not root.exists():
+        print("  (存在しません)")
+        return
+    entries = sorted(root.iterdir())
+    for p in entries[:limit]:
+        kind = "DIR " if p.is_dir() else "file"
+        try:
+            size = "" if p.is_dir() else f"{p.stat().st_size/1e6:6.1f}MB"
+        except OSError:
+            size = ""
+        print(f"  {kind} {size:>9}  {p.name}")
+    if len(entries) > limit:
+        print(f"  … 他 {len(entries)-limit} 件")
+
+
+def _find_csvs(root: Path, limit: int = 30) -> list[Path]:
+    csvs = []
+    for p in root.rglob("*"):
+        if p.is_file() and p.suffix.lower() in (".csv", ".txt", ".dat"):
+            csvs.append(p)
+            if len(csvs) >= limit * 4:      # 走査を早めに打ち切り
+                break
+    return sorted(csvs)
+
+
+def _guess_format(header: list[str]) -> str:
+    h = set(header)
+    joined = " ".join(header)
+    if any(c.endswith("_1_1_1") for c in header):
+        return "BASE (_1_1_1 位置修飾子; AmeriFlux/ICOS/KoFlux 系)"
+    if "TIMESTAMP_START" in h and any("_vUT" in c or "_VUT" in c or "_F" == c[-2:]
+                                      for c in header):
+        return "FLUXNET2015/JapanFlux 系 (_F / _vUT)"
+    if any(k in joined for k in ("NEP_", "ER_DT", "GPP_DT", "_sc", "_avail")):
+        return "ChinaFlux 集計系 (NEP_sc/ER_DT 等)"
+    return "不明 (要目視)"
+
+
+def _guess_resolution(header: list[str], sample_path: Path) -> str:
+    name = sample_path.name.lower()
+    for tag, res in (("hh", "30分(HH)"), ("30", "30分?"), ("hr", "時別"),
+                     ("hour", "時別"), ("daily", "日"), ("day", "日"),
+                     ("month", "月"), ("year", "年"), ("annual", "年")):
+        if tag in name:
+            return res
+    return "?(ファイル名から不明)"
+
+
+# R&K 11 変数に対応しそうな列を推測するためのキーワード
+RK_HINTS = {
+    "Rg(放射)":   ("SW_IN", "RG", "DR", "PAR", "PPFD", "RAD", "SWIN"),
+    "Ta(気温)":   ("TA", "TAIR", "T_AIR", "TEMP"),
+    "VPD":        ("VPD",),
+    "Ts(地温)":   ("TS", "TSOIL", "T_SOIL", "STEMP"),
+    "P(降水)":    ("P_", "PREC", "RAIN", "PPT"),
+    "θ(土壌水分)": ("SWC", "VWC", "SW1", "SW2", "SOILW", "THETA"),
+    "H(顕熱)":    ("H_", "HS", "SH"),
+    "LE(潜熱)":   ("LE", "LATENT"),
+    "GER/RECO":   ("RECO", "ER_", "RE_", "RESP"),
+    "NEE/NEP":    ("NEE", "NEP", "FC", "FCO2"),
+    "GEP/GPP":    ("GPP", "GEP"),
+}
+
+
+def _match_rk(header: list[str]) -> None:
+    up = [c.upper() for c in header]
+    for var, keys in RK_HINTS.items():
+        hits = []
+        for i, c in enumerate(up):
+            if c.startswith("TIMESTAMP") or c in ("TIME", "DATE"):
+                continue
+            if any(c.startswith(k) for k in keys):   # 前方一致のみ（部分一致のノイズ回避）
+                hits.append(header[i])
+        shown = ", ".join(hits[:6]) + (" …" if len(hits) > 6 else "")
+        print(f"    {var:<12} → {shown or '(該当なし)'}")
+
+
+def explore(root_str: str, max_headers: int = 5) -> None:
+    root = Path(root_str)
+    print("\n" + "=" * 70)
+    print(f"### {root}")
+    print("=" * 70)
+    _list_dir(root)
+
+    csvs = _find_csvs(root)
+    print(f"\n[csv/txt/dat ファイル] {len(csvs)} 件（先頭のみ表示）")
+    for p in csvs[:30]:
+        try:
+            rel = p.relative_to(root)
+        except ValueError:
+            rel = p
+        print(f"  {rel}")
+
+    # 代表ヘッダ: 親フォルダ or 名前パターンが異なるものを優先して数個
+    seen_keys = set()
+    picked = []
+    for p in csvs:
+        key = (p.parent.name, p.name.split("_")[0])
+        if key not in seen_keys:
+            seen_keys.add(key)
+            picked.append(p)
+        if len(picked) >= max_headers:
+            break
+
+    for p in picked:
+        print(f"\n--- ヘッダ: {p} ---")
+        try:
+            with open(p, "r", errors="replace") as f:
+                first = f.readline().rstrip("\n")
+        except OSError as e:
+            print(f"  (読めません: {e})")
+            continue
+        for sep in (",", "\t", ";"):
+            cols = first.split(sep)
+            if len(cols) > 3:
+                break
+        print(f"  区切り='{sep}'  列数={len(cols)}")
+        print(f"  列: {cols[:40]}")
+        print(f"  推定フォーマット: {_guess_format(cols)}")
+        print(f"  推定解像度: {_guess_resolution(cols, p)}")
+        print("  R&K 11 変数への対応候補:")
+        _match_rk(cols)
+
+
+def main(argv: list[str] | None = None) -> None:
+    ap = argparse.ArgumentParser(description="explore flux data folders")
+    ap.add_argument("roots", nargs="+", help="調べるフォルダ (複数可)")
+    ap.add_argument("--max-headers", type=int, default=5,
+                    help="ルートごとに表示する代表ヘッダ数 (既定 5)")
+    args = ap.parse_args(argv)
+    for r in args.roots:
+        explore(r, args.max_headers)
+
+
+if __name__ == "__main__":
+    main(sys.argv[1:] if len(sys.argv) > 1 else None)
