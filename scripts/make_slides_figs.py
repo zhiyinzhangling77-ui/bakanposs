@@ -259,8 +259,133 @@ def fig_oinfo_twosub():
     fig.savefig(OUT/"fig5c_two_forests.png"); plt.close(fig)
 
 
+PURPLE, TAN = "#7b4fa3", "#b8934a"
+
+
+# ---------------------------------------------------------------------------
+# Fig 6 (NEW centerpiece): flooding — not cultivation — collapses belowground synergy
+#   pooled synergy-year fraction of {Rg,Ta,θ,GER} by ecosystem/management group
+# ---------------------------------------------------------------------------
+def fig_flooding():
+    # (label, synergy-years, total-years, color, member note)
+    groups = [
+        ("Natural\nforest", 19+17+10, 21+20+11, GREEN, "JP-Tak,Tef,Spp"),
+        ("Natural\ngrassland", 5+5+4+6, 5+5+4+10, GREEN, "MN-Kbu,Nkh,Skt,CN-HaM"),
+        ("Cropland\n(non-flooded)", 2+7, 2+13, ORANGE, "CN-CnR,HbC"),
+        ("Rice paddy\n(FLOODED)", 0+0, 8+7, RED, "JP-Mse,KR-CRK"),
+    ]
+    fig, ax = plt.subplots(figsize=(8.2, 5.6))
+    for i, (name, k, n, col, note) in enumerate(groups):
+        p = 100.0 * k / n
+        ax.bar(i, p, color=col, width=0.62, zorder=2)
+        ax.text(i, p + 2.5, f"{k}/{n} yr", ha="center", fontsize=12, fontweight="bold")
+        ax.text(i, -7, note, ha="center", fontsize=8.5, color="#666")
+    ax.set_xticks(range(len(groups)))
+    ax.set_xticklabels([g[0] for g in groups], fontsize=11)
+    ax.set_ylabel("Years showing belowground higher-order synergy  (%)\n"
+                  "soil–respiration system {Rg, Ta, θ, GER}")
+    ax.set_ylim(-12, 100)
+    ax.axhline(0, color="k", lw=0.8)
+    ax.axvspan(-0.5, 1.5, color="#eaf5ea", zorder=0)
+    ax.axvspan(1.5, 2.5, color="#fdf2e6", zorder=0)
+    ax.axvspan(2.5, 3.5, color="#f7e6e6", zorder=0)
+    ax.set_title("It is FLOODING, not cultivation, that collapses the synergy\n"
+                 "managed dryland cropland keeps it; only the flooded paddy loses it",
+                 fontsize=13.5)
+    ax.annotate("flooding pins soil\nmoisture θ → θ carries\nno information →\nsynergy collapses",
+                xy=(3, 3), xytext=(2.55, 55), fontsize=9.5, color=RED,
+                ha="left", arrowprops=dict(arrowstyle="->", color=RED, lw=1.3))
+    fig.savefig(OUT/"fig6_flooding_mechanism.png"); plt.close(fig)
+
+
+# ---------------------------------------------------------------------------
+# Fig 7 (NEW): cross-site light-use decoupling — forests decouple, non-water-limited don't
+# ---------------------------------------------------------------------------
+def fig_climate_crosssite():
+    # (site, r(VPD), significant, group-color)
+    rows = [
+        ("JP-Yms (F,6y)",  -1.00, True,  GREEN),
+        ("JP-Mse (Paddy,8y)", -0.79, True, RED),
+        ("JP-Tak (F,21y)", -0.68, True,  GREEN),
+        ("RU-Ege (Bor,8y)",-0.62, False, GREY),
+        ("JP-Ynf (F,8y)",  -0.60, False, GREEN),
+        ("JP-Spp (F,11y)", -0.57, False, GREEN),
+        ("JP-Fhk (F,18y)", -0.54, True,  GREEN),
+        ("RU-SkP (Bor,7y)",-0.54, False, GREY),
+        ("JP-Tef (F,21y)", -0.44, True,  GREEN),
+        ("JP-MBF (F,8y)",  -0.45, False, GREEN),
+        ("CN-HaM (Grass,10y)", -0.35, False, TAN),
+        ("JP-Tmd (F,19y)", -0.12, False, GREEN),
+        ("TH-Mae (Trop,8y)", 0.43, False, PURPLE),
+        ("MN-Kbu (Grass,5y)", 0.60, False, TAN),
+        ("JP-BBY (Bog,5y)", 0.90, False, BLUE),
+    ]
+    rows = sorted(rows, key=lambda r: r[1])
+    labels = [r[0] for r in rows]
+    vals = [r[1] for r in rows]
+    cols = [r[3] for r in rows]
+    y = np.arange(len(rows))
+    fig, ax = plt.subplots(figsize=(8.6, 6.4))
+    ax.barh(y, vals, color=cols, zorder=2)
+    for yi, (lab, v, sig, c) in zip(y, rows):
+        if sig:
+            ax.text(v - 0.03, yi, "★", va="center", ha="right", color="k", fontsize=12)
+    ax.set_yticks(y); ax.set_yticklabels(labels, fontsize=9.5)
+    ax.axvline(0, color="k", lw=0.8)
+    ax.set_xlabel("Spearman  r :  I(Rg;GPP) vs summer dryness (VPD)\n"
+                  "← more negative = stronger decoupling under drought       ★ = significant (p<0.05)")
+    ax.set_xlim(-1.1, 1.05)
+    ax.set_title("Light-use decoupling is a water-limited-ecosystem trait\n"
+                 "forests & paddy decouple; grassland, bog, wet tropics do not",
+                 fontsize=13.5)
+    from matplotlib.patches import Patch
+    ax.legend(handles=[Patch(color=GREEN, label="Forest"), Patch(color=RED, label="Rice paddy"),
+                       Patch(color=TAN, label="Grassland"), Patch(color=GREY, label="Boreal"),
+                       Patch(color=PURPLE, label="Tropical"), Patch(color=BLUE, label="Bog")],
+              loc="upper left", fontsize=9, frameon=False, ncol=2)
+    fig.savefig(OUT/"fig7_climate_crosssite.png"); plt.close(fig)
+
+
+# ---------------------------------------------------------------------------
+# Fig 5 (updated): higher-order synergy by ecosystem — now cross-biome + 2nd paddy
+# ---------------------------------------------------------------------------
+def fig_oinfo_crossbiome():
+    data = [  # (label, syn-years, total, color)
+        ("Deciduous\nforest\nJP-Tak", 19, 21, GREEN),
+        ("Evergreen\nforest\nJP-Ta2", 6, 11, GREEN),
+        ("Boreal\nlarch\nRU-SkP", 6, 7, GREEN),
+        ("Alpine\ngrassland\nCN-HaM", 6, 10, "#66a366"),
+        ("Steppe\nMN-Kbu", 5, 5, "#66a366"),
+        ("Cropland\nCN-HbC", 7, 13, ORANGE),
+        ("Paddy\nJP-Mse", 0, 8, RED),
+        ("Paddy\nKR-CRK", 0, 7, RED),
+    ]
+    fig, ax = plt.subplots(figsize=(9.2, 5.4))
+    for i, (name, k, n, col) in enumerate(data):
+        p = 100.0 * k / n
+        ax.bar(i, p, color=col, width=0.68, zorder=2)
+        ax.text(i, p + 2.5, f"{k}/{n}", ha="center", fontsize=10.5, fontweight="bold")
+    ax.set_xticks(range(len(data)))
+    ax.set_xticklabels([d[0] for d in data], fontsize=9)
+    ax.set_ylabel("Years showing higher-order synergy  (%)\n{Rg, Ta, θ, GER}")
+    ax.set_ylim(0, 108)
+    ax.axhline(50, color=GREY, ls=":", lw=1)
+    ax.axvspan(-0.5, 4.5, color="#eaf5ea", zorder=0)
+    ax.axvspan(4.5, 5.5, color="#fdf2e6", zorder=0)
+    ax.axvspan(5.5, 7.5, color="#f7e6e6", zorder=0)
+    ax.text(2, 102, "Natural (forest, grassland, boreal)", ha="center", color=GREEN,
+            fontsize=10.5, fontweight="bold")
+    ax.text(6.5, 102, "Flooded paddy", ha="center", color=RED, fontsize=10.5,
+            fontweight="bold")
+    ax.set_title("Belowground synergy generalizes across natural biomes,\n"
+                 "survives dryland cropping, and collapses only under flooding",
+                 fontsize=13.5)
+    fig.savefig(OUT/"fig5_oinfo_synergy.png"); plt.close(fig)
+
+
 if __name__ == "__main__":
-    fig_climate(); fig_pid(); fig_skeleton(); fig_robustness(); fig_oinfo()
+    fig_climate(); fig_pid(); fig_skeleton(); fig_robustness()
     fig_conditioning(); fig_oinfo_ci(); fig_oinfo_twosub()
+    fig_flooding(); fig_climate_crosssite(); fig_oinfo_crossbiome()
     for p in sorted(OUT.glob("*.png")):
         print(f"[fig] {p}  ({p.stat().st_size//1024} KB)")

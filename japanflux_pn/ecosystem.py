@@ -57,6 +57,15 @@ KNOWN_IGBP: dict[str, str] = {
     "CN-In5": "GRA", "CN-In6": "GRA", "CN-In7": "GRA", "CN-In8": "GRA",
     # --- シベリア落葉針葉樹 (カラマツ, 確度高) ---
     "RU-Ege": "DNF", "RU-SkP": "DNF", "RU-NeF": "DNF",
+    # --- 農地: 水田(湛水) と 畑(非湛水) は IGBP では同じ CRO だが、湛水の有無が
+    #     地下相乗の崩壊を分ける（追記 10）。区別は MANAGEMENT_FLOODED を参照。 ---
+    "JP-Mse": "CRO", "KR-CRK": "CRO",          # 水田（湛水）
+    "CN-CnR": "CRO", "CN-HbC": "CRO",          # 畑（非湛水）
+}
+# 農地の中で「湛水管理」かどうか（IGBP=CRO では表せない、機構上の鍵）。
+MANAGEMENT_FLOODED: dict[str, bool] = {
+    "JP-Mse": True, "KR-CRK": True,            # 湛水稲作
+    "CN-CnR": False, "CN-HbC": False,          # 非湛水の畑作
 }
 # 確定 (BADM) と暫定 (文献) の区別
 BADM_CONFIRMED = {"JP-Tak", "JP-Ta2", "JP-Mse", "JP-BBY"}
