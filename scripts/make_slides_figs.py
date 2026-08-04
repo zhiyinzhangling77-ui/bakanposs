@@ -425,7 +425,7 @@ def fig_q10_schematic():
     lowL = np.exp(0.085*(T-5))
     a1.plot(T, 1.0*lowL, color=DRY, lw=2.8, label="dry soil (low θ)")
     a1.plot(T, 1.8*lowL, color=WET, lw=2.8, label="wet soil (high θ)")
-    a1.set_title("Separable (what models assume)", fontsize=13)
+    a1.set_title("Separable — the common operational default", fontsize=12.5)
     a1.text(0.97, 0.90, r"$R = R_0\,e^{kT}\,g(\theta)$", transform=a1.transAxes,
             ha="right", fontsize=15)
     a1.text(0.97, 0.80, "k (temp-sensitivity)\nsame for dry & wet",
@@ -434,7 +434,7 @@ def fig_q10_schematic():
     # 右: 相乗型 R=R0 e^{k(θ)T} — 傾き k(θ) が θ で変わる。乾は ほぼ平ら、湿は急上昇
     a2.plot(T, np.exp(0.015*(T-5)), color=DRY, lw=2.8, label="dry soil (low θ)")
     a2.plot(T, np.exp(0.11*(T-5)),  color=WET, lw=2.8, label="wet soil (high θ)")
-    a2.set_title("Synergy / non-additive (our hypothesis)", fontsize=13, color=RED)
+    a2.set_title("Interaction / synergy (we detect it model-free)", fontsize=12.5, color=RED)
     a2.text(0.5, 0.90, r"$R = R_0\,e^{\,k(\theta)\,T}$", transform=a2.transAxes,
             ha="center", fontsize=15, color=RED)
     a2.text(0.5, 0.80, "k(θ) changes with θ → curves fan out",
@@ -455,7 +455,11 @@ def fig_q10_schematic():
                  r"criterion: $\partial^2\ln R/\partial T\,\partial\theta = 0$ (separable)  vs  "
                  r"$>0$ (synergy)   — we test this with O-information",
                  fontsize=13.5)
-    fig.tight_layout(rect=(0, 0, 1, 0.92))
+    fig.text(0.5, 0.015,
+             "Interaction models exist (e.g. DAMM, microbial models) but assume a fixed form; "
+             "we detect the interaction structure model-free, in the coupled network, and under management",
+             ha="center", fontsize=8.5, color="#666")
+    fig.tight_layout(rect=(0, 0.04, 1, 0.92))
     fig.savefig(OUT/"fig_q10_schematic.png"); plt.close(fig)
 
 
