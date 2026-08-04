@@ -416,24 +416,46 @@ def fig_concept_network():
 
 
 def fig_q10_schematic():
-    """§1 背景: 呼吸の 乗法(加法的) vs 高次相乗 の模式（T感度がθで変わるか）。"""
+    """§1 背景: 呼吸の 分離型(乗法) vs 相乗型(非加法) を、式つき・違いを強調して図示。"""
     T = np.linspace(5, 30, 100)
-    fig, (a1, a2) = plt.subplots(1, 2, figsize=(9.6, 4.6), sharey=True)
-    # 乗法 f(T)*g(θ): θが上がると一様にスケール（T感度の"形"は不変＝平行）
-    for g, lbl, c in [(0.6, "low θ", "#c48a3a"), (1.0, "high θ", "#1f6fb2")]:
-        a1.plot(T, g*np.exp(0.09*(T-5)), color=c, lw=2.4, label=lbl)
-    a1.set_title("Assumed: multiplicative  f(T)·g(θ)\n(θ only rescales — parallel)", fontsize=12)
-    # 相乗: θが高いほどT感度そのものが強まる（扇形に開く＝非加法）
-    for g, lbl, c in [(0.05, "low θ", "#c48a3a"), (0.11, "high θ", "#1f6fb2")]:
-        a2.plot(T, 0.6*np.exp(g*(T-5)), color=c, lw=2.4, label=lbl)
-    a2.set_title("Observed hint: higher-order synergy\n(θ changes the T-sensitivity — fans out)",
-                 fontsize=12, color=RED)
+    DRY, WET = "#c48a3a", "#1f6fb2"
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(11.0, 5.4), sharey=True)
+
+    # 左: 分離型 R=R0 e^{kT} g(θ) — 同じ傾き k、θ は倍率だけ（高θ = 低θ ×1.8, 相似）
+    lowL = np.exp(0.085*(T-5))
+    a1.plot(T, 1.0*lowL, color=DRY, lw=2.8, label="dry soil (low θ)")
+    a1.plot(T, 1.8*lowL, color=WET, lw=2.8, label="wet soil (high θ)")
+    a1.set_title("Separable (what models assume)", fontsize=13)
+    a1.text(0.97, 0.90, r"$R = R_0\,e^{kT}\,g(\theta)$", transform=a1.transAxes,
+            ha="right", fontsize=15)
+    a1.text(0.97, 0.80, "k (temp-sensitivity)\nsame for dry & wet",
+            transform=a1.transAxes, ha="right", fontsize=10, color="#333")
+
+    # 右: 相乗型 R=R0 e^{k(θ)T} — 傾き k(θ) が θ で変わる。乾は ほぼ平ら、湿は急上昇
+    a2.plot(T, np.exp(0.015*(T-5)), color=DRY, lw=2.8, label="dry soil (low θ)")
+    a2.plot(T, np.exp(0.11*(T-5)),  color=WET, lw=2.8, label="wet soil (high θ)")
+    a2.set_title("Synergy / non-additive (our hypothesis)", fontsize=13, color=RED)
+    a2.text(0.5, 0.90, r"$R = R_0\,e^{\,k(\theta)\,T}$", transform=a2.transAxes,
+            ha="center", fontsize=15, color=RED)
+    a2.text(0.5, 0.80, "k(θ) changes with θ → curves fan out",
+            transform=a2.transAxes, ha="center", fontsize=10, color=RED)
+    a2.annotate("dry: warming\nbarely matters", xy=(24, np.exp(0.015*19)),
+                xytext=(14, 2.3), fontsize=10.5, color=DRY,
+                arrowprops=dict(arrowstyle="->", color=DRY, lw=1.4))
+    a2.annotate("wet: warming\nmatters a lot", xy=(23.5, np.exp(0.11*18.5)),
+                xytext=(15.5, 5.8), fontsize=10.5, color=WET,
+                arrowprops=dict(arrowstyle="->", color=WET, lw=1.4))
+
     for a in (a1, a2):
-        a.set_xlabel("Soil temperature  Ts"); a.legend(frameon=False, fontsize=10)
-        a.set_yticks([])
+        a.set_xlabel("Soil temperature  Ts  (°C)")
+        a.legend(frameon=False, fontsize=10, loc="lower right")
+        a.set_yticks([]); a.set_ylim(0, 9)
     a1.set_ylabel("Respiration  Reco")
-    fig.suptitle("Do temperature and soil moisture combine additively, or synergistically?",
+    fig.suptitle("Do temperature and soil moisture combine separably, or synergistically?\n"
+                 r"criterion: $\partial^2\ln R/\partial T\,\partial\theta = 0$ (separable)  vs  "
+                 r"$>0$ (synergy)   — we test this with O-information",
                  fontsize=13.5)
+    fig.tight_layout(rect=(0, 0, 1, 0.92))
     fig.savefig(OUT/"fig_q10_schematic.png"); plt.close(fig)
 
 
