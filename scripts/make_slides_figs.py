@@ -425,7 +425,7 @@ def fig_q10_schematic():
     lowL = np.exp(0.085*(T-5))
     a1.plot(T, 1.0*lowL, color=DRY, lw=2.8, label="dry soil (low θ)")
     a1.plot(T, 1.8*lowL, color=WET, lw=2.8, label="wet soil (high θ)")
-    a1.set_title("Separable (what models assume)", fontsize=13)
+    a1.set_title("Separable — the common operational default", fontsize=12.5)
     a1.text(0.97, 0.90, r"$R = R_0\,e^{kT}\,g(\theta)$", transform=a1.transAxes,
             ha="right", fontsize=15)
     a1.text(0.97, 0.80, "k (temp-sensitivity)\nsame for dry & wet",
@@ -434,7 +434,7 @@ def fig_q10_schematic():
     # 右: 相乗型 R=R0 e^{k(θ)T} — 傾き k(θ) が θ で変わる。乾は ほぼ平ら、湿は急上昇
     a2.plot(T, np.exp(0.015*(T-5)), color=DRY, lw=2.8, label="dry soil (low θ)")
     a2.plot(T, np.exp(0.11*(T-5)),  color=WET, lw=2.8, label="wet soil (high θ)")
-    a2.set_title("Synergy / non-additive (our hypothesis)", fontsize=13, color=RED)
+    a2.set_title("Interaction / synergy (we detect it model-free)", fontsize=12.5, color=RED)
     a2.text(0.5, 0.90, r"$R = R_0\,e^{\,k(\theta)\,T}$", transform=a2.transAxes,
             ha="center", fontsize=15, color=RED)
     a2.text(0.5, 0.80, "k(θ) changes with θ → curves fan out",
@@ -455,7 +455,11 @@ def fig_q10_schematic():
                  r"criterion: $\partial^2\ln R/\partial T\,\partial\theta = 0$ (separable)  vs  "
                  r"$>0$ (synergy)   — we test this with O-information",
                  fontsize=13.5)
-    fig.tight_layout(rect=(0, 0, 1, 0.92))
+    fig.text(0.5, 0.015,
+             "Interaction models exist (e.g. DAMM, microbial models) but assume a fixed form; "
+             "we detect the interaction structure model-free, in the coupled network, and under management",
+             ha="center", fontsize=8.5, color="#666")
+    fig.tight_layout(rect=(0, 0.04, 1, 0.92))
     fig.savefig(OUT/"fig_q10_schematic.png"); plt.close(fig)
 
 
@@ -479,10 +483,99 @@ def fig_pipeline():
     fig.savefig(OUT/"fig_pipeline.png"); plt.close(fig)
 
 
+def fig_positioning():
+    """スライドA: 2つの研究の流れの交点＝本研究、＋突破点。"""
+    from matplotlib.patches import Ellipse, FancyBboxPatch
+    fig, ax = plt.subplots(figsize=(10.6, 5.8))
+    ax.add_patch(Ellipse((3.4, 3.5), 5.4, 3.6, facecolor="#dce8f5",
+                         edgecolor="#1f6fb2", lw=2, alpha=0.8))
+    ax.add_patch(Ellipse((6.6, 3.5), 5.4, 3.6, facecolor="#e6f0e0",
+                         edgecolor="#2e8b57", lw=2, alpha=0.8))
+    ax.text(2.0, 4.7, "① Earth-system causal\ninference & information theory",
+            ha="center", fontsize=11, color="#1f6fb2", fontweight="bold")
+    ax.text(2.0, 3.55, "Runge 2019 · Krich 2020\nGoodwell & Kumar 2020\nRuddell & Kumar 2009 · Rosas 2019",
+            ha="center", fontsize=8.5, color="#1f6fb2")
+    ax.text(8.0, 4.7, "② Land-carbon uncertainty\n& process models",
+            ha="center", fontsize=11, color="#2e8b57", fontweight="bold")
+    ax.text(8.0, 3.55, "Arora 2020 · Booth 2012\nDAMM (Davidson 2012)\nFLUXCOM (Jung 2020)",
+            ha="center", fontsize=8.5, color="#2e8b57")
+    # intersection
+    ax.text(5.0, 4.15, "THIS STUDY", ha="center", fontsize=12.5, color=RED, fontweight="bold")
+    ax.text(5.0, 3.35,
+            "read the interaction\nstructure from data,\ntest model process\nassumptions",
+            ha="center", fontsize=9.2, color="#7a1f14")
+    # breakthroughs bar
+    ax.add_patch(FancyBboxPatch((0.4, 0.35), 9.6, 1.15, boxstyle="round,pad=0.02",
+                 facecolor="#fbeeea", edgecolor=RED, lw=1.3))
+    ax.text(5.2, 1.28, "Breakthroughs", ha="center", fontsize=10.5, color=RED, fontweight="bold")
+    ax.text(5.2, 0.78,
+            "East Asia & humid monsoon   ·   flooded rice paddy (management)   ·   "
+            "system-level synergy (O-information)   ·   function-form-free   ·   6 sites / 4 biomes",
+            ha="center", fontsize=9.3, color="#333")
+    ax.set_xlim(0, 10); ax.set_ylim(0, 5.6); ax.axis("off")
+    ax.set_title("Where this study sits: the tools of ① applied to the problem of ②",
+                 fontsize=13)
+    fig.savefig(OUT/"fig_positioning.png"); plt.close(fig)
+
+
+def fig_uncertainty():
+    """スライド1: 陸の炭素-気候フィードバックは海より大きく・不確実（CMIP6, Arora 2020）
+    ＋その不確実性の原因＝本研究が測る結合、を1枚で。"""
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(11.4, 5.0),
+                                 gridspec_kw={"width_ratios": [1.15, 1]})
+    # 左: land vs ocean feedback γ with error bars
+    names = ["Ocean", "Land"]
+    val = [-17.2, -45.1]; err = [5.0, 50.6]; col = [BLUE, GREEN]
+    y = [0, 1]
+    a1.barh(y, val, color=col, height=0.5, zorder=2)
+    a1.errorbar(val, y, xerr=err, fmt="none", ecolor="#222", capsize=7, lw=1.8, zorder=3)
+    a1.axvline(0, color="k", lw=0.8)
+    a1.set_yticks(y); a1.set_yticklabels(names, fontsize=12)
+    a1.text(-17.2, 0.32, "−17.2 ± 5.0", ha="center", fontsize=10.5, color=BLUE)
+    a1.text(-45.1, 1.32, "−45.1 ± 50.6", ha="center", fontsize=10.5, color=GREEN, fontweight="bold")
+    a1.set_xlabel("Carbon–climate feedback  γ  (PgC per °C)")
+    a1.set_title("Land feedback: ~3× larger, spread ~10× wider\n(CMIP6, Arora et al. 2020)",
+                 fontsize=12)
+    a1.set_ylim(-0.6, 1.7)
+    a1.annotate("huge model spread\n(crosses zero)", xy=(-45.1-50.6, 1), xytext=(-88, 0.55),
+                fontsize=9.5, color=GREEN,
+                arrowprops=dict(arrowstyle="->", color=GREEN, lw=1.2))
+    # 右: why uncertain -> our 3 couplings
+    a2.axis("off")
+    a2.text(0.5, 0.96, "Why is the land sink so uncertain?", ha="center",
+            fontsize=12.5, fontweight="bold", transform=a2.transAxes)
+    boxes = [
+        ("① Soil-respiration temperature sensitivity\n(how much CO₂ soils release when warm)",
+         "Booth et al. 2012"),
+        ("② Photosynthesis under water stress\n(soil moisture drives ~90% of sink IAV)",
+         "Humphrey et al. 2021"),
+        ("③ Is the year-to-year sink driven by\ntemperature or by water?",
+         "Jung et al. 2017"),
+    ]
+    yb = 0.80
+    for txt, cite in boxes:
+        a2.add_patch(plt.Rectangle((0.03, yb-0.13), 0.94, 0.15, transform=a2.transAxes,
+                     facecolor="#f0f4ea", edgecolor="#9bbf7f"))
+        a2.text(0.06, yb-0.03, txt, fontsize=9.7, va="top", transform=a2.transAxes)
+        a2.text(0.95, yb-0.115, cite, fontsize=8, ha="right", color="#666",
+                style="italic", transform=a2.transAxes)
+        yb -= 0.205
+    a2.annotate("", xy=(0.5, 0.16), xytext=(0.5, 0.20), transform=a2.transAxes,
+                arrowprops=dict(arrowstyle="-|>", color=RED, lw=2))
+    a2.text(0.5, 0.13, "= the driver–flux couplings\nTHIS study measures (TE / O-information)",
+            ha="center", fontsize=10.5, color=RED, fontweight="bold", va="top",
+            transform=a2.transAxes)
+    fig.suptitle("Land carbon uptake is a top uncertainty in climate projection — "
+                 "and its causes are the couplings we measure", fontsize=12.5)
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    fig.savefig(OUT/"fig_uncertainty.png"); plt.close(fig)
+
+
 if __name__ == "__main__":
     fig_climate(); fig_pid(); fig_skeleton(); fig_robustness()
     fig_conditioning(); fig_oinfo_ci(); fig_oinfo_twosub()
     fig_flooding(); fig_climate_crosssite(); fig_oinfo_crossbiome()
-    fig_concept_network(); fig_q10_schematic(); fig_pipeline()
+    fig_concept_network(); fig_q10_schematic(); fig_pipeline(); fig_uncertainty()
+    fig_positioning()
     for p in sorted(OUT.glob("*.png")):
         print(f"[fig] {p}  ({p.stat().st_size//1024} KB)")
