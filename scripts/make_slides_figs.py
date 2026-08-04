@@ -483,6 +483,41 @@ def fig_pipeline():
     fig.savefig(OUT/"fig_pipeline.png"); plt.close(fig)
 
 
+def fig_positioning():
+    """スライドA: 2つの研究の流れの交点＝本研究、＋突破点。"""
+    from matplotlib.patches import Ellipse, FancyBboxPatch
+    fig, ax = plt.subplots(figsize=(10.6, 5.8))
+    ax.add_patch(Ellipse((3.4, 3.5), 5.4, 3.6, facecolor="#dce8f5",
+                         edgecolor="#1f6fb2", lw=2, alpha=0.8))
+    ax.add_patch(Ellipse((6.6, 3.5), 5.4, 3.6, facecolor="#e6f0e0",
+                         edgecolor="#2e8b57", lw=2, alpha=0.8))
+    ax.text(2.0, 4.7, "① Earth-system causal\ninference & information theory",
+            ha="center", fontsize=11, color="#1f6fb2", fontweight="bold")
+    ax.text(2.0, 3.55, "Runge 2019 · Krich 2020\nGoodwell & Kumar 2020\nRuddell & Kumar 2009 · Rosas 2019",
+            ha="center", fontsize=8.5, color="#1f6fb2")
+    ax.text(8.0, 4.7, "② Land-carbon uncertainty\n& process models",
+            ha="center", fontsize=11, color="#2e8b57", fontweight="bold")
+    ax.text(8.0, 3.55, "Arora 2020 · Booth 2012\nDAMM (Davidson 2012)\nFLUXCOM (Jung 2020)",
+            ha="center", fontsize=8.5, color="#2e8b57")
+    # intersection
+    ax.text(5.0, 4.15, "THIS STUDY", ha="center", fontsize=12.5, color=RED, fontweight="bold")
+    ax.text(5.0, 3.35,
+            "read the interaction\nstructure from data,\ntest model process\nassumptions",
+            ha="center", fontsize=9.2, color="#7a1f14")
+    # breakthroughs bar
+    ax.add_patch(FancyBboxPatch((0.4, 0.35), 9.6, 1.15, boxstyle="round,pad=0.02",
+                 facecolor="#fbeeea", edgecolor=RED, lw=1.3))
+    ax.text(5.2, 1.28, "Breakthroughs", ha="center", fontsize=10.5, color=RED, fontweight="bold")
+    ax.text(5.2, 0.78,
+            "East Asia & humid monsoon   ·   flooded rice paddy (management)   ·   "
+            "system-level synergy (O-information)   ·   function-form-free   ·   6 sites / 4 biomes",
+            ha="center", fontsize=9.3, color="#333")
+    ax.set_xlim(0, 10); ax.set_ylim(0, 5.6); ax.axis("off")
+    ax.set_title("Where this study sits: the tools of ① applied to the problem of ②",
+                 fontsize=13)
+    fig.savefig(OUT/"fig_positioning.png"); plt.close(fig)
+
+
 def fig_uncertainty():
     """スライド1: 陸の炭素-気候フィードバックは海より大きく・不確実（CMIP6, Arora 2020）
     ＋その不確実性の原因＝本研究が測る結合、を1枚で。"""
@@ -541,5 +576,6 @@ if __name__ == "__main__":
     fig_conditioning(); fig_oinfo_ci(); fig_oinfo_twosub()
     fig_flooding(); fig_climate_crosssite(); fig_oinfo_crossbiome()
     fig_concept_network(); fig_q10_schematic(); fig_pipeline(); fig_uncertainty()
+    fig_positioning()
     for p in sorted(OUT.glob("*.png")):
         print(f"[fig] {p}  ({p.stat().st_size//1024} KB)")
