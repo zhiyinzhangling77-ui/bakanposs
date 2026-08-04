@@ -483,10 +483,63 @@ def fig_pipeline():
     fig.savefig(OUT/"fig_pipeline.png"); plt.close(fig)
 
 
+def fig_uncertainty():
+    """スライド1: 陸の炭素-気候フィードバックは海より大きく・不確実（CMIP6, Arora 2020）
+    ＋その不確実性の原因＝本研究が測る結合、を1枚で。"""
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(11.4, 5.0),
+                                 gridspec_kw={"width_ratios": [1.15, 1]})
+    # 左: land vs ocean feedback γ with error bars
+    names = ["Ocean", "Land"]
+    val = [-17.2, -45.1]; err = [5.0, 50.6]; col = [BLUE, GREEN]
+    y = [0, 1]
+    a1.barh(y, val, color=col, height=0.5, zorder=2)
+    a1.errorbar(val, y, xerr=err, fmt="none", ecolor="#222", capsize=7, lw=1.8, zorder=3)
+    a1.axvline(0, color="k", lw=0.8)
+    a1.set_yticks(y); a1.set_yticklabels(names, fontsize=12)
+    a1.text(-17.2, 0.32, "−17.2 ± 5.0", ha="center", fontsize=10.5, color=BLUE)
+    a1.text(-45.1, 1.32, "−45.1 ± 50.6", ha="center", fontsize=10.5, color=GREEN, fontweight="bold")
+    a1.set_xlabel("Carbon–climate feedback  γ  (PgC per °C)")
+    a1.set_title("Land feedback: ~3× larger, spread ~10× wider\n(CMIP6, Arora et al. 2020)",
+                 fontsize=12)
+    a1.set_ylim(-0.6, 1.7)
+    a1.annotate("huge model spread\n(crosses zero)", xy=(-45.1-50.6, 1), xytext=(-88, 0.55),
+                fontsize=9.5, color=GREEN,
+                arrowprops=dict(arrowstyle="->", color=GREEN, lw=1.2))
+    # 右: why uncertain -> our 3 couplings
+    a2.axis("off")
+    a2.text(0.5, 0.96, "Why is the land sink so uncertain?", ha="center",
+            fontsize=12.5, fontweight="bold", transform=a2.transAxes)
+    boxes = [
+        ("① Soil-respiration temperature sensitivity\n(how much CO₂ soils release when warm)",
+         "Booth et al. 2012"),
+        ("② Photosynthesis under water stress\n(soil moisture drives ~90% of sink IAV)",
+         "Humphrey et al. 2021"),
+        ("③ Is the year-to-year sink driven by\ntemperature or by water?",
+         "Jung et al. 2017"),
+    ]
+    yb = 0.80
+    for txt, cite in boxes:
+        a2.add_patch(plt.Rectangle((0.03, yb-0.13), 0.94, 0.15, transform=a2.transAxes,
+                     facecolor="#f0f4ea", edgecolor="#9bbf7f"))
+        a2.text(0.06, yb-0.03, txt, fontsize=9.7, va="top", transform=a2.transAxes)
+        a2.text(0.95, yb-0.115, cite, fontsize=8, ha="right", color="#666",
+                style="italic", transform=a2.transAxes)
+        yb -= 0.205
+    a2.annotate("", xy=(0.5, 0.16), xytext=(0.5, 0.20), transform=a2.transAxes,
+                arrowprops=dict(arrowstyle="-|>", color=RED, lw=2))
+    a2.text(0.5, 0.13, "= the driver–flux couplings\nTHIS study measures (TE / O-information)",
+            ha="center", fontsize=10.5, color=RED, fontweight="bold", va="top",
+            transform=a2.transAxes)
+    fig.suptitle("Land carbon uptake is a top uncertainty in climate projection — "
+                 "and its causes are the couplings we measure", fontsize=12.5)
+    fig.tight_layout(rect=(0, 0, 1, 0.93))
+    fig.savefig(OUT/"fig_uncertainty.png"); plt.close(fig)
+
+
 if __name__ == "__main__":
     fig_climate(); fig_pid(); fig_skeleton(); fig_robustness()
     fig_conditioning(); fig_oinfo_ci(); fig_oinfo_twosub()
     fig_flooding(); fig_climate_crosssite(); fig_oinfo_crossbiome()
-    fig_concept_network(); fig_q10_schematic(); fig_pipeline()
+    fig_concept_network(); fig_q10_schematic(); fig_pipeline(); fig_uncertainty()
     for p in sorted(OUT.glob("*.png")):
         print(f"[fig] {p}  ({p.stat().st_size//1024} KB)")

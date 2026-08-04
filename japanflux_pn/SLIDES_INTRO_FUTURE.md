@@ -9,10 +9,16 @@
 **タイトル案**: 「生態系の炭素・水・エネルギー交換：相関の先の"相互作用の構造"を読む」
 
 【スライドに載せる文】
-- **重要性**: 陸域生態系は人為 CO₂ の約 3 割を吸うが、**"陸が将来どれだけ吸うか"はモデルで大きく食い違い、
-  気候予測の最大級の不確実性源**。鍵は温度・水分に対する**呼吸と光合成の応答**（＝本研究が測る結合）。
-  - 具体的に不確実なもの: ①**年々の吸収量の変動（IAV）と、それが温度か水かの原因**、②**土壌呼吸の温度
-    感度 Q10**（温暖化で土がどれだけ CO₂ を吐くか）、③**乾燥で光合成がどれだけ落ちるか**。
+- **重要性（数値つき）**: 陸は人為 CO₂ の**約 1/4〜1/3 を吸収**（Global Carbon Budget 2024: 陸シンク
+  2.3±1.0 vs 総排出 11.1±0.9 GtC/yr）。だが**"将来どれだけ吸うか"はモデルで大きく食い違う**——
+  CMIP6 の**陸の炭素–気候フィードバックは −45.1 ± 50.6 PgC/°C**（Arora et al. 2020）で、
+  **海（−17.2 ± 5.0）の約 3 倍・ばらつき約 10 倍**（誤差がゼロをまたぐ）。IPCC AR6 第5章も
+  「**陸の炭素貯留の変化が炭素循環予測の鍵となる不確実性**」とする。
+- **その不確実性の"原因"＝本研究が測る結合**: ①**土壌呼吸の温度感度**（Booth et al. 2012:「光合成代謝の
+  温度依存が最大の不確実性」）、②**水ストレス下の光合成**（Humphrey et al. 2021:「**土壌水分が陸シンクの
+  経年変動の約 90% を駆動**」）、③**年々変動は温度か水か**（Jung et al. 2017）。
+- **正直な留保**: 2100 年 CO₂ 予測**全体**の不確実性は**排出シナリオの方が大きい**（AR6）。ただし
+  **炭素循環フィードバックのばらつきは陸が支配的**、という切り分けで話す。
 - **課題1（疑似相関・交絡）**: 変数は互いに動くが、**放射など共通原因**が"見かけの連動"を作り、本当の
   因果を覆う（**Reichenbach の共通原因原理**）。主流のフラックス解析（相関・回帰・機械学習）は
   **交絡の明示的制御が不十分**なことが多い。
@@ -23,10 +29,15 @@
   （**Ruddell & Kumar 2009 は米国イリノイ州 Bondville のトウモロコシ–大豆畑**、Goodwell & Kumar も米国⚠）。
   **湿潤モンスーンの東アジア、とくに湛水水田は、この枠組みで扱われていない**。
 
-【話す】同じ排出量でも"陸が将来どれだけ吸うか"はモデルで食い違う。その鍵は温度・水分への呼吸/光合成の
-応答。相関では共通原因の影を剥がせず、相互作用の"形"も観測から検証されていない。そこに東アジア・
-水田という未開拓が重なる。
-【図】`fig0_concept_network.png`（ドライバ↔フラックスの相互作用）＋（小さく）`fig_q10_schematic.png`。
+【話す（自分の言葉の台本）】「陸は今、人間が出す CO₂ の約 1/4〜1/3 を吸っています。でも**将来どれだけ
+吸うかはモデルで大きく食い違う**。CMIP6 では陸のフィードバックが −45±51 PgC/°C で、**誤差がゼロを
+またぐほど大きい**——海（−17±5）の約 3 倍・ばらつき約 10 倍。IPCC も『陸の炭素貯留が炭素循環予測の
+鍵となる不確実性』としています。正直に言うと、2100 年 CO₂ 全体の不確実性は排出シナリオの方が大きい。
+それでも、**炭素循環フィードバックのばらつきは陸が支配的**。そしてその原因が、①土壌呼吸の温度感度、
+②水ストレス下の光合成、③年々変動が温度か水か——**まさに本研究が情報理論で測る"駆動変数とフラックスの
+結合"そのもの**なんです。」
+【図】**`fig_uncertainty.png`（このスライドの主役）**＝左: 陸 vs 海のフィードバック（陸が大きく・不確実）、
+右: 不確実性の3原因＝本研究が測る結合。（導入の概念図 `fig0_concept_network.png` はスライド2冒頭でも可）
 【引用】[1] Reichenbach 1956（共通原因）／[2] Runge et al. 2019（交絡・因果の必要性）／
 [3] Ruddell & Kumar 2009（プロセスネットワーク）／[4] Goodwell & Kumar 2017（相乗・冗長）。
 
@@ -105,11 +116,32 @@
 （背景の呼吸・気孔・モデル評価: DAMM=Davidson 2012／Medlyn 2011／Jung 2020 FLUXCOM は
 `MODEL_COMPARISON_LIT.md`・`LINEAGE.md §K` 参照。⚠ p./原文は原著で確定）
 
-**スライド1「重要性・不確実性」の裏づけ:**
-- Baldocchi, Chu & Reichstein 2018 *Agric. For. Meteorol.* 249, 520–533（生態系炭素フラックスの経年変動）
-- Jung et al. 2020 *Biogeosciences* 17, 1343–1365（FLUXCOM: 全球NEEのIAV過小評価）DOI:10.5194/bg-17-1343-2020
-- ⚠ 陸の炭素–気候フィードバックのモデル間ばらつき: Friedlingstein et al.（Global Carbon Budget / C4MIP）,
-  Arora et al. 2020 *Biogeosciences*（CMIP6 carbon–climate feedbacks）, IPCC AR6 — 原著で確定
+**スライド1「重要性・不確実性」の裏づけ（Perplexity 探索で確認, ✅ DOI取得済 / ⚠図表番号・原文は原著で最終確認）:**
+- ✅ **Arora, V. K. et al. 2020**. Carbon–concentration and carbon–climate feedbacks in CMIP6 models…
+  *Biogeosciences* 17, 4173–4222. DOI:10.5194/bg-17-4173-2020。**引用値**: 陸の炭素–気候フィードバック
+  **−45.1 ± 50.6 PgC/°C**、海 **−17.2 ± 5.0**（陸≈3倍・spread≈10倍）。図: **Fig. 5** 系（⚠番号確認）。
+- ✅ **Friedlingstein, P. et al. 2006**. Climate–Carbon Cycle Feedback Analysis: C4MIP. *J. Climate* 19, 3337–3353.
+  DOI:10.1175/JCLI3800.1。原文: "…there is still a large uncertainty on the magnitude of these sensitivities."
+- ✅ **Friedlingstein, P. et al. 2014**. Uncertainties in CMIP5 projections due to carbon cycle feedbacks.
+  *J. Climate* 27, 511–526. DOI:10.1175/JCLI-D-13-00177.1。**引用値**: RCP8.5 で 2100 年 CO₂ が **795–1145 ppm**。
+- ✅ **Booth, B. B. B. et al. 2012**. High sensitivity of future global warming to land carbon cycle processes.
+  *ERL* 7, 024002. DOI:10.1088/1748-9326/7/2/024002。原文: "…temperature dependences of photosynthetic
+  metabolism represents the most important uncertainty identified."
+- ✅ **Cox, P. M. et al. 2000**. Acceleration of global warming due to carbon-cycle feedbacks. *Nature* 408,
+  184–187. DOI:10.1038/35041539。
+- ✅ **Humphrey, V. et al. 2021**. Soil moisture–atmosphere feedback dominates land carbon uptake variability.
+  *Nature* 592, 65–69. DOI:10.1038/s41586-021-03325-5。原文: "soil moisture drives 90% of the inter-annual
+  variability in global land carbon uptake"。
+- ✅ **Humphrey, V. et al. 2018**. *Nature* 560, 628–631. DOI:10.1038/s41586-018-0424-4（TWS と CO₂ 成長率）。
+- ✅ **Jung, M. et al. 2017**. Compensatory water effects link yearly global land CO₂ sink changes to temperature.
+  *Nature* 541, 516–520. DOI:10.1038/nature20780。
+- ✅ **Global Carbon Budget 2024** = Friedlingstein, P. et al. 2025. *ESSD* 17, 965–1039. DOI:10.5194/essd-17-965-2025。
+  **引用値**: 2023 陸シンク **2.3 ± 1.0**、総排出 **11.1 ± 0.9 GtC/yr**（≈1/4〜1/3）。
+- ⚠ **IPCC AR6 WG1 Ch.5**（Canadell et al. 2021）: "Changes in land carbon storage remain the key uncertainty
+  in carbon cycle projections."／"Uncertainty in atmospheric CO₂ by 2100 is dominated by emissions scenarios
+  rather than … carbon–climate feedbacks."（節・図番号は AR6 PDF で確認）。
+- 補足: Baldocchi, Chu & Reichstein 2018 *Agric. For. Meteorol.* 249, 520–533（フラックスの経年変動）／
+  Jung et al. 2020 *Biogeosciences* 17, 1343–1365（FLUXCOM: IAV 過小評価）DOI:10.5194/bg-17-1343-2020。
 **課題3の裏づけ（先行のサイト）:**
 - Ruddell & Kumar 2009 *WRR*: 米国イリノイ州 **Bondville**（トウモロコシ–大豆畑, US Corn Belt, 2003-07）
   ＝本文で確認済み。Goodwell & Kumar 2017/2018 のサイトは ⚠ 原著で確認（米国サイトの見込み）。
