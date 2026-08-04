@@ -483,6 +483,44 @@ def fig_pipeline():
     fig.savefig(OUT/"fig_pipeline.png"); plt.close(fig)
 
 
+def fig_positioning3():
+    """3円ベン図（日本語）: 手法×データ×問い の共通部分＝本研究 ＋ 役立つこと。"""
+    import matplotlib.font_manager as fm
+    from matplotlib.patches import Circle, FancyBboxPatch
+    jp = fm.FontProperties(fname="/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf")
+    fig, ax = plt.subplots(figsize=(10.2, 8.4))
+    cen = (0, 0.5); R = 2.35
+    c1 = (0, 1.9); c2 = (-1.75, -1.0); c3 = (1.75, -1.0)
+    cols = ["#1f6fb2", "#2e8b57", "#d98a1e"]
+    for (cx, cy), col in zip((c1, c2, c3), cols):
+        ax.add_patch(Circle((cx, cy), R, facecolor=col, edgecolor=col, lw=2, alpha=0.22))
+    def T(x, y, s, size, color="#222", w="normal", ha="center"):
+        ax.text(x, y, s, fontproperties=jp, fontsize=size, color=color,
+                ha=ha, va="center", fontweight=w)
+    # 円のラベル（外側）
+    T(0, 4.55, "① 情報理論・因果推論", 15, cols[0], "bold")
+    T(0, 4.0, "相互情報量・PCMCI・O-information", 10.5, cols[0])
+    T(-4.35, -2.15, "② 東アジアのフラックス観測", 14.5, cols[1], "bold", ha="left")
+    T(-4.35, -2.7, "日中韓の渦相関・水田など管理生態系", 10, cols[1], ha="left")
+    T(4.35, -2.15, "③ 生態系の過程の相互作用", 14.5, cols[2], "bold", ha="right")
+    T(4.35, -2.7, "炭素・水・エネルギー／相乗・因果／気候・管理", 9.5, cols[2], ha="right")
+    # 中心＝本研究
+    T(0, 0.95, "本研究", 17, RED, "bold")
+    T(0, 0.15, "東アジアの管理生態系のフラックスから、\n過程の相互作用構造を情報理論で読む",
+      10.3, "#7a1f14")
+    # 下：役立つこと
+    ax.add_patch(FancyBboxPatch((-4.7, -4.65), 9.4, 1.35, boxstyle="round,pad=0.03",
+                 facecolor="#fbeeea", edgecolor=RED, lw=1.4))
+    T(0, -3.62, "これが読めると", 12.5, RED, "bold")
+    T(0, -4.12, "① 生態系の状態を診断（気候ストレス・管理・レジームの“指紋”）　"
+      "② モデルの過程表現を検証　③ 陸炭素予測の不確実性に観測から迫る", 10.3, "#333")
+    ax.set_xlim(-5.2, 5.2); ax.set_ylim(-5.0, 5.0); ax.axis("off")
+    ax.set_aspect("equal")
+    ax.set_title("手法 × データ × 問い の交わりに本研究がある",
+                 fontproperties=jp, fontsize=15)
+    fig.savefig(OUT/"fig_positioning3_jp.png", bbox_inches="tight"); plt.close(fig)
+
+
 def fig_positioning():
     """スライドA: 2つの研究の流れの交点＝本研究、＋突破点。"""
     from matplotlib.patches import Ellipse, FancyBboxPatch
@@ -576,6 +614,6 @@ if __name__ == "__main__":
     fig_conditioning(); fig_oinfo_ci(); fig_oinfo_twosub()
     fig_flooding(); fig_climate_crosssite(); fig_oinfo_crossbiome()
     fig_concept_network(); fig_q10_schematic(); fig_pipeline(); fig_uncertainty()
-    fig_positioning()
+    fig_positioning(); fig_positioning3()
     for p in sorted(OUT.glob("*.png")):
         print(f"[fig] {p}  ({p.stat().st_size//1024} KB)")
