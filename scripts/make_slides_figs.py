@@ -383,9 +383,84 @@ def fig_oinfo_crossbiome():
     fig.savefig(OUT/"fig5_oinfo_synergy.png"); plt.close(fig)
 
 
+# ---------------------------------------------------------------------------
+# 概念図 (schematic) — 発表の 動機/背景/方法 用（実データでなく模式）
+# ---------------------------------------------------------------------------
+def fig_concept_network():
+    """§0 動機: ドライバ↔フラックスの相互作用ネットワーク概念図。"""
+    fig, ax = plt.subplots(figsize=(8.4, 5.2))
+    drivers = {"Rg": (0, 3), "Ta": (0, 2), "VPD": (0, 1), "θ": (0, 0)}
+    fluxes = {"GPP": (4, 2.4), "Reco": (4, 1.2), "LE": (4, 0)}
+    for n, (x, y) in {**drivers, **fluxes}.items():
+        c = "#ffd24d" if n in drivers else "#b8e0b8"
+        ax.add_patch(plt.Circle((x, y), 0.34, color=c, ec="#555", zorder=3))
+        ax.text(x, y, n, ha="center", va="center", fontsize=12, zorder=4)
+    rng = np.random.default_rng(1)
+    for _, (x0, y0) in drivers.items():
+        for _, (x1, y1) in fluxes.items():
+            ax.annotate("", xy=(x1-0.34, y1), xytext=(x0+0.34, y0),
+                        arrowprops=dict(arrowstyle="-|>", color="#1f6fb2",
+                                        alpha=0.5, lw=1.2))
+    # 相互作用（高次）を示す波線ハイライト
+    ax.annotate("interactions?\n(synergy / non-additive)", xy=(2, 1.5),
+                xytext=(2, 3.5), ha="center", fontsize=12, color=RED,
+                fontweight="bold",
+                arrowprops=dict(arrowstyle="-[,widthB=6", color=RED, lw=1.5))
+    ax.text(0, 3.7, "Drivers", ha="center", fontsize=12, color="#b8860b", fontweight="bold")
+    ax.text(4, 3.2, "Fluxes", ha="center", fontsize=12, color=GREEN, fontweight="bold")
+    ax.set_xlim(-1, 5.2); ax.set_ylim(-0.8, 4.2); ax.axis("off")
+    ax.set_title("Which drivers drive which fluxes — and do they interact?\n"
+                 "we measure the interaction structure itself (information flow)",
+                 fontsize=13.5)
+    fig.savefig(OUT/"fig0_concept_network.png"); plt.close(fig)
+
+
+def fig_q10_schematic():
+    """§1 背景: 呼吸の 乗法(加法的) vs 高次相乗 の模式（T感度がθで変わるか）。"""
+    T = np.linspace(5, 30, 100)
+    fig, (a1, a2) = plt.subplots(1, 2, figsize=(9.6, 4.6), sharey=True)
+    # 乗法 f(T)*g(θ): θが上がると一様にスケール（T感度の"形"は不変＝平行）
+    for g, lbl, c in [(0.6, "low θ", "#c48a3a"), (1.0, "high θ", "#1f6fb2")]:
+        a1.plot(T, g*np.exp(0.09*(T-5)), color=c, lw=2.4, label=lbl)
+    a1.set_title("Assumed: multiplicative  f(T)·g(θ)\n(θ only rescales — parallel)", fontsize=12)
+    # 相乗: θが高いほどT感度そのものが強まる（扇形に開く＝非加法）
+    for g, lbl, c in [(0.05, "low θ", "#c48a3a"), (0.11, "high θ", "#1f6fb2")]:
+        a2.plot(T, 0.6*np.exp(g*(T-5)), color=c, lw=2.4, label=lbl)
+    a2.set_title("Observed hint: higher-order synergy\n(θ changes the T-sensitivity — fans out)",
+                 fontsize=12, color=RED)
+    for a in (a1, a2):
+        a.set_xlabel("Soil temperature  Ts"); a.legend(frameon=False, fontsize=10)
+        a.set_yticks([])
+    a1.set_ylabel("Respiration  Reco")
+    fig.suptitle("Do temperature and soil moisture combine additively, or synergistically?",
+                 fontsize=13.5)
+    fig.savefig(OUT/"fig_q10_schematic.png"); plt.close(fig)
+
+
+def fig_pipeline():
+    """§3 方法: 解析パイプライン図。"""
+    fig, ax = plt.subplots(figsize=(9.8, 3.2))
+    steps = [("Flux + met\n(30-min, 11 vars)", "#cfe3f3"),
+             ("Preprocess\n5-day anomaly\nlistwise", "#e8e8e8"),
+             ("Info theory + causal\nTE · O-information · PCMCI", "#ffe6b3"),
+             ("Network · synergy\ncausal skeleton", "#b8e0b8")]
+    x = 0
+    for i, (txt, c) in enumerate(steps):
+        ax.add_patch(plt.Rectangle((x, 0), 2.2, 1.4, color=c, ec="#555"))
+        ax.text(x+1.1, 0.7, txt, ha="center", va="center", fontsize=10.5)
+        if i < len(steps)-1:
+            ax.annotate("", xy=(x+2.55, 0.7), xytext=(x+2.2, 0.7),
+                        arrowprops=dict(arrowstyle="-|>", color="#333", lw=1.8))
+        x += 2.55
+    ax.set_xlim(-0.2, x); ax.set_ylim(-0.3, 1.7); ax.axis("off")
+    ax.set_title("Analysis pipeline", fontsize=13.5)
+    fig.savefig(OUT/"fig_pipeline.png"); plt.close(fig)
+
+
 if __name__ == "__main__":
     fig_climate(); fig_pid(); fig_skeleton(); fig_robustness()
     fig_conditioning(); fig_oinfo_ci(); fig_oinfo_twosub()
     fig_flooding(); fig_climate_crosssite(); fig_oinfo_crossbiome()
+    fig_concept_network(); fig_q10_schematic(); fig_pipeline()
     for p in sorted(OUT.glob("*.png")):
         print(f"[fig] {p}  ({p.stat().st_size//1024} KB)")
