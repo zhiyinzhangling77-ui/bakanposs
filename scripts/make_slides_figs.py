@@ -105,8 +105,9 @@ def fig_pid():
 # Fig 3: PCMCI causal skeleton (JP-Tak forest)
 # ---------------------------------------------------------------------------
 def fig_skeleton():
-    pos = {"Rg":(0,2), "VPD":(-1.6,1), "Ta":(0.2,1), "gLE":(-1.9,-0.2),
-           "gH":(-0.6,-0.3), "Ts":(1.1,0.2), "GEP":(1.7,1.1), "NEE":(2.2,0)}
+    # 円を大きくするため配置を広げ、円が重ならないように離す
+    pos = {"Rg":(0,3.0), "VPD":(-2.8,1.4), "Ta":(0.5,1.4), "gLE":(-3.1,-0.9),
+           "gH":(-0.7,-1.1), "Ts":(2.2,0.1), "GEP":(3.3,2.0), "NEE":(4.2,-0.2)}
     edges = [("Rg","VPD"),("Rg","Ta"),("Rg","gLE"),("Rg","gH"),("Rg","Ts"),
              ("Ta","Ts"),("VPD","gLE"),("GEP","NEE")]
     # 日本語（正式名称）＋アルファベット略号の2段表示
@@ -114,20 +115,22 @@ def fig_skeleton():
               "gLE":"潜熱\nγLE", "gH":"顕熱\nγH", "Ts":"地表面温度\nTs",
               "GEP":"光合成\nGEP", "NEE":"正味CO2\nNEE"}
     G = nx.DiGraph(); G.add_nodes_from(pos); G.add_edges_from(edges)
-    fig, ax = plt.subplots(figsize=(8.0, 5.8))
+    fig, ax = plt.subplots(figsize=(14.0, 9.5))
     # 統一配色（青＋緑のみ）：日射＝共通原因(濃い青)、光合成・正味CO2＝直接残る炭素(緑)、その他気象＝薄青
     ncol = ["#5b9bd5" if n=="Rg" else (C_REAL_LIGHT if n in ("GEP","NEE")
             else C_APP_LIGHT) for n in G.nodes]
-    nx.draw_networkx_nodes(G, pos, node_size=2800, node_color=ncol,
-                           edgecolors="#555", ax=ax)
-    nx.draw_networkx_labels(G, pos, labels=labels, font_size=11,
+    NS = 26000  # 円を大きく（文字が収まるように）
+    nx.draw_networkx_nodes(G, pos, node_size=NS, node_color=ncol,
+                           edgecolors="#555", linewidths=2, ax=ax)
+    nx.draw_networkx_labels(G, pos, labels=labels, font_size=22,
                             font_family=JP.get_name(), ax=ax)
-    nx.draw_networkx_edges(G, pos, arrowstyle="-|>", arrowsize=20,
-                           width=2, edge_color=BLUE,
-                           node_size=2800, ax=ax)
+    nx.draw_networkx_edges(G, pos, arrowstyle="-|>", arrowsize=28,
+                           width=2.5, edge_color=BLUE,
+                           node_size=NS, ax=ax)
     ax.set_title("共通原因（日射）を差し引いて残る因果の骨組み（PCMCI）\n"
                  "日射が気象・エネルギーを動かし、光合成が正味炭素を動かす",
-                 fontsize=14)
+                 fontsize=18)
+    ax.set_xlim(-4.4, 5.4); ax.set_ylim(-2.2, 4.0)
     ax.axis("off")
     fig.savefig(OUT/"fig3_causal_skeleton.png", bbox_inches="tight"); plt.close(fig)
 
