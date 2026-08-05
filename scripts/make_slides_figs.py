@@ -122,8 +122,7 @@ def fig_skeleton():
     NS = 8500  # 円は少し小さめ
     nx.draw_networkx_nodes(G, pos, node_size=NS, node_color=ncol,
                            edgecolors="#555", linewidths=2, ax=ax)
-    # 文字は前回(15)の約3倍
-    nx.draw_networkx_labels(G, pos, labels=labels, font_size=45,
+    nx.draw_networkx_labels(G, pos, labels=labels, font_size=40,
                             font_family=JP.get_name(), ax=ax)
     # 小さい円でも矢印が文字に刺さらないよう、ターゲット側に大きめ余白
     nx.draw_networkx_edges(G, pos, arrowstyle="-|>", arrowsize=26,
