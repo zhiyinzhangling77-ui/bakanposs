@@ -43,16 +43,27 @@
 - **Krich et al. (2020)** は「因果探索をフラックス観測に当てた研究は**まだ少ない**」とし、対象も少数サイト。
 - → **湿潤モンスーンの東アジア、まして湛水水田**に、共通原因除去＋高次相互作用まで当てた例はほぼ無い。
 
-### 2-2. 東アジアの生態学的・社会的重要性（⚠数値は要確認）
-- **コメ**：世界のコメ生産の大半がアジア（アジアで世界の約9割）⚠要確認（FAOSTAT）。**食料安全保障**の中核。
-- **水田とCH₄**：湛水水田は**人為起源メタンの主要因**の一つ⚠要確認（IPCC AR6 WG1/WG3, Global Methane Budget）。
-  → 水田の炭素・水・GHG結合を理解する実利が大きい。
+### 2-2. 東アジアの生態学的・社会的重要性（確認済み・出典つき）
+- **コメ＝アジアが中核（確定）**：FAO 公式記述「**Over 90 percent of the world's rice is produced and
+  consumed in Asia.**」（世界のコメの9割超がアジアで生産・消費）。FAOSTAT 2024 では世界 約821.8 Mt に対し
+  アジア 約765.0 Mt＝**約93%**（東＋東南＋南アジアで約87.6%）。上位＝インド26.5%・中国25.5%…
+  ※厳密な最新値は FAOSTAT（Production→QCL, Item=Rice, paddy）で最終確認。→ **食料安全保障の中核**。
+- **農業（家畜＋水田）＝人為メタンの最大源（確定）**：Global Methane Budget 2024
+  （Saunois et al., *ESSD* 17, 1873–1958, 2025; DOI:10.5194/essd-17-1873-2025）
+  「**Agriculture (livestock and rice paddies) is the main anthropogenic source and contributes 40% of
+  global anthropogenic emissions.**」（農業＝家畜＋水田で人為起源の40%）。
+  ※**"水田単独"の割合**は公開要約では家畜と分離されておらず未確定（⚠ GMB2024 補助データ表で要確認）。
+  → いずれにせよ**水田の炭素・水・GHG結合**を理解する実利は大きい。
 - **管理生態系の広がり**：東アジアは人為管理された農地・二次林が多く、「**人の管理が結合構造をどう変えるか**」
   を問うのに最適な実験室（本研究の湛水→相乗崩壊はその最初の実例）。
 
-### 2-3. 気候変動シグナルが顕在（⚠数値は要確認、ただし自データで裏づけ可）
-- 東アジアは**温暖化と極端な高温・複合的な熱波/乾燥が増加**傾向⚠要確認
-  （IPCC AR6 WG1 Atlas/アジア章、及び各国気象機関）。
+### 2-3. 気候変動シグナルが顕在（IPCC AR6 で確認済み＋自データで裏づけ）
+- **東アジアの昇温（確定）**：IPCC AR6 WG1 **Atlas 章**「Central and East Asia … **0.3°C–0.5°C per
+  decade**（1980年代以降, *very likely*）」で温暖化。
+- **高温・熱波の増加（確定）**：AR6 WG1 **第11章 11.3**「**The frequency and intensity of hot extremes
+  (including heatwaves) have increased … since 1950 (virtually certain)**」。東アジア西部で
+  「cold extremes 減少・warm extremes 増加（1960年代以降）」、人為寄与に *high confidence*。
+  ※第11章の地域評価の一部引用は **FOD（草稿）PDF** 由来なので、**最終版 Chapter 11 で要再確認**。
 - **自分のデータで示せる強み**：JP-Tak の21年で、**乾いた夏ほど「日射↔光合成」の結合が緩む**
   （fig1；2018年の記録的熱波の年に顕著、2003冷夏と対照）。**外部の主張に頼らず、自分の解析が気候ストレス
   応答を捉えている**——これが「東アジアで、いま、この解析をやる意味」の実証的な芯。
@@ -83,10 +94,29 @@
 | VPD | LST＋湿度リトリーバル＋再解析から導出 | 直接観測は難、複合 |
 | 降水 | **GPM/TRMM** | モンスーン水循環 |
 
+**主要ミッションの確認済み仕様（公式・出願で強い）**
+- **Himawari-8/9（AHI, JMA・日本の静止衛星）**：全地球 **10分**・日本域 **2.5分**、16バンド、
+  分解能 **0.5–1 km（可視）/1–2 km（近赤外・赤外）**。運用 8号=2014-10〜, 9号=2016-11〜。
+  → **東アジアを高頻度で常時観測**でき、日射(Rg)・地表面温度の**時間方向の因果解析に最適**。
+- **GOSAT（2009-04〜）/ GOSAT-2（2018-10-29〜）**（日本, XCO₂/XCH₄/SIF）：FTS フットプリント **約10.5 km**、
+  回帰 **約3日**（日中の非連続サンプリング）。→ 日本発の温室効果ガス・SIF ミッション（出願の掴み）。
+- **SMAP（2015-01-31〜）**：土壌水分、**9 km**（放射計）、**2–3日**全球。→ **湛水/乾燥の判別**に直結。
+- **MODIS LST（Terra 2000〜/Aqua 2002〜）**：地表面温度 **1 km**、1日1–2回。
+- **ECOSTRESS（ISS, 2018〜）**：LST/ET **約70 m**、日内の多時刻。
+- **SIF/CO₂**：OCO-2（2014〜, 1.29×2.25 km）/OCO-3（2019〜, ISS）/TROPOMI（2017〜, 日次全球）/
+  **FLEX（ESA, 2026以降予定, SIF専用）**。
+- 出典：各ミッション公式（JMA / GOSAT公式 / NASA Earthdata / ESA）。※プロダクト/バンドで数値差あり。
+
 ### 3-3. 使っているモデルとの関連（衛星×モデル）
 - **FLUXCOM**：タワーのフラックスを**衛星（MODIS等）＋気象でアップスケール**した機械学習プロダクト。
-  ただし**年々変動(IAV)の再現が弱い**ことが知られる（本研究の情報・因果構造は、その"欠けている相互作用"を
-  診断する材料になりうる）。
+  ただし**年々変動(IAV)を過小評価**することが明示されている（確定）：
+  Jung et al. (2020, *Biogeosciences* 17:1343–1365; DOI:10.5194/bg-17-1343-2020, Fig.8)
+  「**All EC data-driven methods, in particular FLUXCOM-RS+METEO, underestimate magnitude of IAV
+  compared to inversions**」「**The reasons for the underestimation of IAV … are not fully clear.**」。
+  さらに IAV を何が支配するかは Jung et al. (2017, *Nature* 541:516–520; DOI:10.1038/nature21069)
+  「**water availability is the dominant driver of the local interannual variability in GPP and TER**」
+  「**At the global scale, temperature drives spatially integrated NEE IAV**」＝**局所は水・全球積算は温度**。
+  → 本研究の情報・因果構造は、この"**なぜ IAV を取りこぼすか（欠けている相互作用）**"を診断する材料になりうる。
 - **光利用効率(LUE)モデル/SIF-GPP**（例：MOD17系）：衛星GPPの基盤。**SIFで光合成を測る**という発想は
   本研究のGEP因果と自然につながる。
 - **DGVM/TRENDY・陸面モデル**：過程表現（呼吸Q10×水、GPPの水ストレス）の不確実性を、
@@ -128,11 +158,21 @@
 
 ---
 
-## 6. 要確認リスト（引用前に一次資料で数値・原文を確定すること）
-- ⚠ アジアの世界コメ生産シェア（FAOSTAT の最新値）。
-- ⚠ 湛水水田の人為CH₄寄与の割合（IPCC AR6 / Global Methane Budget / Saunois et al.）。
-- ⚠ 東アジアの温暖化・熱波トレンドの定量（IPCC AR6 WG1 Atlas / アジア章）。
-- ⚠ FLUXCOM の IAV 過小評価の具体的記述（Jung et al. の該当箇所）。
-- ⚠ 各衛星ミッションの運用期間・解像度・変数の正確な仕様（プロダクト説明書）。
+## 6. 出典ステータス（確定／要再確認）
+**確定（一次資料で照合済み）**
+- ✅ コメ＝アジア中核：FAO「Over 90% of the world's rice is produced and consumed in Asia」。
+- ✅ 農業(家畜+水田)＝人為CH₄の40%：GMB2024（Saunois et al., ESSD 17:1873–1958, 2025）。
+- ✅ 東アジア昇温 0.3–0.5°C/decade（very likely）：IPCC AR6 WG1 Atlas。
+- ✅ 高温・熱波の増加（since 1950, virtually certain）：IPCC AR6 WG1 Ch.11 (11.3)。
+- ✅ FLUXCOM が IAV を過小評価：Jung et al. 2020 (BG 17:1343, Fig.8)。IAV支配＝局所水/全球温度：Jung et al. 2017 (Nature 541:516)。
+- ✅ Himawari/GOSAT/SMAP/MODIS/ECOSTRESS の主要仕様：各公式。
+- ✅ Arora 2020（−45.1±50.6・海の約3倍）、Booth 2012（光合成の温度感度が最大の不確実性）、
+  Ruddell & Kumar 2009（米国畑）、Krich 2020（因果探索×フラックスは少数）。
+
+**まだ要再確認（引用前に確定）**
+- ⚠ FAOSTAT 2024 の"正確な"生産量（821.8 / 765.0 Mt 等）— DB から最終ダウンロードで確認。
+- ⚠ **水田"単独"**の CH₄ Tg yr⁻¹ と人為起源比 — GMB2024 補助データ表を直接参照（家畜と分離）。
+- ⚠ IPCC Ch.11 の東アジア地域評価の一部引用は **FOD（草稿）由来** — 最終版 Ch.11 で文言・図表番号を再確認。
+- ⚠ 2018年東アジア熱波の個別査読論文（書誌・定量）— 追加検索が必要。
 - （確認済み）Arora 2020 の −45.1±50.6/海の約3倍、Booth 2012 の「光合成の温度感度が最大の不確実性」、
   Ruddell & Kumar 2009＝米国畑、Krich 2020＝因果探索×フラックスは少数。
