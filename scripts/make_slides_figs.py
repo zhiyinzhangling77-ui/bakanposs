@@ -10,18 +10,40 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 import numpy as np
 import networkx as nx
+
+# 日本語フォント（IPAGothic）。ラテン文字・数字・矢印もこのフォントで統一。
+_JP_PATH = "/usr/share/fonts/opentype/ipafont-gothic/ipag.ttf"
+fm.fontManager.addfont(_JP_PATH)
+JP = fm.FontProperties(fname=_JP_PATH)
 
 plt.rcParams.update({
     "figure.dpi": 130, "savefig.dpi": 130, "font.size": 13,
     "axes.titlesize": 15, "axes.labelsize": 13, "axes.spines.top": False,
     "axes.spines.right": False, "figure.autolayout": True,
+    "font.family": JP.get_name(),
 })
 OUT = Path("japanflux_pn/slides")
 OUT.mkdir(parents=True, exist_ok=True)
 
 BLUE, RED, GREEN, ORANGE, GREY = "#1f6fb2", "#c0392b", "#2e8b57", "#e08a1e", "#888"
+
+# 3図で共通の意味づけ配色（統一パレット）
+C_RADIATION = "#f0b73e"   # 放射（共通原因そのもの）
+C_APPARENT  = BLUE        # 見かけのつながり（共通原因の影／条件付けで崩れる）
+C_APP_LIGHT = "#bcd4e8"   # 同・条件付け後（薄色）
+C_REAL      = GREEN       # 本物・直接・頑健な因果
+C_REAL_LIGHT = "#b8e0b8"  # 同・薄色
+C_ARTIFACT  = RED         # 物理的にありえない（アーティファクト）
+
+# 変数の日本語表示名
+JVAR = {
+    "Rg": "日射", "Ta": "気温", "VPD": "飽差", "Ts": "地温", "P": "降水",
+    "th": "土壌水分", "θ": "土壌水分", "gH": "顕熱", "gLE": "潜熱",
+    "GER": "呼吸", "NEE": "正味CO2", "GEP": "光合成",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -87,18 +109,22 @@ def fig_skeleton():
            "gH":(-0.6,-0.3), "Ts":(1.1,0.2), "GEP":(1.7,1.1), "NEE":(2.2,0)}
     edges = [("Rg","VPD"),("Rg","Ta"),("Rg","gLE"),("Rg","gH"),("Rg","Ts"),
              ("Ta","Ts"),("VPD","gLE"),("GEP","NEE")]
+    labels = {n: JVAR[n] for n in pos}
     G = nx.DiGraph(); G.add_nodes_from(pos); G.add_edges_from(edges)
     fig, ax = plt.subplots(figsize=(7.6, 5.4))
-    ncol = ["#ffd24d" if n=="Rg" else ("#b8e0b8" if n in ("GEP","NEE")
-            else "#cfe3f3") for n in G.nodes]
-    nx.draw_networkx_nodes(G, pos, node_size=1500, node_color=ncol,
+    # 統一配色：日射＝共通原因(金)、光合成・正味CO2＝本物の炭素出力(緑)、その他気象＝青
+    ncol = [C_RADIATION if n=="Rg" else (C_REAL_LIGHT if n in ("GEP","NEE")
+            else C_APP_LIGHT) for n in G.nodes]
+    nx.draw_networkx_nodes(G, pos, node_size=2000, node_color=ncol,
                            edgecolors="#555", ax=ax)
-    nx.draw_networkx_labels(G, pos, font_size=12, ax=ax)
+    nx.draw_networkx_labels(G, pos, labels=labels, font_size=13,
+                            font_family=JP.get_name(), ax=ax)
     nx.draw_networkx_edges(G, pos, arrowstyle="-|>", arrowsize=20,
-                           width=2, edge_color="#1f6fb2",
-                           node_size=1500, ax=ax)
-    ax.set_title("Causal skeleton after removing common driving (PCMCI)\n"
-                 "Radiation drives climate/energy; photosynthesis drives net carbon")
+                           width=2, edge_color=BLUE,
+                           node_size=2000, ax=ax)
+    ax.set_title("共通原因（日射）を差し引いて残る因果の骨組み（PCMCI）\n"
+                 "日射が気象・エネルギーを動かし、光合成が正味炭素を動かす",
+                 fontsize=14)
     ax.axis("off")
     fig.savefig(OUT/"fig3_causal_skeleton.png"); plt.close(fig)
 
@@ -107,24 +133,29 @@ def fig_skeleton():
 # Fig 4: multi-year robustness — link consistency (core vs artifact)
 # ---------------------------------------------------------------------------
 def fig_robustness():
+    def jp(link):  # "Rg->gH" -> "日射→顕熱"
+        a, b = link.split("->")
+        return f"{JVAR[a]}→{JVAR[b]}"
     core = [("GEP->NEE",100),("Rg->gH",95),("Rg->gLE",95),("Rg->VPD",95),
             ("Ta->Ts",90),("Rg->Ta",86),("Rg->Ts",76),("Ta->GER",71)]
     art = [("gH->Rg",57),("gLE->Rg",38),("GEP->Rg",14),("NEE->Rg",14)]
-    labels = [l for l,_ in core] + [l for l,_ in art]
+    labels = [jp(l) for l,_ in core] + [jp(l) for l,_ in art]
     vals = [v for _,v in core] + [v for _,v in art]
-    cols = [GREEN]*len(core) + [RED]*len(art)
+    cols = [C_REAL]*len(core) + [C_ARTIFACT]*len(art)
     y = np.arange(len(labels))[::-1]
-    fig, ax = plt.subplots(figsize=(7.6, 5.2))
+    fig, ax = plt.subplots(figsize=(7.8, 5.4))
     ax.barh(y, vals, color=cols)
     ax.set_yticks(y); ax.set_yticklabels(labels)
     ax.axvline(70, color=GREY, ls="--", lw=1)
-    ax.set_xlabel("Fraction of years the causal link appears (%)  — JP-Tak, 21 yr")
-    ax.set_title("Real causal links are stable across years;\n"
-                 "physically impossible links (-> Rg) are sporadic = artifacts")
+    ax.text(70, len(labels)-0.3, "70%", color=GREY, fontsize=10, ha="center")
+    ax.set_xlabel("そのリンクが出現した年の割合（％）  ― JP-Tak・21年")
+    ax.set_title("本物の因果は年をまたいで安定して現れ、\n"
+                 "物理的にありえないリンク（→日射）は散発的＝アーティファクト",
+                 fontsize=14)
     ax.set_xlim(0, 105)
     from matplotlib.patches import Patch
-    ax.legend(handles=[Patch(color=GREEN, label="Physical core links"),
-                       Patch(color=RED, label="Into radiation Rg (impossible) = artifact")],
+    ax.legend(handles=[Patch(color=C_REAL, label="本物の因果（コア・頻度70%以上）"),
+                       Patch(color=C_ARTIFACT, label="日射に入る向き（ありえない）＝アーティファクト")],
               loc="lower right", fontsize=11, frameon=False)
     fig.savefig(OUT/"fig4_robustness.png"); plt.close(fig)
 
@@ -160,39 +191,48 @@ def fig_oinfo():
 # ---------------------------------------------------------------------------
 def fig_conditioning():
     # (pair, I(X;Y) before, I(X;Y|Rg) after)  — JP-Tak
-    flux = [("gH-GEP",10.9,1.4),("gLE-GEP",11.2,2.3),
-            ("gH-gLE",8.7,1.1),("NEE-GEP",21.9,6.9)]
-    therm = [("Ta-Ts",19.1,21.8),("Ta-GER",17.5,20.7),
-             ("Ts-GER",13.6,18.7),("th-GER",7.8,12.6)]
+    flux = [("顕熱–光合成",10.9,1.4),("潜熱–光合成",11.2,2.3),
+            ("顕熱–潜熱",8.7,1.1),("正味CO2–光合成",21.9,6.9)]
+    therm = [("気温–地温",19.1,21.8),("気温–呼吸",17.5,20.7),
+             ("地温–呼吸",13.6,18.7),("土壌水分–呼吸",7.8,12.6)]
     labels = [l for l,_,_ in flux] + [l for l,_,_ in therm]
     before = [b for _,b,_ in flux] + [b for _,b,_ in therm]
     after  = [a for _,_,a in flux] + [a for _,_,a in therm]
     x = np.array([0,1,2,3, 4.8,5.8,6.8,7.8])
     w = 0.38
-    fig, ax = plt.subplots(figsize=(8.6, 5.6))
-    ax.bar(x-w/2, before, w, label="Coupling I(X;Y)  (before)", color=BLUE)
-    ax.bar(x+w/2, after,  w, label="After removing radiation  I(X;Y | Rg)",
-           color="#bcd4e8", edgecolor="#7fa8cc")
-    ax.set_xticks(x); ax.set_xticklabels(labels, rotation=30, ha="right")
-    ax.set_ylabel("Coupling strength  I  (%)")
-    ax.set_ylim(0, 30)
-    ax.set_title("Removing the common driver (radiation Rg):\n"
-                 "flux couplings collapse — temperature–respiration survive",
-                 fontsize=14)
+    FS = 26  # 目盛り・軸見出しの基準サイズ（従来比およそ2倍）
+    fig, ax = plt.subplots(figsize=(15.5, 10.5))
+    # 統一配色：左＝見かけ(青)、右＝本物(緑)。濃色＝条件付け前、薄色＝日射で条件付け後。
+    cols_before = [C_APPARENT]*4 + [C_REAL]*4
+    cols_after  = [C_APP_LIGHT]*4 + [C_REAL_LIGHT]*4
+    ax.bar(x-w/2, before, w, color=cols_before)
+    ax.bar(x+w/2, after,  w, color=cols_after, edgecolor="#7f7f7f")
+    ax.set_xticks(x)
+    ax.set_xticklabels(labels, rotation=35, ha="right", fontsize=FS)
+    ax.tick_params(axis="y", labelsize=FS)
+    ax.set_ylabel("つながりの強さ  I ＝ 相互情報量 / log(11)  （％）", fontsize=FS)
+    ax.set_ylim(0, 34)
+    ax.set_title("共通原因（日射）を差し引くと：\n"
+                 "エネルギー・炭素のつながりは崩れ、気温–呼吸は残る",
+                 fontsize=FS-2, pad=14)
     ax.axvspan(-0.6, 3.6, color="#eef4fa", zorder=0)
-    ax.axvspan(4.2, 8.4, color="#fdf2e6", zorder=0)
-    ax.legend(loc="upper center", bbox_to_anchor=(0.5, -0.18), ncol=2,
-              fontsize=10.5, frameon=False)
-    ax.text(1.5, 27.5, "Energy / carbon fluxes\n(the sun's shadow)", ha="center",
-            fontsize=11, color=BLUE, fontweight="bold")
-    ax.text(6.3, 27.5, "Temperature – respiration\n(real, direct)", ha="center",
-            fontsize=11, color=ORANGE, fontweight="bold")
+    ax.axvspan(4.2, 8.4, color="#eef7ef", zorder=0)
+    from matplotlib.patches import Patch
+    ax.legend(handles=[Patch(color=GREY, label="条件付け前  I(X;Y)"),
+                       Patch(facecolor="#dddddd", edgecolor="#7f7f7f",
+                             label="日射で条件付け後  I(X;Y | 日射)")],
+              loc="upper center", bbox_to_anchor=(0.5, -0.30), ncol=2,
+              fontsize=FS-8, frameon=False)
+    ax.text(1.5, 31.5, "エネルギー・炭素フラックス\n（日射の影＝見かけ）", ha="center",
+            fontsize=FS-8, color=C_APPARENT, fontweight="bold")
+    ax.text(6.3, 31.5, "気温・土壌・呼吸\n（本物・直接）", ha="center",
+            fontsize=FS-8, color=C_REAL, fontweight="bold")
     for xi, b, a in zip(x[:4], before[:4], after[:4]):
         ax.annotate("", xy=(xi+w/2, a+0.6), xytext=(xi-w/2, b-0.6),
-                    arrowprops=dict(arrowstyle="->", color=RED, lw=1.4))
-    ax.text(1.5, 4.5, "collapse", color=RED, ha="center", fontsize=11,
+                    arrowprops=dict(arrowstyle="->", color=RED, lw=1.8))
+    ax.text(1.5, 5.0, "崩れる", color=RED, ha="center", fontsize=FS-6,
             style="italic")
-    fig.savefig(OUT/"fig2b_conditioning.png"); plt.close(fig)
+    fig.savefig(OUT/"fig2b_conditioning.png", bbox_inches="tight"); plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
