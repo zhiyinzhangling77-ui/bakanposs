@@ -34,7 +34,7 @@ BLUE, RED, GREEN, ORANGE, GREY = "#1f6fb2", "#c0392b", "#2e8b57", "#e08a1e", "#8
 C_RADIATION = "#f0b73e"   # 放射（共通原因そのもの）
 C_APPARENT  = BLUE        # 見かけのつながり（共通原因の影／条件付けで崩れる）
 C_APP_LIGHT = "#bcd4e8"   # 同・条件付け後（薄色）
-C_REAL      = GREEN       # 本物・直接・頑健な因果
+C_REAL      = GREEN       # 直接・頑健に残る因果
 C_REAL_LIGHT = "#b8e0b8"  # 同・薄色
 C_ARTIFACT  = RED         # 物理的にありえない（アーティファクト）
 
@@ -115,7 +115,7 @@ def fig_skeleton():
               "GEP":"光合成\nGEP", "NEE":"正味CO2\nNEE"}
     G = nx.DiGraph(); G.add_nodes_from(pos); G.add_edges_from(edges)
     fig, ax = plt.subplots(figsize=(8.0, 5.8))
-    # 統一配色（青＋緑のみ）：日射＝共通原因(濃い青)、光合成・正味CO2＝本物の炭素(緑)、その他気象＝薄青
+    # 統一配色（青＋緑のみ）：日射＝共通原因(濃い青)、光合成・正味CO2＝直接残る炭素(緑)、その他気象＝薄青
     ncol = ["#5b9bd5" if n=="Rg" else (C_REAL_LIGHT if n in ("GEP","NEE")
             else C_APP_LIGHT) for n in G.nodes]
     nx.draw_networkx_nodes(G, pos, node_size=2800, node_color=ncol,
@@ -144,27 +144,21 @@ def fig_robustness():
     art = [("gH->Rg",57),("gLE->Rg",38),("GEP->Rg",14),("NEE->Rg",14)]
     labels = [jp(l) for l,_ in core] + [jp(l) for l,_ in art]
     vals = [v for _,v in core] + [v for _,v in art]
-    # 統一配色（青＋緑のみ）：緑＝本物の因果、青＝物理的にありえない（→日射）
+    # 統一配色（青＋緑のみ）：緑＝毎年安定して残るリンク、青＝物理的にありえない（→日射）
     cols = [C_REAL]*len(core) + [C_APPARENT]*len(art)
     y = np.arange(len(labels))[::-1]
     n = len(labels)
-    fig, ax = plt.subplots(figsize=(8.6, 6.0))
+    fig, ax = plt.subplots(figsize=(8.6, 5.8))
     ax.barh(y, vals, color=cols)
     ax.set_yticks(y); ax.set_yticklabels(labels)
-    # 「70%を選んだ」ではなく、データに自然な段差（57%↔71%）があることを示す
-    ax.axvspan(57, 71, color="#eeeeee", zorder=0)
-    ax.axvline(57, color="#bbb", ls="--", lw=1, zorder=1)
-    ax.axvline(71, color="#bbb", ls="--", lw=1, zorder=1)
-    ax.text(64, n-0.3, "自然な段差\n（この谷ならどこで\n区切っても結論は不変）",
-            color="#555", fontsize=9, ha="center", va="bottom")
     ax.set_xlabel("そのリンクが出現した年の割合（％）  ― JP-Tak・21年")
-    ax.set_title("本物の因果は年をまたいで安定して現れる。\n"
-                 "→日射のリンクは頻度によらず物理的にありえない＝内部対照",
+    ax.set_title("同じ因果リンクは年をまたいで安定して現れる。\n"
+                 "→日射のリンクは頻度によらず物理的にありえない（＝誤検出）",
                  fontsize=13.5)
-    ax.set_xlim(0, 105); ax.set_ylim(-0.7, n+0.9)
+    ax.set_xlim(0, 105); ax.set_ylim(-0.7, n-0.3)
     from matplotlib.patches import Patch
-    ax.legend(handles=[Patch(color=C_REAL, label="本物の因果（コア）"),
-                       Patch(color=C_APPARENT, label="→日射（物理的にありえない）＝アーティファクト")],
+    ax.legend(handles=[Patch(color=C_REAL, label="毎年安定して残るリンク（コア）"),
+                       Patch(color=C_APPARENT, label="→日射（物理的にありえない）＝誤検出")],
               loc="lower right", fontsize=11, frameon=False)
     fig.savefig(OUT/"fig4_robustness.png", bbox_inches="tight"); plt.close(fig)
 
@@ -211,7 +205,7 @@ def fig_conditioning():
     w = 0.38
     FS = 26  # 目盛り・軸見出しの基準サイズ（従来比およそ2倍）
     fig, ax = plt.subplots(figsize=(15.5, 10.5))
-    # 統一配色：左＝見かけ(青)、右＝本物(緑)。濃色＝条件付け前、薄色＝日射で条件付け後。
+    # 統一配色：左＝見かけ(青)、右＝直接残る(緑)。濃色＝条件付け前、薄色＝日射で条件付け後。
     cols_before = [C_APPARENT]*4 + [C_REAL]*4
     cols_after  = [C_APP_LIGHT]*4 + [C_REAL_LIGHT]*4
     ax.bar(x-w/2, before, w, color=cols_before)
@@ -229,15 +223,15 @@ def fig_conditioning():
                              label="日射で条件付け後  I(X;Y | 日射)")],
               loc="upper center", bbox_to_anchor=(0.5, -0.30), ncol=2,
               fontsize=FS-3, frameon=False)
-    ax.text(1.5, 31.5, "エネルギー・炭素フラックス", ha="center",
-            fontsize=FS-6, color=C_APPARENT, fontweight="bold")
-    ax.text(6.3, 31.5, "気温・土壌・呼吸", ha="center",
-            fontsize=FS-6, color=C_REAL, fontweight="bold")
+    ax.text(1.5, 31.3, "エネルギー・炭素フラックス", ha="center",
+            fontsize=30, color=C_APPARENT, fontweight="bold")
+    ax.text(6.3, 31.3, "気温・土壌・呼吸", ha="center",
+            fontsize=30, color=C_REAL, fontweight="bold")
     for xi, b, a in zip(x[:4], before[:4], after[:4]):
         ax.annotate("", xy=(xi+w/2, a+0.6), xytext=(xi-w/2, b-0.6),
                     arrowprops=dict(arrowstyle="->", color="#555", lw=1.8))
-    ax.text(1.3, 16.5, "日射を除くと\nほとんど消える", color=C_APPARENT, ha="center",
-            fontsize=FS-7, fontweight="bold")
+    ax.text(1.3, 15.5, "日射で説明できる分を\n除くとほぼ消える", color=C_APPARENT,
+            ha="center", fontsize=27, fontweight="bold")
     fig.savefig(OUT/"fig2b_conditioning.png", bbox_inches="tight"); plt.close(fig)
 
 
