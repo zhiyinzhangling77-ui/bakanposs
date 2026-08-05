@@ -40,7 +40,7 @@ C_ARTIFACT  = RED         # 物理的にありえない（アーティファク�
 
 # 変数の日本語表示名
 JVAR = {
-    "Rg": "日射", "Ta": "気温", "VPD": "飽差", "Ts": "地温", "P": "降水",
+    "Rg": "日射", "Ta": "気温", "VPD": "飽差", "Ts": "地表面温度", "P": "降水",
     "th": "土壌水分", "θ": "土壌水分", "gH": "顕熱", "gLE": "潜熱",
     "GER": "呼吸", "NEE": "正味CO2", "GEP": "光合成",
 }
@@ -109,24 +109,27 @@ def fig_skeleton():
            "gH":(-0.6,-0.3), "Ts":(1.1,0.2), "GEP":(1.7,1.1), "NEE":(2.2,0)}
     edges = [("Rg","VPD"),("Rg","Ta"),("Rg","gLE"),("Rg","gH"),("Rg","Ts"),
              ("Ta","Ts"),("VPD","gLE"),("GEP","NEE")]
-    labels = {n: JVAR[n] for n in pos}
+    # 日本語（正式名称）＋アルファベット略号の2段表示
+    labels = {"Rg":"日射\nRg", "VPD":"飽差\nVPD", "Ta":"気温\nTa",
+              "gLE":"潜熱\nγLE", "gH":"顕熱\nγH", "Ts":"地表面温度\nTs",
+              "GEP":"光合成\nGEP", "NEE":"正味CO2\nNEE"}
     G = nx.DiGraph(); G.add_nodes_from(pos); G.add_edges_from(edges)
-    fig, ax = plt.subplots(figsize=(7.6, 5.4))
-    # 統一配色：日射＝共通原因(金)、光合成・正味CO2＝本物の炭素出力(緑)、その他気象＝青
-    ncol = [C_RADIATION if n=="Rg" else (C_REAL_LIGHT if n in ("GEP","NEE")
+    fig, ax = plt.subplots(figsize=(8.0, 5.8))
+    # 統一配色（青＋緑のみ）：日射＝共通原因(濃い青)、光合成・正味CO2＝本物の炭素(緑)、その他気象＝薄青
+    ncol = ["#5b9bd5" if n=="Rg" else (C_REAL_LIGHT if n in ("GEP","NEE")
             else C_APP_LIGHT) for n in G.nodes]
-    nx.draw_networkx_nodes(G, pos, node_size=2000, node_color=ncol,
+    nx.draw_networkx_nodes(G, pos, node_size=2800, node_color=ncol,
                            edgecolors="#555", ax=ax)
-    nx.draw_networkx_labels(G, pos, labels=labels, font_size=13,
+    nx.draw_networkx_labels(G, pos, labels=labels, font_size=11,
                             font_family=JP.get_name(), ax=ax)
     nx.draw_networkx_edges(G, pos, arrowstyle="-|>", arrowsize=20,
                            width=2, edge_color=BLUE,
-                           node_size=2000, ax=ax)
+                           node_size=2800, ax=ax)
     ax.set_title("共通原因（日射）を差し引いて残る因果の骨組み（PCMCI）\n"
                  "日射が気象・エネルギーを動かし、光合成が正味炭素を動かす",
                  fontsize=14)
     ax.axis("off")
-    fig.savefig(OUT/"fig3_causal_skeleton.png"); plt.close(fig)
+    fig.savefig(OUT/"fig3_causal_skeleton.png", bbox_inches="tight"); plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
@@ -141,23 +144,29 @@ def fig_robustness():
     art = [("gH->Rg",57),("gLE->Rg",38),("GEP->Rg",14),("NEE->Rg",14)]
     labels = [jp(l) for l,_ in core] + [jp(l) for l,_ in art]
     vals = [v for _,v in core] + [v for _,v in art]
-    cols = [C_REAL]*len(core) + [C_ARTIFACT]*len(art)
+    # 統一配色（青＋緑のみ）：緑＝本物の因果、青＝物理的にありえない（→日射）
+    cols = [C_REAL]*len(core) + [C_APPARENT]*len(art)
     y = np.arange(len(labels))[::-1]
-    fig, ax = plt.subplots(figsize=(7.8, 5.4))
+    n = len(labels)
+    fig, ax = plt.subplots(figsize=(8.6, 6.0))
     ax.barh(y, vals, color=cols)
     ax.set_yticks(y); ax.set_yticklabels(labels)
-    ax.axvline(70, color=GREY, ls="--", lw=1)
-    ax.text(70, len(labels)-0.3, "70%", color=GREY, fontsize=10, ha="center")
+    # 「70%を選んだ」ではなく、データに自然な段差（57%↔71%）があることを示す
+    ax.axvspan(57, 71, color="#eeeeee", zorder=0)
+    ax.axvline(57, color="#bbb", ls="--", lw=1, zorder=1)
+    ax.axvline(71, color="#bbb", ls="--", lw=1, zorder=1)
+    ax.text(64, n-0.3, "自然な段差\n（この谷ならどこで\n区切っても結論は不変）",
+            color="#555", fontsize=9, ha="center", va="bottom")
     ax.set_xlabel("そのリンクが出現した年の割合（％）  ― JP-Tak・21年")
-    ax.set_title("本物の因果は年をまたいで安定して現れ、\n"
-                 "物理的にありえないリンク（→日射）は散発的＝アーティファクト",
-                 fontsize=14)
-    ax.set_xlim(0, 105)
+    ax.set_title("本物の因果は年をまたいで安定して現れる。\n"
+                 "→日射のリンクは頻度によらず物理的にありえない＝内部対照",
+                 fontsize=13.5)
+    ax.set_xlim(0, 105); ax.set_ylim(-0.7, n+0.9)
     from matplotlib.patches import Patch
-    ax.legend(handles=[Patch(color=C_REAL, label="本物の因果（コア・頻度70%以上）"),
-                       Patch(color=C_ARTIFACT, label="日射に入る向き（ありえない）＝アーティファクト")],
+    ax.legend(handles=[Patch(color=C_REAL, label="本物の因果（コア）"),
+                       Patch(color=C_APPARENT, label="→日射（物理的にありえない）＝アーティファクト")],
               loc="lower right", fontsize=11, frameon=False)
-    fig.savefig(OUT/"fig4_robustness.png"); plt.close(fig)
+    fig.savefig(OUT/"fig4_robustness.png", bbox_inches="tight"); plt.close(fig)
 
 
 # ---------------------------------------------------------------------------
@@ -193,8 +202,8 @@ def fig_conditioning():
     # (pair, I(X;Y) before, I(X;Y|Rg) after)  — JP-Tak
     flux = [("顕熱–光合成",10.9,1.4),("潜熱–光合成",11.2,2.3),
             ("顕熱–潜熱",8.7,1.1),("正味CO2–光合成",21.9,6.9)]
-    therm = [("気温–地温",19.1,21.8),("気温–呼吸",17.5,20.7),
-             ("地温–呼吸",13.6,18.7),("土壌水分–呼吸",7.8,12.6)]
+    therm = [("気温–地表面温度",19.1,21.8),("気温–呼吸",17.5,20.7),
+             ("地表面温度–呼吸",13.6,18.7),("土壌水分–呼吸",7.8,12.6)]
     labels = [l for l,_,_ in flux] + [l for l,_,_ in therm]
     before = [b for _,b,_ in flux] + [b for _,b,_ in therm]
     after  = [a for _,_,a in flux] + [a for _,_,a in therm]
@@ -212,26 +221,23 @@ def fig_conditioning():
     ax.tick_params(axis="y", labelsize=FS)
     ax.set_ylabel("つながりの強さ  I ＝ 相互情報量 / log(11)  （％）", fontsize=FS)
     ax.set_ylim(0, 34)
-    ax.set_title("共通原因（日射）を差し引くと：\n"
-                 "エネルギー・炭素のつながりは崩れ、気温–呼吸は残る",
-                 fontsize=FS-2, pad=14)
     ax.axvspan(-0.6, 3.6, color="#eef4fa", zorder=0)
     ax.axvspan(4.2, 8.4, color="#eef7ef", zorder=0)
     from matplotlib.patches import Patch
-    ax.legend(handles=[Patch(color=GREY, label="条件付け前  I(X;Y)"),
+    ax.legend(handles=[Patch(color=GREY, label="日射で条件付け前  I(X;Y)"),
                        Patch(facecolor="#dddddd", edgecolor="#7f7f7f",
                              label="日射で条件付け後  I(X;Y | 日射)")],
               loc="upper center", bbox_to_anchor=(0.5, -0.30), ncol=2,
-              fontsize=FS-8, frameon=False)
-    ax.text(1.5, 31.5, "エネルギー・炭素フラックス\n（日射の影＝見かけ）", ha="center",
-            fontsize=FS-8, color=C_APPARENT, fontweight="bold")
-    ax.text(6.3, 31.5, "気温・土壌・呼吸\n（本物・直接）", ha="center",
-            fontsize=FS-8, color=C_REAL, fontweight="bold")
+              fontsize=FS-3, frameon=False)
+    ax.text(1.5, 31.5, "エネルギー・炭素フラックス", ha="center",
+            fontsize=FS-6, color=C_APPARENT, fontweight="bold")
+    ax.text(6.3, 31.5, "気温・土壌・呼吸", ha="center",
+            fontsize=FS-6, color=C_REAL, fontweight="bold")
     for xi, b, a in zip(x[:4], before[:4], after[:4]):
         ax.annotate("", xy=(xi+w/2, a+0.6), xytext=(xi-w/2, b-0.6),
-                    arrowprops=dict(arrowstyle="->", color=RED, lw=1.8))
-    ax.text(1.5, 5.0, "崩れる", color=RED, ha="center", fontsize=FS-6,
-            style="italic")
+                    arrowprops=dict(arrowstyle="->", color="#555", lw=1.8))
+    ax.text(1.3, 16.5, "日射を除くと\nほとんど消える", color=C_APPARENT, ha="center",
+            fontsize=FS-7, fontweight="bold")
     fig.savefig(OUT/"fig2b_conditioning.png", bbox_inches="tight"); plt.close(fig)
 
 
