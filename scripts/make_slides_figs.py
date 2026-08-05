@@ -105,9 +105,9 @@ def fig_pid():
 # Fig 3: PCMCI causal skeleton (JP-Tak forest)
 # ---------------------------------------------------------------------------
 def fig_skeleton():
-    # 円は小さめ（0.6倍）、文字は大きく。配置は少し詰める。
-    pos = {"Rg":(0,2.1), "VPD":(-2.0,1.0), "Ta":(0.35,1.0), "gLE":(-2.2,-0.65),
-           "gH":(-0.5,-0.8), "Ts":(1.55,0.05), "GEP":(2.35,1.4), "NEE":(3.0,-0.15)}
+    # 文字を大きくするため円も大きく、配置を広げて矢印が他の円と重ならないようにする
+    pos = {"Rg":(0,3.4), "VPD":(-3.4,1.5), "Ta":(0.7,1.6), "gLE":(-3.6,-1.3),
+           "gH":(-0.9,-1.5), "Ts":(2.7,0.0), "GEP":(3.9,2.3), "NEE":(4.9,-0.4)}
     edges = [("Rg","VPD"),("Rg","Ta"),("Rg","gLE"),("Rg","gH"),("Rg","Ts"),
              ("Ta","Ts"),("VPD","gLE"),("GEP","NEE")]
     # 日本語（正式名称）＋アルファベット略号の2段表示
@@ -115,22 +115,23 @@ def fig_skeleton():
               "gLE":"潜熱\nγLE", "gH":"顕熱\nγH", "Ts":"地表面温度\nTs",
               "GEP":"光合成\nGEP", "NEE":"正味CO2\nNEE"}
     G = nx.DiGraph(); G.add_nodes_from(pos); G.add_edges_from(edges)
-    fig, ax = plt.subplots(figsize=(14.0, 9.5))
+    fig, ax = plt.subplots(figsize=(15.5, 10.5))
     # 統一配色（青＋緑のみ）：日射＝共通原因(濃い青)、光合成・正味CO2＝直接残る炭素(緑)、その他気象＝薄青
     ncol = ["#5b9bd5" if n=="Rg" else (C_REAL_LIGHT if n in ("GEP","NEE")
             else C_APP_LIGHT) for n in G.nodes]
-    NS = 15600  # 円は 0.6 倍（26000→15600）
+    NS = 34000  # 大きな文字が収まる円
     nx.draw_networkx_nodes(G, pos, node_size=NS, node_color=ncol,
                            edgecolors="#555", linewidths=2, ax=ax)
-    nx.draw_networkx_labels(G, pos, labels=labels, font_size=26,
+    nx.draw_networkx_labels(G, pos, labels=labels, font_size=34,
                             font_family=JP.get_name(), ax=ax)
-    nx.draw_networkx_edges(G, pos, arrowstyle="-|>", arrowsize=26,
-                           width=2.5, edge_color=BLUE,
-                           node_size=NS, ax=ax)
+    # node_size を渡すと矢印は円の縁で止まり、円と重ならない。min_target/source_margin で余白も確保
+    nx.draw_networkx_edges(G, pos, arrowstyle="-|>", arrowsize=34,
+                           width=3, edge_color=BLUE, node_size=NS,
+                           min_source_margin=18, min_target_margin=22, ax=ax)
     ax.set_title("共通原因（日射）を差し引いて残る因果の骨組み（PCMCI）\n"
                  "日射が気象・エネルギーを動かし、光合成が正味炭素を動かす",
-                 fontsize=18)
-    ax.set_xlim(-3.2, 3.9); ax.set_ylim(-1.6, 2.9)
+                 fontsize=20)
+    ax.set_xlim(-4.9, 6.4); ax.set_ylim(-2.7, 4.5)
     ax.axis("off")
     fig.savefig(OUT/"fig3_causal_skeleton.png", bbox_inches="tight"); plt.close(fig)
 
@@ -652,11 +653,73 @@ def fig_uncertainty():
     fig.savefig(OUT/"fig_uncertainty.png"); plt.close(fig)
 
 
+def fig_funnel_jp():
+    """イントロの漏斗（日本語）：大きな課題→絞り込み→本研究。近い段は 先行背景⇒方針。"""
+    from matplotlib.patches import Polygon
+    fig, ax = plt.subplots(figsize=(14.5, 9.0))
+    ax.set_xlim(0, 14.5); ax.set_ylim(0, 9); ax.axis("off")
+    cx = 4.7  # 漏斗の中心x（左側に漏斗、右側に背景⇒方針）
+
+    def trap(y0, y1, wt, wb, color):
+        ax.add_patch(Polygon([(cx-wt/2, y1), (cx+wt/2, y1),
+                              (cx+wb/2, y0), (cx-wb/2, y0)],
+                     closed=True, facecolor=color, edgecolor="white", lw=2, zorder=2))
+
+    def T(x, y, s, size, color="#1a1a1a", w="bold", ha="center"):
+        ax.text(x, y, s, fontproperties=JP, fontsize=size, color=color,
+                ha=ha, va="center", fontweight=w, zorder=3)
+
+    # 3段の台形（下ほど狭い＝漏斗）
+    trap(6.55, 8.7, 8.8, 6.6, "#cfe0f0")   # ① 一番大きい
+    trap(3.95, 6.35, 6.6, 4.4, "#7fb1d6")  # ② 絞る
+    trap(0.9, 3.75, 4.4, 2.2, C_REAL)       # ③ 本研究（緑）
+
+    # 段の見出し（円内テキスト）
+    T(cx, 8.05, "① 実験できない地球の気候応答を観測から読む", 15, "#0f3d61")
+    T(cx, 7.35, "陸の炭素吸収の将来＝最大級の不確実性", 12.5, "#0f3d61", "normal")
+    T(cx, 5.75, "② 温度×水に対する呼吸・光合成の", 15, "#0b3a58")
+    T(cx, 5.15, "“相互作用の形”（モデルは仮定で決め打ち）", 12.5, "#0b3a58", "normal")
+    T(cx, 2.85, "③ 東アジアの生態系観測で", 15, "white")
+    T(cx, 2.15, "因果の骨組みを仮定せず読む", 12, "white", "normal")
+    T(cx, 1.55, "＝本研究", 13, "white")
+
+    # 下向き矢印（絞り込み）
+    for yy in (6.45, 3.85):
+        ax.annotate("", xy=(cx, yy-0.28), xytext=(cx, yy+0.02),
+                    arrowprops=dict(arrowstyle="-|>", color="#555", lw=2.2), zorder=4)
+
+    # 右側：先行研究の背景 ⇒ 僕の方針（②③に対応）
+    xL = 9.5
+    def note(yc, head, prior, mine):
+        ax.text(xL, yc+0.72, head, fontproperties=JP, fontsize=12.5, color="#c0392b",
+                fontweight="bold", va="center")
+        ax.text(xL, yc+0.12, "先行：" + prior, fontproperties=JP, fontsize=11,
+                color="#333", va="top")
+        ax.text(xL, yc-0.9, "⇒ 方針：" + mine, fontproperties=JP, fontsize=11,
+                color=C_REAL, va="top", fontweight="bold")
+    # ②に対応
+    ax.annotate("", xy=(9.3, 5.2), xytext=(cx+3.4, 5.2),
+                arrowprops=dict(arrowstyle="-|>", color="#999", lw=1.6))
+    note(5.1, "② 過程の相互作用",
+         "形を仮定で決め打ち／共通原因で見かけが混じる\n（Runge 2019・DAMM）。FLUXCOMはIAV過小評価（Jung 2020）",
+         "情報理論＋因果推論で\n関数形を仮定せず読む")
+    # ③に対応
+    ax.annotate("", xy=(9.3, 2.3), xytext=(cx+2.2, 2.3),
+                arrowprops=dict(arrowstyle="-|>", color="#999", lw=1.6))
+    note(2.2, "③ 東アジア（本研究）",
+         "北米・欧州中心で東アジアは空白\n（R&K 2009＝米国畑・Krich 2020＝少数）",
+         "卒論：疎で頑健な因果骨格＋湛水の相乗崩壊\n修士：衛星で面へ→モデル対決")
+
+    ax.set_title("大きな課題から本研究へ：だんだん絞り込む（背景 ⇒ 方針）",
+                 fontproperties=JP, fontsize=17)
+    fig.savefig(OUT/"fig_funnel_jp.png", bbox_inches="tight"); plt.close(fig)
+
+
 if __name__ == "__main__":
     fig_climate(); fig_pid(); fig_skeleton(); fig_robustness()
     fig_conditioning(); fig_oinfo_ci(); fig_oinfo_twosub()
     fig_flooding(); fig_climate_crosssite(); fig_oinfo_crossbiome()
     fig_concept_network(); fig_q10_schematic(); fig_pipeline(); fig_uncertainty()
-    fig_positioning(); fig_positioning3()
+    fig_positioning(); fig_positioning3(); fig_funnel_jp()
     for p in sorted(OUT.glob("*.png")):
         print(f"[fig] {p}  ({p.stat().st_size//1024} KB)")
