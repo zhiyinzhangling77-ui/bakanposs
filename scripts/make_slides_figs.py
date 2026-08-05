@@ -105,7 +105,7 @@ def fig_pid():
 # Fig 3: PCMCI causal skeleton (JP-Tak forest)
 # ---------------------------------------------------------------------------
 def fig_skeleton():
-    # 円は 0.6 倍。文字が収まるようにサイズを合わせ、配置は詰める。矢印は円の縁で止める。
+    # キャンバス・配置は広いまま、円(node_size)だけ 0.3 倍にして小さく見せる。矢印は円の縁で止める。
     pos = {"Rg":(0,2.45), "VPD":(-2.45,1.08), "Ta":(0.5,1.15), "gLE":(-2.6,-0.94),
            "gH":(-0.65,-1.08), "Ts":(1.94,0.0), "GEP":(2.81,1.66), "NEE":(3.53,-0.29)}
     edges = [("Rg","VPD"),("Rg","Ta"),("Rg","gLE"),("Rg","gH"),("Rg","Ts"),
@@ -119,18 +119,18 @@ def fig_skeleton():
     # 統一配色（青＋緑のみ）：日射＝共通原因(濃い青)、光合成・正味CO2＝直接残る炭素(緑)、その他気象＝薄青
     ncol = ["#5b9bd5" if n=="Rg" else (C_REAL_LIGHT if n in ("GEP","NEE")
             else C_APP_LIGHT) for n in G.nodes]
-    NS = 20400  # 円は 0.6 倍（34000→20400）
+    NS = 10200  # 円は 0.3 倍（34000→10200）。キャンバスは広いままなので小さく見える。
     nx.draw_networkx_nodes(G, pos, node_size=NS, node_color=ncol,
                            edgecolors="#555", linewidths=2, ax=ax)
-    nx.draw_networkx_labels(G, pos, labels=labels, font_size=26,
+    nx.draw_networkx_labels(G, pos, labels=labels, font_size=15,
                             font_family=JP.get_name(), ax=ax)
     # node_size を渡すと矢印は円の縁で止まり、円と重ならない。min_target/source_margin で余白も確保
-    nx.draw_networkx_edges(G, pos, arrowstyle="-|>", arrowsize=30,
-                           width=2.8, edge_color=BLUE, node_size=NS,
-                           min_source_margin=15, min_target_margin=18, ax=ax)
+    nx.draw_networkx_edges(G, pos, arrowstyle="-|>", arrowsize=22,
+                           width=2.2, edge_color=BLUE, node_size=NS,
+                           min_source_margin=10, min_target_margin=13, ax=ax)
     ax.set_title("共通原因（日射）を差し引いて残る因果の骨組み（PCMCI）\n"
                  "日射が気象・エネルギーを動かし、光合成が正味炭素を動かす",
-                 fontsize=19)
+                 fontsize=18)
     ax.set_xlim(-3.5, 4.6); ax.set_ylim(-1.9, 3.2)
     ax.axis("off")
     fig.savefig(OUT/"fig3_causal_skeleton.png", bbox_inches="tight"); plt.close(fig)
