@@ -105,9 +105,9 @@ def fig_pid():
 # Fig 3: PCMCI causal skeleton (JP-Tak forest)
 # ---------------------------------------------------------------------------
 def fig_skeleton():
-    # キャンバス・配置は広いまま、円(node_size)だけ 0.3 倍にして小さく見せる。矢印は円の縁で止める。
-    pos = {"Rg":(0,2.45), "VPD":(-2.45,1.08), "Ta":(0.5,1.15), "gLE":(-2.6,-0.94),
-           "gH":(-0.65,-1.08), "Ts":(1.94,0.0), "GEP":(2.81,1.66), "NEE":(3.53,-0.29)}
+    # 円は少し小さめ、文字は大きく（前回の約3倍）。配置を広げて大きな文字が重ならないようにする。
+    pos = {"Rg":(0,3.1), "VPD":(-3.2,1.35), "Ta":(0.7,1.45), "gLE":(-3.4,-1.25),
+           "gH":(-0.85,-1.45), "Ts":(2.5,0.0), "GEP":(3.7,2.15), "NEE":(4.7,-0.4)}
     edges = [("Rg","VPD"),("Rg","Ta"),("Rg","gLE"),("Rg","gH"),("Rg","Ts"),
              ("Ta","Ts"),("VPD","gLE"),("GEP","NEE")]
     # 日本語（正式名称）＋アルファベット略号の2段表示
@@ -115,23 +115,24 @@ def fig_skeleton():
               "gLE":"潜熱\nγLE", "gH":"顕熱\nγH", "Ts":"地表面温度\nTs",
               "GEP":"光合成\nGEP", "NEE":"正味CO2\nNEE"}
     G = nx.DiGraph(); G.add_nodes_from(pos); G.add_edges_from(edges)
-    fig, ax = plt.subplots(figsize=(13.0, 9.0))
+    fig, ax = plt.subplots(figsize=(16.5, 11.0))
     # 統一配色（青＋緑のみ）：日射＝共通原因(濃い青)、光合成・正味CO2＝直接残る炭素(緑)、その他気象＝薄青
     ncol = ["#5b9bd5" if n=="Rg" else (C_REAL_LIGHT if n in ("GEP","NEE")
             else C_APP_LIGHT) for n in G.nodes]
-    NS = 10200  # 円は 0.3 倍（34000→10200）。キャンバスは広いままなので小さく見える。
+    NS = 8500  # 円は少し小さめ
     nx.draw_networkx_nodes(G, pos, node_size=NS, node_color=ncol,
                            edgecolors="#555", linewidths=2, ax=ax)
-    nx.draw_networkx_labels(G, pos, labels=labels, font_size=15,
+    # 文字は前回(15)の約3倍
+    nx.draw_networkx_labels(G, pos, labels=labels, font_size=45,
                             font_family=JP.get_name(), ax=ax)
-    # node_size を渡すと矢印は円の縁で止まり、円と重ならない。min_target/source_margin で余白も確保
-    nx.draw_networkx_edges(G, pos, arrowstyle="-|>", arrowsize=22,
-                           width=2.2, edge_color=BLUE, node_size=NS,
-                           min_source_margin=10, min_target_margin=13, ax=ax)
+    # 小さい円でも矢印が文字に刺さらないよう、ターゲット側に大きめ余白
+    nx.draw_networkx_edges(G, pos, arrowstyle="-|>", arrowsize=26,
+                           width=2.5, edge_color=BLUE, node_size=NS,
+                           min_source_margin=30, min_target_margin=42, ax=ax)
     ax.set_title("共通原因（日射）を差し引いて残る因果の骨組み（PCMCI）\n"
                  "日射が気象・エネルギーを動かし、光合成が正味炭素を動かす",
-                 fontsize=18)
-    ax.set_xlim(-3.5, 4.6); ax.set_ylim(-1.9, 3.2)
+                 fontsize=20)
+    ax.set_xlim(-4.8, 6.2); ax.set_ylim(-2.5, 4.1)
     ax.axis("off")
     fig.savefig(OUT/"fig3_causal_skeleton.png", bbox_inches="tight"); plt.close(fig)
 
