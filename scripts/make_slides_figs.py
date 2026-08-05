@@ -105,9 +105,9 @@ def fig_pid():
 # Fig 3: PCMCI causal skeleton (JP-Tak forest)
 # ---------------------------------------------------------------------------
 def fig_skeleton():
-    # 円を大きくするため配置を広げ、円が重ならないように離す
-    pos = {"Rg":(0,3.0), "VPD":(-2.8,1.4), "Ta":(0.5,1.4), "gLE":(-3.1,-0.9),
-           "gH":(-0.7,-1.1), "Ts":(2.2,0.1), "GEP":(3.3,2.0), "NEE":(4.2,-0.2)}
+    # 円は小さめ（0.6倍）、文字は大きく。配置は少し詰める。
+    pos = {"Rg":(0,2.1), "VPD":(-2.0,1.0), "Ta":(0.35,1.0), "gLE":(-2.2,-0.65),
+           "gH":(-0.5,-0.8), "Ts":(1.55,0.05), "GEP":(2.35,1.4), "NEE":(3.0,-0.15)}
     edges = [("Rg","VPD"),("Rg","Ta"),("Rg","gLE"),("Rg","gH"),("Rg","Ts"),
              ("Ta","Ts"),("VPD","gLE"),("GEP","NEE")]
     # 日本語（正式名称）＋アルファベット略号の2段表示
@@ -119,18 +119,18 @@ def fig_skeleton():
     # 統一配色（青＋緑のみ）：日射＝共通原因(濃い青)、光合成・正味CO2＝直接残る炭素(緑)、その他気象＝薄青
     ncol = ["#5b9bd5" if n=="Rg" else (C_REAL_LIGHT if n in ("GEP","NEE")
             else C_APP_LIGHT) for n in G.nodes]
-    NS = 26000  # 円を大きく（文字が収まるように）
+    NS = 15600  # 円は 0.6 倍（26000→15600）
     nx.draw_networkx_nodes(G, pos, node_size=NS, node_color=ncol,
                            edgecolors="#555", linewidths=2, ax=ax)
-    nx.draw_networkx_labels(G, pos, labels=labels, font_size=22,
+    nx.draw_networkx_labels(G, pos, labels=labels, font_size=26,
                             font_family=JP.get_name(), ax=ax)
-    nx.draw_networkx_edges(G, pos, arrowstyle="-|>", arrowsize=28,
+    nx.draw_networkx_edges(G, pos, arrowstyle="-|>", arrowsize=26,
                            width=2.5, edge_color=BLUE,
                            node_size=NS, ax=ax)
     ax.set_title("共通原因（日射）を差し引いて残る因果の骨組み（PCMCI）\n"
                  "日射が気象・エネルギーを動かし、光合成が正味炭素を動かす",
                  fontsize=18)
-    ax.set_xlim(-4.4, 5.4); ax.set_ylim(-2.2, 4.0)
+    ax.set_xlim(-3.2, 3.9); ax.set_ylim(-1.6, 2.9)
     ax.axis("off")
     fig.savefig(OUT/"fig3_causal_skeleton.png", bbox_inches="tight"); plt.close(fig)
 
