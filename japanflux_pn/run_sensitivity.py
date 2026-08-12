@@ -87,7 +87,9 @@ def sweep(site: str, years: list[int], months: list[int], bins: list[int],
             "n_bins": m,
             "flux_mean_drop_pct": fmean,
             "thermal_mean_drop_pct": tmean,
-            "separation": tmean - fmean,  # 正なら「flux崩れ・thermal残る」の二分が成立
+            # flux 群がどれだけ "多く" 崩れるか (flux drop − thermal drop)。
+            # 大きな正なら「flux崩れ・thermal残る」の二分がはっきり成立。
+            "separation": fmean - tmean,
             "n_years_used": len(per_year_flux),
         })
         print(f"  => m={m}: flux群平均 drop={fmean:.1f}%  thermal群平均 drop={tmean:.1f}%\n",
