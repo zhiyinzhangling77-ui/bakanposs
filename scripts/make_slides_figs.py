@@ -653,6 +653,33 @@ def fig_uncertainty():
     fig.savefig(OUT/"fig_uncertainty.png"); plt.close(fig)
 
 
+def fig_sensitivity_bins():
+    """fig2b の頑健性：ビン数 m を振っても「flux崩れ・thermal残る」が不変（JP-Tak 実データ21年）。"""
+    bins = [7, 9, 11, 13, 15]
+    flux = [69.6, 67.7, 64.1, 59.6, 54.9]      # flux群 平均 drop%（正=崩れる）
+    therm = [-29.8, -38.3, -47.9, -55.4, -64.6]  # thermal群 平均 drop%（負=崩れない）
+    fig, ax = plt.subplots(figsize=(8.4, 5.6))
+    ax.axhline(0, color="#888", lw=1)
+    ax.plot(bins, flux, "-o", color=C_APPARENT, lw=2.5, ms=9,
+            label="エネルギー・炭素フラックス群（崩れる）")
+    ax.plot(bins, therm, "-o", color=C_REAL, lw=2.5, ms=9,
+            label="気温・土壌・呼吸群（残る）")
+    ax.fill_between(bins, therm, flux, color="#eeeeee", zorder=0)
+    ax.annotate("2群の分離は\nどのビンでも大きい\n（＝mに依存しない）",
+                xy=(11, (flux[2]+therm[2])/2), fontsize=12, color="#555", ha="center",
+                va="center", fontproperties=JP)
+    ax.set_xticks(bins)
+    ax.set_xlabel("ビン数  m", fontproperties=JP, fontsize=14)
+    ax.set_ylabel("日射で条件付けた時の drop %\n（正＝崩れる／負＝崩れない）",
+                  fontproperties=JP, fontsize=13)
+    ax.set_title("ビン数を振っても結論は不変（fig2b の頑健性・JP-Tak 21年）\n"
+                 "flux群は崩れ、thermal群は残る（m＝7〜15 で保たれる）",
+                 fontproperties=JP, fontsize=13.5)
+    ax.legend(prop=JP, fontsize=11, loc="lower left", frameon=False)
+    ax.set_ylim(-85, 85)
+    fig.savefig(OUT/"fig2c_sensitivity_bins.png", bbox_inches="tight"); plt.close(fig)
+
+
 def fig_funnel_jp():
     """イントロの漏斗（日本語）：大きな課題→絞り込み→本研究。近い段は 先行背景⇒方針。"""
     from matplotlib.patches import Polygon
