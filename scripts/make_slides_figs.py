@@ -105,19 +105,22 @@ def fig_pid():
 # Fig 3: PCMCI causal skeleton (JP-Tak forest)
 # ---------------------------------------------------------------------------
 def fig_skeleton():
-    # 円は少し小さめ、文字は大きく（前回の約3倍）。配置を広げて大きな文字が重ならないようにする。
-    pos = {"Rg":(0,3.1), "VPD":(-3.2,1.35), "Ta":(0.7,1.45), "gLE":(-3.4,-1.25),
-           "gH":(-0.85,-1.45), "Ts":(2.5,0.0), "GEP":(3.7,2.15), "NEE":(4.7,-0.4)}
+    # 実データ(ParCorr 21年)のコア骨格＝頻度≥70%の9本をそのまま描く。
+    pos = {"Rg":(0,3.2), "VPD":(-2.9,1.5), "Ta":(0.7,1.6), "gLE":(-3.4,-1.1),
+           "gH":(-1.5,-1.7), "Ts":(1.9,-0.1), "GER":(0.2,-1.9),
+           "GEP":(3.7,2.2), "NEE":(4.6,0.2)}
+    # ≥70% コア: GEP→NEE(100),Rg→gH(95),Rg→gLE(95),Rg→VPD(95),Ta→Ts(90),
+    #            Rg→Ta(86),Rg→Ts(76),VPD→Ts(76),Ta→GER(71)
     edges = [("Rg","VPD"),("Rg","Ta"),("Rg","gLE"),("Rg","gH"),("Rg","Ts"),
-             ("Ta","Ts"),("VPD","gLE"),("GEP","NEE")]
+             ("Ta","Ts"),("VPD","Ts"),("Ta","GER"),("GEP","NEE")]
     # 日本語（正式名称）＋アルファベット略号の2段表示
     labels = {"Rg":"日射\nRg", "VPD":"飽差\nVPD", "Ta":"気温\nTa",
               "gLE":"潜熱\nγLE", "gH":"顕熱\nγH", "Ts":"地表面温度\nTs",
-              "GEP":"光合成\nGEP", "NEE":"正味CO2\nNEE"}
+              "GER":"呼吸\nGER", "GEP":"光合成\nGEP", "NEE":"正味CO2\nNEE"}
     G = nx.DiGraph(); G.add_nodes_from(pos); G.add_edges_from(edges)
     fig, ax = plt.subplots(figsize=(16.5, 11.0))
-    # 統一配色（青＋緑のみ）：日射＝共通原因(濃い青)、光合成・正味CO2＝直接残る炭素(緑)、その他気象＝薄青
-    ncol = ["#5b9bd5" if n=="Rg" else (C_REAL_LIGHT if n in ("GEP","NEE")
+    # 統一配色（青＋緑のみ）：日射＝共通原因(濃い青)、炭素(光合成/正味CO2/呼吸)＝緑、その他気象＝薄青
+    ncol = ["#5b9bd5" if n=="Rg" else (C_REAL_LIGHT if n in ("GEP","NEE","GER")
             else C_APP_LIGHT) for n in G.nodes]
     NS = 8500  # 円は少し小さめ
     nx.draw_networkx_nodes(G, pos, node_size=NS, node_color=ncol,
@@ -129,9 +132,9 @@ def fig_skeleton():
                            width=2.5, edge_color=BLUE, node_size=NS,
                            min_source_margin=30, min_target_margin=42, ax=ax)
     ax.set_title("共通原因（日射）を差し引いて残る因果の骨組み（PCMCI）\n"
-                 "日射が気象・エネルギーを動かし、光合成が正味炭素を動かす",
-                 fontsize=20)
-    ax.set_xlim(-4.8, 6.2); ax.set_ylim(-2.5, 4.1)
+                 "日射→気象・エネルギー・地表面温度／気温→呼吸／光合成→正味炭素（実データ21年・頻度70%以上）",
+                 fontsize=16)
+    ax.set_xlim(-4.9, 6.2); ax.set_ylim(-3.0, 4.1)
     ax.axis("off")
     fig.savefig(OUT/"fig3_causal_skeleton.png", bbox_inches="tight"); plt.close(fig)
 
@@ -143,8 +146,10 @@ def fig_robustness():
     def jp(link):  # "Rg->gH" -> "日射→顕熱"
         a, b = link.split("->")
         return f"{JVAR[a]}→{JVAR[b]}"
+    # 実データ ParCorr 21年（VPD→Ts=76% を追加）
     core = [("GEP->NEE",100),("Rg->gH",95),("Rg->gLE",95),("Rg->VPD",95),
-            ("Ta->Ts",90),("Rg->Ta",86),("Rg->Ts",76),("Ta->GER",71)]
+            ("Ta->Ts",90),("Rg->Ta",86),("Rg->Ts",76),("VPD->Ts",76),
+            ("Ta->GER",71)]
     art = [("gH->Rg",57),("gLE->Rg",38),("GEP->Rg",14),("NEE->Rg",14)]
     labels = [jp(l) for l,_ in core] + [jp(l) for l,_ in art]
     vals = [v for _,v in core] + [v for _,v in art]
