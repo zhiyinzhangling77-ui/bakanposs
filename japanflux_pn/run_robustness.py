@@ -168,9 +168,11 @@ def aggregate(per_year: dict[int, pd.DataFrame | None]) -> tuple[pd.DataFrame, i
 def report(site: str, test: str = "parcorr", tau_max: int = 6, pc_alpha: float = 0.01,
            sig_samples: int = 200, knn: float = 0.1, max_conds_dim: int | None = 3,
            config: AnalysisConfig | None = None,
-           outroot: str | Path | None = None) -> pd.DataFrame:
+           outroot: str | Path | None = None,
+           years: list[int] | None = None) -> pd.DataFrame:
     config = config or AnalysisConfig()
-    years, months = get_site_years(site)
+    auto_years, months = get_site_years(site)
+    years = years if years else auto_years   # --years で代表数年に絞れる (CMIknn 用)
     print(f"===== {site} 複数年ロバスト性 (test={test}, tau_max={tau_max}) =====")
     print(f"  候補年 {years[0]}–{years[-1]} ({len(years)} 年), months={months}\n", flush=True)
 
@@ -216,9 +218,11 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--knn", type=float, default=0.1)
     p.add_argument("--max-conds-dim", type=int, default=3)
     p.add_argument("--outroot", default=None)
+    p.add_argument("--years", type=int, nargs="+", default=None,
+                   help="対象年を明示 (省略時は自動の健全年全部)。CMIknn を数年に絞る用。")
     args = p.parse_args(argv)
     report(args.site, args.test, args.tau_max, args.pc_alpha, args.sig_samples,
-           args.knn, args.max_conds_dim, outroot=args.outroot)
+           args.knn, args.max_conds_dim, outroot=args.outroot, years=args.years)
 
 
 if __name__ == "__main__":
