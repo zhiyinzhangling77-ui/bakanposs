@@ -101,8 +101,8 @@ def draw_heatmap(zmat: pd.DataFrame, path) -> None:
 
 
 def report(sites: list[str], obins: int = OINFO_BINS_DEFAULT,
-           config: AnalysisConfig | None = None, heatmap=None, out_csv=None
-           ) -> pd.DataFrame:
+           config: AnalysisConfig | None = None, heatmap=None, out_csv=None,
+           n_min: int = 10) -> pd.DataFrame:
     config = config or AnalysisConfig()
     per = collect(sites, obins, config)
     if len(per) < 2:
@@ -156,6 +156,30 @@ def report(sites: list[str], obins: int = OINFO_BINS_DEFAULT,
     print("\n  読み方: 全サイトで同符号＝その高次署名（呼吸=相乗 等）は生態系を越える普遍構造。")
     print("         符号が飛ぶ＝その生態系固有。年数が少ないサイトは符号は信頼できるが安定性の確証は弱い。")
 
+    # 検出力版：年数の多いサイト(n_years≥n_min)の平均zの符号で普遍性を採る。
+    # 上の分類(60%規則)は年数が少ないと"混在"に落ちやすく、また n=5 サイトの反転に
+    # 引っ張られる。旗13 の教訓と同じく、確信を持てるサイトだけで符号を採り直す。
+    print(f"\n=== 検出力版の普遍性（年数 n≥{n_min} のサイトの平均z符号で採る）===")
+    for sub in subs:
+        pw = [(s, zmat.loc[sub, s]) for s in used
+              if nyr[s] >= n_min and np.isfinite(zmat.loc[sub, s])]
+        if len(pw) < 2:
+            print(f"  {sub:<22} 検出力サイト<2 → 保留"); continue
+        neg = [s for s, v in pw if v < 0]   # 相乗寄り
+        pos = [s for s, v in pw if v > 0]   # 冗長寄り
+        detail = " ".join(f"{s}:{v:+.1f}" for s, v in pw)
+        if not pos:
+            verd = f"✅ 検出力{len(pw)}/{len(pw)} 相乗寄り＝普遍の創発署名"
+        elif not neg:
+            verd = f"✅ 検出力{len(pw)}/{len(pw)} 冗長寄り＝普遍の共通駆動署名"
+        elif len(neg) >= len(pos):
+            verd = f"○ 相乗寄り優勢（相乗{len(neg)}/冗長{len(pos)}）: 例外 {','.join(pos)}"
+        else:
+            verd = f"○ 冗長寄り優勢（相乗{len(neg)}/冗長{len(pos)}）: 例外 {','.join(neg)}"
+        print(f"  {sub:<22} {verd}   [{detail}]")
+    print(f"\n  ※O-info の z は各年~3000点のサロゲート比＝各年 well-powered。年数は『符号の"
+          f"安定性』の確証に効くだけ（旗13 の年数=検出力とは別の意味）。")
+
     if out_csv:
         Path(out_csv).parent.mkdir(parents=True, exist_ok=True)
         zmat.to_csv(out_csv)
@@ -172,8 +196,10 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--obins", type=int, default=OINFO_BINS_DEFAULT)
     p.add_argument("--heatmap", default=None)
     p.add_argument("--out-csv", default=None)
+    p.add_argument("--n-min", type=int, default=10,
+                   help="検出力版の普遍性で符号を採る最小年数（既定10）")
     a = p.parse_args(argv)
-    report(a.sites, a.obins, heatmap=a.heatmap, out_csv=a.out_csv)
+    report(a.sites, a.obins, heatmap=a.heatmap, out_csv=a.out_csv, n_min=a.n_min)
 
 
 if __name__ == "__main__":
