@@ -107,7 +107,7 @@ def draw_heatmap(rtab: pd.DataFrame, path) -> None:
 
 
 def report(sites: list[str], config: AnalysisConfig | None = None,
-           heatmap=None, out_csv=None) -> pd.DataFrame:
+           heatmap=None, out_csv=None, n_min: int = 10) -> pd.DataFrame:
     per_site = collect(sites, config)
     if len(per_site) < 2:
         print(f"\n有効サイト {len(per_site)} < 2。比較できません。")
@@ -126,36 +126,53 @@ def report(sites: list[str], config: AnalysisConfig | None = None,
                         for s in used)
         print(f"  期待{sign} {label:<16}{cells}")
 
-    # 目玉 2 本は p 値つきで、符号の一貫性＝状態依存が転移するかを判定
-    print("\n=== 状態依存は転移するか（符号一貫性＋順列検定 p）===")
+    # 目玉 3 本を p 値つきで判定。★重要：符号の一貫性は「検出力のある年数を持つサイト」
+    # だけで採る。n が小さいサイト（n<n_min）は |r| が大きくても偶然で符号が飛ぶので、
+    # そこを一貫性の証拠に使うと誤った結論（見かけの生態系固有 or 見かけの普遍）を生む。
+    print(f"\n=== 状態依存は転移するか（符号一貫性＋順列検定 p）===")
+    print(f"  ※判定は検出力のあるサイト（有効年 n≥{n_min}）だけで採る。"
+          f"n<{n_min} は年数不足で符号が偶然に飛ぶため判定保留。\n")
+    print(f"  参考: p<0.05 に要る |r| ≈ n=5→0.88, n=10→0.63, n=11→0.60, n=21→0.43")
     for coup, state, sign in PROBES[:3]:
         label = probe_label(coup, state)
         print(f"\n  ■ {label}（期待符号 {sign}）")
-        signs = []
+        powered_signs = []          # (n≥n_min のサイトの) 符号一致 1/0
         for s in used:
             df = per_site[s]
             if coup not in df or state not in df:
                 print(f"    {s:>8}: 列なし"); continue
+            n = len(df)
             r, p = _spearman_p(df[coup].to_numpy(), df[state].to_numpy())
-            hit = ("○一致" if ((sign == "-" and r < 0) or (sign == "+" and r > 0))
-                   else "×逆")
+            agree = (sign == "-" and r < 0) or (sign == "+" and r > 0)
+            hit = "○一致" if agree else "×逆"
             star = "有意" if (np.isfinite(p) and p < 0.05) else "n.s."
-            signs.append(1 if ((sign == "-" and r < 0) or (sign == "+" and r > 0)) else 0)
-            print(f"    {s:>8}: r={r:+.2f}  p={p:.3f}  {hit} {star}  (n={len(df)})")
-        if signs:
-            agree = sum(signs)
-            if agree == len(signs):
-                verd = "✅ 全生態系で符号一致＝状態依存の法則が普遍（転移する）"
-            elif agree >= max(2, len(signs) - 1):
-                verd = "△ 概ね一致（1 例外）＝多くの生態系で転移、例外は要精査"
+            if n >= n_min:
+                powered_signs.append(1 if agree else 0)
+                tag = "検出力OK"
             else:
-                verd = "× 符号が生態系で飛ぶ＝状態依存は生態系固有（普遍でない）"
-            print(f"    → {agree}/{len(signs)} 一致: {verd}")
+                tag = "★年数不足=判定保留"
+            print(f"    {s:>8}: r={r:+.2f}  p={p:.3f}  {hit} {star}  (n={n}, {tag})")
+        k = len(powered_signs)
+        if k == 0:
+            print(f"    → 検出力のあるサイト無し（全て n<{n_min}）＝この軸は判定不能。")
+        else:
+            agree = sum(powered_signs)
+            if agree == k and k >= 3:
+                verd = "✅ 検出力サイトで符号一致＝状態依存の法則が転移する候補（要・有意性の積み増し）"
+            elif agree == k:
+                verd = "○ 符号一致だが検出力サイトが少ない（サイト/年を増やして確認）"
+            elif agree >= max(1, k - 1):
+                verd = "△ 概ね一致（1 例外）＝多くの生態系で転移の可能性、例外は要精査"
+            else:
+                verd = "× 検出力サイトでも符号が飛ぶ＝状態依存は生態系固有の疑い"
+            print(f"    → 検出力サイト {agree}/{k} 符号一致: {verd}")
 
-    print("\n  読み方: 符号が全サイト一致＝『乾いた年ほど脱結合』等の"
-          "状態依存が生態系を越える法則＝転移する。")
-    print("         符号が飛ぶ＝その効きは生態系固有で、固定関数でも普遍法則でも書けない。")
+    print("\n  読み方: 判定は n≥%d のサイトだけで採る。符号が(検出力のあるサイトで)"
+          "一致＝『乾いた年ほど脱結合』等が生態系を越える転移候補。" % n_min)
+    print("         n が小さいサイトの符号の飛びは偶然＝『生態系固有』の証拠にしてはいけない。")
     print("         ＝EXTRAPOLATION_SYNTHESIS「強さは状態依存で転移しない」の多生態系での検証。")
+    print("         注: 多くのサイトは健全な夏の年数が少ない（本質的な検出力不足）。")
+    print("             真の転移判定には長期記録／多サイト（衛星プロキシで年数を稼ぐ）が要る。")
 
     if out_csv:
         Path(out_csv).parent.mkdir(parents=True, exist_ok=True)
@@ -173,8 +190,10 @@ def main(argv: list[str] | None = None) -> None:
                    help=f"比較するサイト（既定: {' '.join(DEFAULT_SITES)}）")
     p.add_argument("--heatmap", default=None)
     p.add_argument("--out-csv", default=None)
+    p.add_argument("--n-min", type=int, default=10,
+                   help="符号一貫性を採るのに要る最小の有効年数（既定10。これ未満は判定保留）")
     a = p.parse_args(argv)
-    report(a.sites, heatmap=a.heatmap, out_csv=a.out_csv)
+    report(a.sites, heatmap=a.heatmap, out_csv=a.out_csv, n_min=a.n_min)
 
 
 if __name__ == "__main__":
