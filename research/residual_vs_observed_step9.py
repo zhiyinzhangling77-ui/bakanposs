@@ -49,12 +49,18 @@ def main() -> None:
     p.add_argument("--predictors", nargs="+", required=True)
     p.add_argument("--self-lag", type=int, default=1)
     p.add_argument("--m", type=int, default=8)
+    p.add_argument("--include-carbon", action="store_true",
+                   help="GEP/GER/NEE も候補に含める（既定は除外：分割の代数的相関を避けるため）")
     a = p.parse_args()
 
     from japanflux_pn.preprocess import load_corevars_hh
 
     used = set(a.predictors) | {a.target}
-    candidates = [v for v in RK_VARS if v not in used]
+    # GEP/GER/NEE は同じ NEE 分割の親戚で互いに独立でない（代数的相関のアーティファクト）。
+    # 目的が炭素変数のときは、残りの炭素変数を候補から除く（--include-carbon で復活）。
+    CARBON = {"GEP", "GER", "NEE"}
+    drop = set() if a.include_carbon else (CARBON - {a.target})
+    candidates = [v for v in RK_VARS if v not in used and v not in drop]
     acc: dict[str, list[float]] = {v: [] for v in candidates}
     r2s = []
     for y in a.years:
