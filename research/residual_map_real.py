@@ -63,6 +63,10 @@ def main() -> None:
     p.add_argument("--target", required=True, help="説明したい変数（RK 名）")
     p.add_argument("--predictors", nargs="+", required=True, help="既知の予測子（RK 名）")
     p.add_argument("--m", type=int, default=8)
+    p.add_argument("--self-lag", type=int, default=0,
+                   help="目的変数自身の過去 Y_{t-1..t-L} も予測子に入れる（L=1 推奨）。"
+                        "GEP 自身の自己相関を除き、"
+                        "『本当に説明しきれない構造』だけを残すため。")
     a = p.parse_args()
 
     sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -75,9 +79,18 @@ def main() -> None:
         try:
             pre = load_corevars_hh(a.site, y, a.month, None)
             vf = pre.valid_frame
-            Y = vf[a.target].to_numpy(dtype=float)
-            X = np.column_stack([vf[c].to_numpy(dtype=float) for c in a.predictors])
-            s = residual_structure(Y, X, m=a.m)
+            Yall = vf[a.target].to_numpy(dtype=float)
+            cols = [vf[c].to_numpy(dtype=float) for c in a.predictors]
+            L = a.self_lag
+            if L > 0:
+                # Y_t を X_t と Y_{t-1..t-L} で予測（Y 自身の自己相関を除く）
+                Yt = Yall[L:]
+                Xcols = [c[L:] for c in cols]
+                for k in range(1, L + 1):
+                    Xcols.append(Yall[L - k:len(Yall) - k])
+                s = residual_structure(Yt, np.column_stack(Xcols), m=a.m)
+            else:
+                s = residual_structure(Yall, np.column_stack(cols), m=a.m)
             labels.append(str(y)); ac_map.append(s["ac"])
             print(f"  {y:>6}  {pre.n_points:>6}  {s['r2']:>6.3f}  "
                   f"{s['ac']:>12.3f}  {s['mi_rr']:>13.4f}")
