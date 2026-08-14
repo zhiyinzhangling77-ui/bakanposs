@@ -115,11 +115,18 @@ def main():
         print("    → ✅ θ×温度の相乗源は自然生態系で普遍（旗16の局在が転移）")
     elif nat_top >= 1:
         print(f"    → ○ 一部で1位（他サイトの最大ペアも確認）")
+    any_残存 = False
     for r in pad:
         gone = (not np.isfinite(r["II"])) or r["II"] >= 0 or (np.isfinite(r["rank"]) and r["rank"] > 2)
-        print(f"  水田 {r['site']}：θ×温度 II={r['II']:.4f}（{'相乗消失' if gone else '相乗残存?'}）"
+        if not gone:
+            any_残存 = True
+        print(f"  水田 {r['site']}：θ×温度 II={r['II']:.4f}（{'相乗消失' if gone else '★相乗残存'}）"
               f" 最大ペア={r['top']}")
-    if pad:
+    if pad and any_残存:
+        print("    → ⚠ 水田でも θ×温度 の相乗は残る（消えていない）。")
+        print("      ＝fig6 の水田 0/8 は O-info(系レベル・4変数)の冗長化であって、θ×温度ペアの")
+        print("        相互作用の消失ではない。両者は別の量。『湛水がθ×温度相乗を壊す』とは言えない。")
+    elif pad:
         print("    → 水田で θ×温度 の相乗が消える＝湛水で θ が情報を失う機構と整合"
               "（局在の視点から旗14/fig6 を裏づけ）")
 
