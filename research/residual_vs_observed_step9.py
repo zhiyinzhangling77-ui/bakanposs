@@ -20,7 +20,8 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(Path(__file__).resolve().parent))        # research/
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))    # リポジトリルート（japanflux_pn）
 from unobserved_common_cause_step4 import mutual_info
 
 
@@ -50,7 +51,6 @@ def main() -> None:
     p.add_argument("--m", type=int, default=8)
     a = p.parse_args()
 
-    sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
     from japanflux_pn.preprocess import load_corevars_hh
 
     used = set(a.predictors) | {a.target}
