@@ -341,8 +341,8 @@ def fig_flooding():
     ax.set_title("It is FLOODING, not cultivation, that collapses the synergy\n"
                  "managed dryland cropland keeps it; only the flooded paddy loses it",
                  fontsize=13.5)
-    ax.annotate("flooding pins soil\nmoisture θ → θ carries\nno information →\nsynergy collapses",
-                xy=(3, 3), xytext=(2.55, 55), fontsize=9.5, color=RED,
+    ax.annotate("flooding lowers θ variability\n(θ still informative) → the\nsystem's info balance shifts\nto redundancy (system-level)",
+                xy=(3, 3), xytext=(2.55, 55), fontsize=9.0, color=RED,
                 ha="left", arrowprops=dict(arrowstyle="->", color=RED, lw=1.3))
     fig.savefig(OUT/"fig6_flooding_mechanism.png"); plt.close(fig)
 
