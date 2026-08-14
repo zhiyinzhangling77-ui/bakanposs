@@ -106,8 +106,64 @@ def draw_heatmap(rtab: pd.DataFrame, path) -> None:
     fig.savefig(path, bbox_inches="tight", dpi=130); plt.close(fig)
 
 
+def pooled_permutation(per_site: dict[str, pd.DataFrame], coup: str, state: str,
+                       n_min: int = 10, n_perm: int = 20000, seed: int = 0) -> dict:
+    """検出力のあるサイト（n≥n_min）を層別に束ね、状態依存の"共通の向き"が偶然より
+    強いかを 1 本の p 値で検定する（stratified / block permutation）。
+
+    - 統計量 = 各サイトの Spearman r の（サイトを等価に扱う）単純平均 mean_r。
+      各生態系を 1 票として、生態系をまたいだ共通の傾きの強さを見る。
+    - 帰無分布 = 各サイト内で state を独立に並べ替え（サイトの構造・年数を保存）→ mean_r を再計算。
+      サイトのオフセットや年数差を壊さないので、疑似相関を作らない正しい null。
+    - p_two（両側）と p_dir（期待符号 sign への片側）を返す。主張は両側 p で保守的に。
+    """
+    xs, ys, rs, used = [], [], [], []
+    for s, df in per_site.items():
+        if len(df) < n_min or coup not in df or state not in df:
+            continue
+        x = df[coup].to_numpy(dtype=float)
+        y = df[state].to_numpy(dtype=float)
+        r = _spearman(x, y)
+        if not np.isfinite(r):
+            continue
+        xs.append(x); ys.append(y); rs.append(r); used.append(s)
+    k = len(used)
+    if k < 2:
+        return {"sites": used, "k": k, "mean_r": np.nan,
+                "p_two": np.nan, "p_dir": np.nan, "per_site_r": dict(zip(used, rs))}
+
+    mean_r = float(np.mean(rs))
+    rng = np.random.default_rng(seed)
+    ge_two = 0
+    ge_dir = 0
+    for _ in range(n_perm):
+        acc = 0.0
+        for x, y in zip(xs, ys):
+            acc += _spearman(x, rng.permutation(y))
+        mr = acc / k
+        if abs(mr) >= abs(mean_r) - 1e-12:
+            ge_two += 1
+        # 片側: 期待符号方向にどれだけ極端か
+        if (sign_dir(coup, state) == "-" and mr <= mean_r + 1e-12) or \
+           (sign_dir(coup, state) == "+" and mr >= mean_r - 1e-12):
+            ge_dir += 1
+    return {"sites": used, "k": k, "mean_r": mean_r,
+            "p_two": (ge_two + 1) / (n_perm + 1),
+            "p_dir": (ge_dir + 1) / (n_perm + 1),
+            "per_site_r": dict(zip(used, rs))}
+
+
+def sign_dir(coup: str, state: str) -> str:
+    """PROBES に登録した期待符号を引く（無ければ '+' 扱い＝片側は使わない前提）。"""
+    for c, s, sg in PROBES:
+        if c == coup and s == state:
+            return sg
+    return "+"
+
+
 def report(sites: list[str], config: AnalysisConfig | None = None,
-           heatmap=None, out_csv=None, n_min: int = 10) -> pd.DataFrame:
+           heatmap=None, out_csv=None, n_min: int = 10, n_perm: int = 20000
+           ) -> pd.DataFrame:
     per_site = collect(sites, config)
     if len(per_site) < 2:
         print(f"\n有効サイト {len(per_site)} < 2。比較できません。")
@@ -167,6 +223,25 @@ def report(sites: list[str], config: AnalysisConfig | None = None,
                 verd = "× 検出力サイトでも符号が飛ぶ＝状態依存は生態系固有の疑い"
             print(f"    → 検出力サイト {agree}/{k} 符号一致: {verd}")
 
+    # 併合検定：検出力サイトを層別に束ね、共通の向きの有意性を 1 本の p 値で
+    print(f"\n=== 検出力サイトを層別に束ねた併合検定（stratified permutation, {n_perm}回）===")
+    print("  各生態系を1票に、生態系をまたいだ共通の向きが偶然より強いかを検定（各サイト内で並べ替え）。")
+    for coup, state, sign in PROBES[:3]:
+        label = probe_label(coup, state)
+        pt = pooled_permutation(per_site, coup, state, n_min=n_min, n_perm=n_perm)
+        if pt["k"] < 2:
+            print(f"\n  ■ {label}: 検出力サイト {pt['k']}<2 → 併合不能")
+            continue
+        rs = "  ".join(f"{s}:{pt['per_site_r'][s]:+.2f}" for s in pt["sites"])
+        sig = pt["p_two"] < 0.05
+        mark = ("✅ 併合で有意＝生態系をまたいで状態依存が確からしい"
+                if sig else "△ 併合でも非有意（年数/効果が不足、向きは一致でも確証に届かず）")
+        print(f"\n  ■ {label}（期待符号 {sign}, {pt['k']}生態系: {rs}）")
+        print(f"    併合 平均r={pt['mean_r']:+.3f}  両側p={pt['p_two']:.4f}  "
+              f"片側p(期待符号)={pt['p_dir']:.4f}")
+        print(f"    → {mark}")
+    print("\n  ※主張は両側 p で保守的に。片側 p は期待符号（物理仮説）方向の参考値。")
+
     print("\n  読み方: 判定は n≥%d のサイトだけで採る。符号が(検出力のあるサイトで)"
           "一致＝『乾いた年ほど脱結合』等が生態系を越える転移候補。" % n_min)
     print("         n が小さいサイトの符号の飛びは偶然＝『生態系固有』の証拠にしてはいけない。")
@@ -192,8 +267,10 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--out-csv", default=None)
     p.add_argument("--n-min", type=int, default=10,
                    help="符号一貫性を採るのに要る最小の有効年数（既定10。これ未満は判定保留）")
+    p.add_argument("--n-perm", type=int, default=20000,
+                   help="併合検定の並べ替え回数（既定20000）")
     a = p.parse_args(argv)
-    report(a.sites, heatmap=a.heatmap, out_csv=a.out_csv, n_min=a.n_min)
+    report(a.sites, heatmap=a.heatmap, out_csv=a.out_csv, n_min=a.n_min, n_perm=a.n_perm)
 
 
 if __name__ == "__main__":
