@@ -72,6 +72,30 @@ def interaction_fraction(Ta, th, GER, nb=6, min_cell=20):
     return frac, M, N, mask
 
 
+def surrogate_pvalue(Ta, th, GER, nb, min_cell, nperm=500, seed=0):
+    """Taビン内でθをシャッフル（Ta主効果・θ周辺分布は保存、Ta×θ依存だけ壊す）帰無から
+    交互作用割合の p 値を出す。観測がヌルを超えれば非加法は有意。"""
+    Ta, th, GER = map(lambda a: np.asarray(a, float), (Ta, th, GER))
+    ok = np.isfinite(Ta) & np.isfinite(th) & np.isfinite(GER) & (GER > 0)
+    Ta, th, GER = Ta[ok], th[ok], GER[ok]
+    obs = interaction_fraction(Ta, th, GER, nb, min_cell)[0]
+    if not np.isfinite(obs):
+        return obs, np.nan, np.nan
+    bi = _bin(Ta, nb)
+    groups = [np.where(bi == i)[0] for i in range(nb)]
+    rng = np.random.default_rng(seed)
+    null = np.empty(nperm)
+    for s in range(nperm):
+        th_s = th.copy()
+        for g in groups:
+            if g.size > 1:
+                th_s[g] = th[g[rng.permutation(g.size)]]
+        null[s] = interaction_fraction(Ta, th_s, GER, nb, min_cell)[0]
+    null = null[np.isfinite(null)]
+    p = (np.sum(null >= obs) + 1) / (null.size + 1)
+    return obs, float(np.mean(null)), float(p)
+
+
 def make_synth(kind, n=40000, seed=0):
     rng = np.random.default_rng(seed)
     Ta = rng.uniform(10, 30, n); th = rng.uniform(0.1, 0.5, n)
@@ -94,6 +118,8 @@ def main():
     p.add_argument("--min-cell", type=int, default=20)
     p.add_argument("--deyear", action="store_true",
                    help="各年の幾何平均でGERを割り年間レベル差を除く（プーリング交絡の制御）")
+    p.add_argument("--nperm", type=int, default=0,
+                   help="Taビン内θシャッフルの順列検定回数（0=しない, 例500）")
     a = p.parse_args()
 
     if not a.site:
@@ -139,6 +165,10 @@ def main():
     print(f"=== 旗20 実データ {a.site}（生 GER・Ta・θ プール {len(used)}年{dy}, {a.nbins}×{a.nbins}格子）===")
     print(f"  有効セル {int(mask.sum())}/{a.nbins*a.nbins}、総点数 {np.isfinite(GER).sum()}")
     print(f"\n  ★掛け算モデルからの交互作用割合 = {frac:.3f}")
+    if a.nperm > 0:
+        _, null_mu, pval = surrogate_pvalue(Ta, th, GER, a.nbins, a.min_cell, a.nperm)
+        sig = "有意（非加法は偶然でない）" if (np.isfinite(pval) and pval < 0.05) else "非有意"
+        print(f"  順列検定（Taビン内θシャッフル {a.nperm}回）: ヌル平均={null_mu:.3f}  p={pval:.3f}  → {sig}")
     if np.isfinite(frac):
         if frac >= 0.15:
             v = "大＝温度と水分が非加法に絡む＝掛け算モデル R=f(Ta)g(θ) では書けない（旗16 相乗のモデル形での現れ）"
