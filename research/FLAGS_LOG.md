@@ -49,3 +49,13 @@
   年々の**Spearman相関**。＝fig1（I(Rg;GEP) vs 絶対VPD, r≈−0.68＝乾いた年は光利用が脱結合）。
   状態依存は「回帰係数」でなく「結合強度(MI) vs 絶対状態」で見るのが正解。
   → `python -m japanflux_pn.climate_response --site JP-Tak`
+
+## 旗13（状態依存は"転移"するか＝多生態系での検証）
+- `japanflux_pn/climate_response_compare.py` — 本体 `climate_response.scan` を再利用し、
+  「結合強度 vs 気候状態」の年々 Spearman r を**複数生態系**で並べる薄いラッパ。
+  目玉 I(Rg;GEP) vs VPD（乾→脱結合, 負を期待）／I(th;GER) vs VPD（乾→呼吸律速, 正を期待）を
+  順列検定 p つきで出し、**符号が全サイト一致なら状態依存の法則が普遍（転移する）／飛べば生態系固有**と判定。
+  既定サイト＝湿潤日本↔乾燥モンゴル/青海の VPD 勾配（JP-Tak/JP-Ta2/JP-BBY/CN-HaM/MN-Kbu, 水田は含めない）。
+  → EXTRAPOLATION_SYNTHESIS「強さは状態依存で転移しない」を 1 サイト(JP-Tak r=−0.68)から多生態系へ広げる。
+  → `python -m japanflux_pn.climate_response_compare --heatmap state_dep_cross.png`
+  （合成データで表・判定・図・p 値を検証済み。実行＝ローカルの /mnt/hdd で。）
