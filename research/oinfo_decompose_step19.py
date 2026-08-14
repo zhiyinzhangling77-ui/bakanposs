@@ -45,14 +45,16 @@ def main():
     print(f"=== 呼吸系 {{{','.join(SUBSYS)}}} の O-info 分解（旗19）===")
     print("  Ω=TC−DTC。TC=冗長寄り(共有依存)、DTC=相乗寄り(組にしか宿る)。Ω>0 冗長支配。")
     print("  水田の冗長支配は『TCが大』か『DTCが小』か？を切り分ける\n")
-    print(f"  {'サイト':<8} {'年':>3} {'TC(冗長)':>9} {'DTC(相乗)':>9} {'Ω=TC-DTC':>10} {'判定':>8}")
+    print("  ★判定は生Ωの絶対符号でなく z（シャッフルヌル比）で（4変数Ωは負バイアスのため）。")
+    print("    TC/DTC の絶対値も同じバイアスを含むが、サイト間の相対差は読める。\n")
+    print(f"  {'サイト':<8} {'年':>3} {'TC(冗長)':>9} {'DTC(相乗)':>9} {'Ω':>9} {'z(Ω)':>7} {'判定':>8}")
     for s in a.sites:
         try:
             years, months = get_site_years(s)
             raw_all = load_raw_all(get_site(s), cfg)
         except Exception as e:
             print(f"  {s:<8} 読込失敗 {type(e).__name__}: {e}"); continue
-        TCs, DTCs, Oms = [], [], []
+        TCs, DTCs, Oms, Zs = [], [], [], []
         for y in years:
             try:
                 if len(months) == 1:
@@ -65,21 +67,27 @@ def main():
                 cols = [it.digitize_series(vf[v].to_numpy(float), m) for v in SUBSYS]
                 tc = it.total_correlation_indices(cols, m, correct=True)
                 om = it.o_information_indices(cols, m, correct=True)
-                TCs.append(tc); Oms.append(om); DTCs.append(tc - om)
+                rng = np.random.default_rng(cfg.seed)
+                st = it.surrogate_o_information_stats(
+                    cols, m, cfg.n_surrogates, cfg.sig_c, rng, correct=True)
+                z = (om - st["mu"]) / st["sigma"] if st["sigma"] > 0 else np.nan
+                TCs.append(tc); Oms.append(om); DTCs.append(tc - om); Zs.append(z)
             except Exception:
                 continue
         if not TCs:
             print(f"  {s:<8} 有効年なし"); continue
-        tc, dtc, om = np.mean(TCs), np.mean(DTCs), np.mean(Oms)
-        verdict = "冗長支配" if om > 0 else "相乗支配"
+        tc, dtc, om, mz = np.mean(TCs), np.mean(DTCs), np.mean(Oms), np.nanmean(Zs)
+        verdict = ("冗長支配" if mz >= 2.36 else "相乗支配" if mz <= -2.36 else "曖昧")
         tag = " ←水田" if s in paddy else ""
-        print(f"  {s:<8} {len(TCs):>3} {tc:>9.4f} {dtc:>9.4f} {om:>10.4f} {verdict:>8}{tag}")
+        print(f"  {s:<8} {len(TCs):>3} {tc:>9.4f} {dtc:>9.4f} {om:>9.4f} {mz:>7.1f} "
+              f"{verdict:>8}{tag}")
 
-    print("\n  読み方（水田 vs 自然の TC・DTC を比べる）:")
-    print("   ・水田で DTC(相乗)が自然より小さい → θが動かず組の相乗が減った＝『相乗が減って冗長支配』")
-    print("   ・水田で TC(冗長)が自然より大きい → Rg共通駆動などの冗長が増えた＝『冗長が増えて冗長支配』")
-    print("   ・両方 → 合わせ技。＝旗18(θやや固定)が系のどこに効くかを、冗長/相乗の内訳で特定。")
-    print("   ※これは4変数系レベルのDTC。旗17のθ×温度ペア相乗(GER目標)とは別の量（両立しうる）。")
+    print("\n  読み方:")
+    print("   ・判定(冗長/相乗)は z の符号で。生Ωが全サイト負でも、それは疎性バイアス（絶対符号は無意味）。")
+    print("   ・(1)の答え＝TC/DTC のサイト間『相対差』：水田で DTC(相乗成分)が自然より小さければ")
+    print("     『相乗が減って冗長寄りに』、TC(冗長成分)が大きければ『冗長が増えて』。TC はどこも同程度なら前者。")
+    print("   ・＝旗18(θやや固定)が系の相乗成分(DTC)を削るのか冗長成分(TC)を増すのかを特定。")
+    print("   ※4変数系レベルのDTC。旗17のθ×温度ペア相乗(GER目標)とは別の量（両立しうる）。")
 
 
 if __name__ == "__main__":
