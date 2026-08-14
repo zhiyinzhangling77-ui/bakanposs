@@ -21,8 +21,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pid_localize_step16 import localize, _digitize
 
-# 自然（普遍性の検証）＋ 水田（消失の検証）
-DEFAULT_SITES = ["JP-Tak", "JP-Ta2", "CN-HaM", "JP-Mse"]
+# 自然（普遍性の検証）＋ 水田2つ（θ×温度が水田共通で強いかの一般性）
+DEFAULT_SITES = ["JP-Tak", "JP-Ta2", "CN-HaM", "JP-Mse", "KR-CRK"]
 PAIR = "Ta,th"   # 機構仮説の相乗源（温度×土壌水分）
 DRIVERS = ["Rg", "Ta", "th", "VPD"]
 
