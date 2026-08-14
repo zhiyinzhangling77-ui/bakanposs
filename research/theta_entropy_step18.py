@@ -30,8 +30,11 @@ def _entropy_digitized(x, m):
 
 
 def main():
+    import pandas as pd
     from japanflux_pn.run_robustness import get_site_years
-    from japanflux_pn.preprocess import load_corevars_hh
+    from japanflux_pn.config import AnalysisConfig
+    from japanflux_pn.sites import get_site
+    from japanflux_pn.preprocess import load_raw_all
 
     p = argparse.ArgumentParser(description="θ が水田で固定=無情報かを直接測る")
     p.add_argument("--sites", nargs="+", default=["JP-Tak", "JP-Ta2", "CN-HaM", "JP-Mse"])
@@ -39,6 +42,15 @@ def main():
     p.add_argument("--obins", type=int, default=6)
     a = p.parse_args()
     paddy = {"JP-Mse", "KR-CRK"}
+    config = AnalysisConfig()
+
+    def raw_year(raw_all, year, months):
+        """生の絶対値（アノマリでない）を年×月窓で切り出す。climate_response と同じ流儀。"""
+        ms = sorted(months)
+        start = pd.Timestamp(year=year, month=ms[0], day=1)
+        end = pd.Timestamp(year=year, month=ms[-1], day=1) + pd.offsets.MonthBegin(1)
+        r = raw_all[(raw_all.index >= start) & (raw_all.index < end)]
+        return r[a.var].dropna().to_numpy(dtype=float)
 
     print(f"=== {a.var}(土壌水分) は水田で本当に情報を失うか（旗18）===")
     print("  季節内=各年の分散/エントロピー（湛水で固定なら小）、プール=全年まとめ（年々差で増える）\n")
@@ -48,14 +60,17 @@ def main():
     for s in a.sites:
         try:
             years, months = get_site_years(s)
+            raw_all = load_raw_all(get_site(s), config)
         except Exception as e:
-            print(f"  {s:<8} get_site_years失敗 {e}"); continue
+            print(f"  {s:<8} 読み込み失敗 {type(e).__name__}: {e}"); continue
         within_cv, within_H, pooled = [], [], []
         used = 0
         for y in years:
             try:
-                v = load_corevars_hh(s, y, months, None).valid_frame[a.var].to_numpy(float)
+                v = raw_year(raw_all, y, months)
             except Exception:
+                continue
+            if v.size < 50:                     # 空/極端に少ない年は飛ばす
                 continue
             mu = abs(float(np.mean(v)))
             within_cv.append(float(np.std(v)) / mu if mu > 1e-9 else np.nan)
