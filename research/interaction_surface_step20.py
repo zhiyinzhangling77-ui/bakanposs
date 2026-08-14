@@ -92,6 +92,8 @@ def main():
     p.add_argument("--month", type=int, nargs="+", default=[7, 8])
     p.add_argument("--nbins", type=int, default=6)
     p.add_argument("--min-cell", type=int, default=20)
+    p.add_argument("--deyear", action="store_true",
+                   help="各年の幾何平均でGERを割り年間レベル差を除く（プーリング交絡の制御）")
     a = p.parse_args()
 
     if not a.site:
@@ -120,14 +122,21 @@ def main():
         r = raw_all[(raw_all.index >= start) & (raw_all.index < end)]
         if r.empty:
             continue
-        for v in cols:
-            cols[v].append(r[v].to_numpy(float))
+        g = r["GER"].to_numpy(float)
+        if a.deyear:                      # 年ごとに幾何平均で割る（log 空間で年中心化）
+            gp = g[np.isfinite(g) & (g > 0)]
+            gm = np.exp(np.mean(np.log(gp))) if gp.size else 1.0
+            g = g / gm
+        cols["GER"].append(g)
+        cols["Ta"].append(r["Ta"].to_numpy(float))
+        cols["th"].append(r["th"].to_numpy(float))
         used.append(y)
     if not used:
         print("有効年なし"); return
     Ta = np.concatenate(cols["Ta"]); th = np.concatenate(cols["th"]); GER = np.concatenate(cols["GER"])
     frac, M, N, mask = interaction_fraction(Ta, th, GER, a.nbins, a.min_cell)
-    print(f"=== 旗20 実データ {a.site}（生 GER・Ta・θ プール {len(used)}年, {a.nbins}×{a.nbins}格子）===")
+    dy = "・年レベル除去(deyear)" if a.deyear else ""
+    print(f"=== 旗20 実データ {a.site}（生 GER・Ta・θ プール {len(used)}年{dy}, {a.nbins}×{a.nbins}格子）===")
     print(f"  有効セル {int(mask.sum())}/{a.nbins*a.nbins}、総点数 {np.isfinite(GER).sum()}")
     print(f"\n  ★掛け算モデルからの交互作用割合 = {frac:.3f}")
     if np.isfinite(frac):
