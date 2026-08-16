@@ -116,6 +116,8 @@ def main():
     p.add_argument("--site")
     p.add_argument("--years", type=int, nargs="+")
     p.add_argument("--month", type=int, nargs="+", default=[7, 8])
+    p.add_argument("--qc-max", type=int, default=None,
+                   help="QC閾値（例1＝実測寄り。既定None＝gap-fill込み）。穴埋め依存の検証用。")
     a = p.parse_args()
 
     if not a.site:
@@ -128,7 +130,7 @@ def main():
     from japanflux_pn.config import AnalysisConfig
     from japanflux_pn.sites import get_site
     from japanflux_pn.preprocess import load_raw_all
-    cfg = AnalysisConfig()
+    cfg = AnalysisConfig(qc_max=a.qc_max) if a.qc_max is not None else AnalysisConfig()
     raw_all = load_raw_all(get_site(a.site), cfg)
     ms = sorted(a.month)
     frames = []
@@ -144,7 +146,8 @@ def main():
     if not frames:
         print("有効年なし"); return
     df = pd.concat(frames)
-    print(f"=== 旗24 実データ {a.site}（GER 遅い未観測, 絶対値・日平均残差, {len(used)}年, N={len(df)}）===")
+    qtag = f"・QC≤{a.qc_max}(実測寄り)" if a.qc_max is not None else "・gap-fill込み(既定)"
+    print(f"=== 旗24 実データ {a.site}（GER 遅い未観測, 絶対値・日平均残差, {len(used)}年, N={len(df)}{qtag}）===")
     _report(analyze(df), f"{a.site} 呼吸 GER")
     print("\n  読み方：日残差自己相関が大＝観測(非加法込み)でも説明しきれない『遅い未観測駆動』の足跡")
     print("     （基質/フェノロジー/深層土壌水）＝領域知識で仮説化し衛星プロキシで検証の入口(北極星)。")
