@@ -29,10 +29,11 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # H/LE/Rn/G の実カラム候補(japanflux2024 / FLUXNET2015 の表記揺れを吸収)。
+# gap-fill 済み(_F_MDS)を優先し、無ければ生列(_1_1_1)へフォールバック。
 CAND = {
-    "H":  ["H_F_MDS", "H_F", "H"],
-    "LE": ["LE_F_MDS", "LE_F", "LE"],
-    "Rn": ["NETRAD", "NETRAD_F", "RN", "NET_RAD", "Rn"],
+    "H":  ["H_F_MDS", "H_F", "H_1_1_1", "H"],
+    "LE": ["LE_F_MDS", "LE_F", "LE_1_1_1", "LE"],
+    "Rn": ["NETRAD_F_MDS", "NETRAD_F", "NETRAD_1_1_1", "NETRAD", "RN", "NET_RAD"],
     "G":  ["G_F_MDS", "G_F_MDS_1", "G_F", "G_1_1_1", "G"],
 }
 
@@ -62,7 +63,14 @@ def load_energy(site, months, qc_max):
     if missing:
         return None, cols, missing
 
-    want = {"TIMESTAMP_START", *cols.values()}
+    # QC 列 (存在するもののみ)。--qc-max 指定時に低品質 gap-fill を落とす。
+    qc_of = {}
+    if qc_max is not None:
+        for k, c in cols.items():
+            qc = c + "_QC"
+            if qc in set(header0):
+                qc_of[k] = qc
+    want = {"TIMESTAMP_START", *cols.values(), *qc_of.values()}
     parts = []
     for f in files:
         df = _read_table_columns(f, want)
@@ -74,8 +82,11 @@ def load_energy(site, months, qc_max):
     raw = pd.concat(parts)
     raw = raw[~raw.index.duplicated(keep="first")].sort_index()
     raw = raw.replace(cfg.na_sentinel, np.nan)
+    # QC>閾値 (低品質補完) を NaN 化してから改名。
+    for k, qc in qc_of.items():
+        raw[cols[k]] = raw[cols[k]].where(raw[qc] <= qc_max)
     ren = {v: k for k, v in cols.items()}
-    raw = raw.rename(columns=ren)
+    raw = raw.rename(columns=ren)[list(cols)]
     if months:
         raw = raw[raw.index.month.isin(months)]
     return raw, cols, []
