@@ -131,6 +131,9 @@ def main():
     p.add_argument("--site")
     p.add_argument("--years", type=int, nargs="+")
     p.add_argument("--month", type=int, nargs="+", default=[7, 8])
+    p.add_argument("--qc-max", type=int, default=None,
+                   help="QCフラグ閾値（例1＝実測寄り。既定None＝gap-fill込み）。"
+                        "穴埋め由来かの検証用：--qc-max 1 で遅い未観測が生き残るか。")
     a = p.parse_args()
 
     if not a.site:
@@ -143,8 +146,9 @@ def main():
     from japanflux_pn.config import AnalysisConfig
     from japanflux_pn.sites import get_site
     from japanflux_pn.preprocess import load_raw_all
-    cfg = AnalysisConfig()
+    cfg = AnalysisConfig(qc_max=a.qc_max) if a.qc_max is not None else AnalysisConfig()
     raw_all = load_raw_all(get_site(a.site), cfg)
+    qtag = f"・QC≤{a.qc_max}(実測寄り)" if a.qc_max is not None else "・gap-fill込み(既定)"
     ms = sorted(a.month)
     frames, used = [], []
     for y in a.years or []:
@@ -158,8 +162,10 @@ def main():
     if not frames:
         print("有効年なし"); return
     df = pd.concat(frames)
-    print(f"=== 旗25 実データ {a.site}（GER 遅い成分は観測から作れるか, {len(used)}年）===")
+    print(f"=== 旗25 実データ {a.site}（GER 遅い成分は観測から作れるか, {len(used)}年{qtag}）===")
     _report(analyze(df), f"{a.site} 呼吸 GER")
+    print(f"  ※データ点数 N={len(df.dropna())}（QC≤{a.qc_max} で減れば穴埋め依存の目安）"
+          if a.qc_max is not None else f"  ※データ点数 N={len(df.dropna())}（gap-fill込み）")
     print("\n  読み方：＋遅いプロキシ(累積Rg=基質/累積Ta=熱履歴/通日=フェノロジー)で日残差自己相関が")
     print("     消える→遅い成分は観測から作れる(モデルに遅い項を足せば済む)＝真に未観測でない。")
     print("     残る→観測プロキシで説明できない真に未観測の遅い駆動＝衛星プロキシ検証の入口(北極星)。")
