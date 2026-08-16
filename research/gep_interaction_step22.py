@@ -24,9 +24,11 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from interaction_surface_step20 import interaction_fraction, surrogate_pvalue
 
-# (名前, 駆動1, 駆動2, 目標)
+# (名前, 駆動1, 駆動2, 目標)。炭素×2＋水（エネルギー）で三輪の標準モデル形を対比。
+#  光合成=光利用効率 GPP=ε·Rg·f(VPD)／呼吸=R=f(Ta)g(θ)／蒸発=Penman-Monteith/PT: LE~f(Rg,VPD)。
 PAIRS = [("光合成 GEP(Rg,VPD)", "Rg", "VPD", "GEP"),
-         ("呼吸   GER(Ta,θ)",   "Ta", "th", "GER")]
+         ("呼吸   GER(Ta,θ)",   "Ta", "th", "GER"),
+         ("蒸発   γLE(Rg,VPD)", "Rg", "VPD", "gLE")]
 
 
 def _deyear(g, years_idx, do):
