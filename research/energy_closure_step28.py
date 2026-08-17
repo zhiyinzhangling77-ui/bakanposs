@@ -28,101 +28,9 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-# H/LE/Rn/G の実カラム候補(japanflux2024 / FLUXNET2015 の表記揺れを吸収)。
-# gap-fill 済み(_F_MDS)を優先し、無ければ生列(_1_1_1)へフォールバック。
-CAND = {
-    "H":  ["H_F_MDS", "H_F", "H_1_1_1", "H"],
-    "LE": ["LE_F_MDS", "LE_F", "LE_1_1_1", "LE"],
-    "Rn": ["NETRAD_F_MDS", "NETRAD_F", "NETRAD_1_1_1", "NETRAD", "RN", "NET_RAD"],
-    "G":  ["G_F_MDS", "G_F_MDS_1", "G_F", "G_1_1_1", "G"],
-}
-
-
-def _resolve(header, cands):
-    hset = set(header)
-    for c in cands:
-        if c in hset:
-            return c
-    return None
-
-
-def load_energy(site, months, qc_max):
-    """生 CSV から H/LE/Rn/G を直接読み、対象月に絞った 30 分値 DataFrame。"""
-    import pandas as pd
-    from japanflux_pn.config import AnalysisConfig
-    from japanflux_pn.preprocess import (
-        _read_table_header, _read_table_columns, find_corevars_files)
-
-    cfg = AnalysisConfig(qc_max=qc_max) if qc_max is not None else AnalysisConfig()
-    files = find_corevars_files(site)
-    cols = {}
-    header0 = _read_table_header(files[0])
-    for k, cands in CAND.items():
-        cols[k] = _resolve(header0, cands)
-    # 必須は H/LE/Rn。G(地中熱)は無いサイトがある(例 JP-Ta2)ので任意扱い＝G=0近似。
-    missing = [k for k in ("H", "LE", "Rn") if cols[k] is None]
-    if missing:
-        return None, cols, missing, False
-    g_approx = cols["G"] is None
-    present = {k: c for k, c in cols.items() if c is not None}
-
-    # QC 列 (存在するもののみ)。--qc-max 指定時に低品質 gap-fill を落とす。
-    qc_of = {}
-    if qc_max is not None:
-        for k, c in present.items():
-            qc = c + "_QC"
-            if qc in set(header0):
-                qc_of[k] = qc
-    want = {"TIMESTAMP_START", *present.values(), *qc_of.values()}
-    parts = []
-    for f in files:
-        df = _read_table_columns(f, want)
-        ts = pd.to_datetime(
-            pd.to_numeric(df["TIMESTAMP_START"]).astype("int64").astype(str),
-            format="%Y%m%d%H%M")
-        df = df.drop(columns=["TIMESTAMP_START"]); df.index = ts
-        parts.append(df)
-    raw = pd.concat(parts)
-    raw = raw[~raw.index.duplicated(keep="first")].sort_index()
-    raw = raw.replace(cfg.na_sentinel, np.nan)
-    # QC>閾値 (低品質補完) を NaN 化してから改名。
-    for k, qc in qc_of.items():
-        raw[present[k]] = raw[present[k]].where(raw[qc] <= qc_max)
-    ren = {v: k for k, v in present.items()}
-    raw = raw.rename(columns=ren)
-    if g_approx:                       # G 列が無いサイトは G=0 で近似
-        raw["G"] = 0.0
-    raw = raw[["H", "LE", "Rn", "G"]]
-    if months:
-        raw = raw[raw.index.month.isin(months)]
-    return raw, cols, [], g_approx
-
-
-def closure(df):
-    """EBR=Σ(H+LE)/Σ(Rn−G) と、原点通し回帰の傾き・R²・n を返す。"""
-    ok = df[["H", "LE", "Rn", "G"]].notna().all(axis=1)
-    d = df.loc[ok]
-    turb = (d["H"] + d["LE"]).to_numpy()
-    avail = (d["Rn"] - d["G"]).to_numpy()
-    n = len(d)
-    if n < 200:
-        return None
-    ebr = float(turb.sum() / avail.sum()) if avail.sum() != 0 else np.nan
-    # 原点通し回帰 turb = s·avail
-    s = float((avail @ turb) / (avail @ avail)) if (avail @ avail) != 0 else np.nan
-    ss_res = float(((turb - s * avail) ** 2).sum())
-    ss_tot = float(((turb - turb.mean()) ** 2).sum())
-    r2 = 1 - ss_res / ss_tot if ss_tot > 0 else np.nan
-    return {"ebr": ebr, "slope": s, "r2": r2, "n": n}
-
-
-def by_year(df):
-    out = {}
-    for y, g in df.groupby(df.index.year):
-        c = closure(g)
-        if c:
-            out[int(y)] = c
-    return out
+# 計算コアはパッケージ本体に集約（rank_sites の品質列と同一コードを使いズレを防ぐ）。
+from japanflux_pn.energy_closure import (  # noqa: E402
+    CAND, load_energy, closure, by_year, verdict)
 
 
 def make_synth(kind, n=40000, seed=0):
@@ -135,16 +43,6 @@ def make_synth(kind, n=40000, seed=0):
     idx = pd.date_range("2020-07-01", periods=n, freq="30min")
     return pd.DataFrame({"H": turb * 0.4, "LE": turb * 0.6,
                          "Rn": avail + G, "G": G}, index=idx)
-
-
-def verdict(ebr):
-    if not np.isfinite(ebr):
-        return "—"
-    if ebr < 0.7:
-        return "⚠ 不閉合(乱流不足の疑い/除外候補)"
-    if ebr <= 1.05:
-        return "✅ 良好(0.7–1.05)"
-    return "△ 過閉合(Rn/G測器 or 貯留無視)"
 
 
 def main():
