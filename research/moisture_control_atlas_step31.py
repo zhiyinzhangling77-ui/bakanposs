@@ -58,20 +58,32 @@ def partial_spearman(y, x, controls):
     return float(np.corrcoef(xr, yr)[0, 1]), int(ok.sum())
 
 
-def _boot_ci(y, x, controls, nboot=400, seed=0):
-    """日ブートで偏 Spearman の 95%CI。CI が 0 を跨がなければ符号有意。"""
+def _boot_ci(y, x, controls, nboot=400, seed=0, blocks=None):
+    """偏 Spearman の 95%CI。blocks 指定時は年ブロック・ブート（自己相関でCIが
+    過小になるのを補正）、無指定なら日ブート。CI が 0 を跨がねば符号有意。"""
     r0, n = partial_spearman(y, x, controls)
     if not np.isfinite(r0):
         return r0, None, n
     rng = np.random.default_rng(seed)
-    ys = np.asarray(y, float)
+    ys = np.asarray(y, float); xs = np.asarray(x, float)
+    cs = [np.asarray(c, float) for c in controls]
     rs = []
-    for _ in range(nboot):
-        idx = rng.integers(0, len(ys), len(ys))
-        r, _ = partial_spearman(ys[idx], np.asarray(x)[idx],
-                                [np.asarray(c)[idx] for c in controls])
-        if np.isfinite(r):
-            rs.append(r)
+    if blocks is not None:
+        blocks = np.asarray(blocks)
+        uniq = np.unique(blocks)
+        idx_by = {b: np.where(blocks == b)[0] for b in uniq}
+        for _ in range(nboot):
+            pick = rng.choice(uniq, size=len(uniq), replace=True)   # 年ごと再標本
+            idx = np.concatenate([idx_by[b] for b in pick])
+            r, _ = partial_spearman(ys[idx], xs[idx], [c[idx] for c in cs])
+            if np.isfinite(r):
+                rs.append(r)
+    else:
+        for _ in range(nboot):
+            idx = rng.integers(0, len(ys), len(ys))
+            r, _ = partial_spearman(ys[idx], xs[idx], [c[idx] for c in cs])
+            if np.isfinite(r):
+                rs.append(r)
     if len(rs) < 20:
         return r0, None, n
     lo, hi = np.percentile(rs, [2.5, 97.5])
@@ -96,17 +108,25 @@ def daily_summer(site, months, qc_max):
     return daily.dropna(), len(years)
 
 
-def analyze_site(site, months, qc_max):
+def analyze_site(site, months, qc_max, block=False, deseason=False):
+    """θ→炭素の偏相関。block=年ブロックブート／deseason=通日(季節)を制御に追加。"""
     d, nyr = daily_summer(site, months, qc_max)
     if len(d) < 60:
         return {"note": f"日数不足({len(d)})"}
-    out = {"n_days": len(d), "n_years": nyr}
-    # θ→GER | Ta（温度を差し引いた水分の呼吸制御）
+    yr = d.index.year.to_numpy() if block else None
+    doy = d.index.dayofyear.to_numpy().astype(float)
+    seas = [np.sin(2 * np.pi * doy / 365.25), np.cos(2 * np.pi * doy / 365.25)] \
+        if deseason else []
+    out = {"n_days": len(d), "n_years": nyr,
+           "th_std": float(d["th"].std()),                 # θ の変動幅（湛水=小）
+           "th_ta_r": float(np.corrcoef(d["th"], d["Ta"])[0, 1])}  # θ-Ta 共線性
+    # θ→GER | Ta(+季節)
     out["ger"] = _boot_ci(d["GER"].to_numpy(), d["th"].to_numpy(),
-                          [d["Ta"].to_numpy()])
-    # θ→GEP | Rg,VPD（光・乾燥を差し引いた水分の光合成制御）
+                          [d["Ta"].to_numpy(), *seas], blocks=yr)
+    # θ→GEP | Rg,VPD(+季節)
     ctrl = [d[c].to_numpy() for c in ("Rg", "VPD") if c in d]
-    out["gep"] = _boot_ci(d["GEP"].to_numpy(), d["th"].to_numpy(), ctrl)
+    out["gep"] = _boot_ci(d["GEP"].to_numpy(), d["th"].to_numpy(),
+                          [*ctrl, *seas], blocks=yr)
     return out
 
 
@@ -182,6 +202,10 @@ def main():
     p.add_argument("--month", type=int, nargs="+", default=[7, 8])
     p.add_argument("--qc-max", type=int, default=None)
     p.add_argument("--ebr", action="store_true", help="EBR(旗29)を品質列に併記")
+    p.add_argument("--block", action="store_true",
+                   help="年ブロック・ブート（日値の自己相関でCIが過小になるのを補正）")
+    p.add_argument("--deseason", action="store_true",
+                   help="通日(季節)を制御に追加（夏内トレンドの交絡を除く）")
     p.add_argument("--fig", default=None)
     a = p.parse_args()
 
@@ -207,17 +231,19 @@ def main():
         from japanflux_pn.sites import get_site
 
     qtag = f"QC≤{a.qc_max}" if a.qc_max is not None else "gap-fill込み"
-    print(f"=== 旗31 実データ 生態系ごとの土壌水分θの炭素制御（{qtag}, 月={a.month}）===")
+    rtag = ("・年ブロックブート" if a.block else "") + ("・季節制御" if a.deseason else "")
+    print(f"=== 旗31 実データ 生態系ごとの土壌水分θの炭素制御（{qtag}{rtag}, 月={a.month}）===")
     print("  偏 Spearman：θ→GER|Ta（温度差引後の水分の呼吸制御）／θ→GEP|Rg,VPD（光・乾燥差引後）。")
-    print("  ✓=CI が 0 を跨がず符号有意。EBR は品質重み（<0.7 は不閉合＝割引）。\n")
+    print("  ✓=CI が 0 を跨がず符号有意。EBR は品質重み（<0.7 は不閉合＝割引）。")
+    print("  θσ=θの変動幅（小=湛水で端効果の疑い）, θ-Ta=共線性（|大|=偏相関が不安定）。\n")
     ehdr = f" {'EBR':>5}" if a.ebr else ""
-    print(f"  {'サイト':<8} {'生態系':>6} {'年':>3} {'日数':>5}{ehdr}  "
+    print(f"  {'サイト':<8} {'生態系':>6} {'年':>3} {'日数':>5}{ehdr} {'θσ':>5} {'θ-Ta':>5}  "
           f"{'θ→GER|Ta':>10}{'95%CI':>16}  {'θ→GEP|Rg,VPD':>12}{'95%CI':>16}")
     rows = []
     for s in a.sites:
         typ = cls.loc[s, "type"] if s in cls.index else "?"
         try:
-            res = analyze_site(s, a.month, a.qc_max)
+            res = analyze_site(s, a.month, a.qc_max, block=a.block, deseason=a.deseason)
         except Exception as e:
             print(f"  {s:<8} {typ:>6} SKIP {type(e).__name__}: {e}"); continue
         if "note" in res:
@@ -233,7 +259,8 @@ def main():
             except Exception:
                 estr = f" {'—':>5}"
         rows.append(rec)
-        print(f"  {s:<8} {typ:>6} {res['n_years']:>3} {res['n_days']:>5}{estr}  "
+        print(f"  {s:<8} {typ:>6} {res['n_years']:>3} {res['n_days']:>5}{estr} "
+              f"{res['th_std']:>5.3f} {res['th_ta_r']:>+5.2f}  "
               f"{_fmt(res['ger'])}  {_fmt(res['gep'])}")
 
     # 生態系グループごとに「水分制御が有意なサイト数」を集計
