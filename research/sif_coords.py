@@ -32,18 +32,38 @@ def _num_in(cells):
     return None
 
 
+def _find_badm(data_dir):
+    """BADM ファイル(xlsx優先=JapanFlux2024, csv も)。Site_General を最優先。"""
+    root = Path(data_dir)
+    pats = ["**/*BADM*Site_General*.xlsx", "**/*BADM*.xlsx",
+            "**/*BADM*Site_General*.csv", "**/*BADM*.csv",
+            "**/*BIF*.xlsx", "**/*BIF*.csv"]
+    out = []
+    for p in pats:
+        for f in sorted(root.glob(p)):
+            if f not in out and not f.name.startswith("~$"):
+                out.append(f)
+    return out
+
+
+def _read_any(f):
+    """xlsx/csv を header なし・全文字列で読む（BADM の総当たり走査用）。"""
+    import pandas as pd
+    if str(f).lower().endswith((".xlsx", ".xls")):
+        return pd.read_excel(f, header=None, dtype=str)
+    return pd.read_csv(f, header=None, dtype=str, on_bad_lines="skip")
+
+
 def coords_from_badm(data_dir, code):
     """BADM 群から (lat, lon) を抽出。見つからねば (None, None)。"""
-    import pandas as pd
-    from japanflux_pn.ecosystem import _iter_badm_files
     lat = lon = None
-    for f in _iter_badm_files(data_dir, code):
+    for f in _find_badm(data_dir):
         try:
-            df = pd.read_csv(f, header=None, dtype=str, on_bad_lines="skip")
+            df = _read_any(f)
         except Exception:
             continue
         for _, row in df.iterrows():
-            cells = [str(x) for x in row.tolist() if x is not None]
+            cells = [str(x) for x in row.tolist() if x is not None and str(x) != "nan"]
             joined = " ".join(cells)
             if lat is None and LAT_RE.search(joined):
                 lat = _num_in([c for c in cells if not LAT_RE.search(c)])
