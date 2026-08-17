@@ -154,7 +154,7 @@ def main():
     print("  corr(Rg,γLE)=蒸発が放射に従う度合い(エネルギー制限の指標)。✓=CI が 0 を跨がず有意。\n")
     eh = f" {'EBR':>5}" if a.ebr else ""
     print(f"  {'サイト':<8} {'生態系':>6} {'年':>3} {'日数':>5}{eh} {'Rg~γLE':>6}  "
-          f"{'θ→γLE|Rg':>10}{'95%CI':>16}  判定")
+          f"{'θ→γLE|Rg':>10}{'CI':>14}  {'θ→γH|Rg':>9}{'CI':>14}  判定")
     rows = []
     for s in a.sites:
         typ = cls.loc[s, "type"] if s in cls.index else "?"
@@ -164,10 +164,19 @@ def main():
             print(f"  {s:<8} {typ:>6} SKIP {type(e).__name__}: {e}"); continue
         if "note" in res:
             print(f"  {s:<8} {typ:>6} {res['note']}"); continue
-        le = res["le"]
-        wl = isinstance(le[1], tuple) and le[1][0] > 0
-        verdict = "水制限ET(水↑蒸発)" if wl else \
-                  ("逆" if isinstance(le[1], tuple) and le[1][1] < 0 else "エネルギー制限ET")
+        le = res["le"]; h = res.get("h", (np.nan, None, 0))
+        le_pos = isinstance(le[1], tuple) and le[1][0] > 0
+        le_neg = isinstance(le[1], tuple) and le[1][1] < 0
+        h_neg = isinstance(h[1], tuple) and h[1][1] < 0
+        # Bowen 反転：水↑で潜熱↑かつ顕熱↓＝水制限のエネルギー分配
+        if le_pos and h_neg:
+            verdict = "水制限ET・Bowen反転(水→潜熱↑顕熱↓)"
+        elif le_pos:
+            verdict = "水制限ET(水↑蒸発)"
+        elif le_neg:
+            verdict = "逆"
+        else:
+            verdict = "エネルギー制限ET"
         estr = ""
         if a.ebr:
             try:
@@ -177,7 +186,7 @@ def main():
                 estr = f" {'—':>5}"
         rows.append({"site": s, "type": typ, **res})
         print(f"  {s:<8} {typ:>6} {res['n_years']:>3} {res['n_days']:>5}{estr} "
-              f"{res['rg_le']:>+6.2f}  {_fmt(le)}  {verdict}")
+              f"{res['rg_le']:>+6.2f}  {_fmt(le)}  {_fmt(h)}  {verdict}")
 
     print("\n  === 生態系グループ別（θ→γLE|Rg の符号有意）===")
     from collections import defaultdict
@@ -187,9 +196,12 @@ def main():
             grp[r["type"]].append(r)
     for typ, rs in sorted(grp.items()):
         pos = sum(1 for r in rs if r["le"][1] and r["le"][1][0] > 0)
+        bowen = sum(1 for r in rs if r["le"][1] and r["le"][1][0] > 0
+                    and isinstance(r.get("h", (0, None))[1], tuple) and r["h"][1][1] < 0)
         med = np.median([r["le"][0] for r in rs])
-        print(f"  {typ:<6} n={len(rs)}  水制限(正,CI>0)={pos}  中央r={med:+.2f}")
+        print(f"  {typ:<6} n={len(rs)}  水制限(正,CI>0)={pos}  Bowen反転(潜熱↑顕熱↓)={bowen}  中央r={med:+.2f}")
     print("\n  読み方：乾燥草原=水制限(正)・湿潤森林=エネルギー制限(≈0) が Budyko の予想。")
+    print("    Bowen反転(θ→γLE>0 かつ θ→γH<0)=水が利用可能エネルギーを顕熱→潜熱へ振り替える＝水制限の決定的証拠。")
     print("    旗31(呼吸の水分律速)と対になる第2の生態系署名（蒸発の水分律速）。全変数独立測定＝派生量問題なし。")
     print("  留保：γH/γLE は共通 w'（旗35）。日平均・生プール・θ深度不統一（旗33）。")
     if a.fig and rows:
