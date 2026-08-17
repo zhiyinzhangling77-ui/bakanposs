@@ -42,8 +42,14 @@ def scan_all(
     n_min: int = 500,
     n_max: int = 1500,
     config: AnalysisConfig | None = None,
+    ebr: bool = False,
+    ebr_qc: int = 1,
 ) -> pd.DataFrame:
-    """全サイトを走査し、1 サイト 1 行の集計 DataFrame を返す。"""
+    """全サイトを走査し、1 サイト 1 行の集計 DataFrame を返す。
+
+    ``ebr=True`` で各サイトのエネルギー収支閉合 EBR も計算する（H/LE/Rn/G 列を追加で
+    読むため遅くなる）。``ebr_qc`` は EBR 算出時の QC 閾値（既定 1＝実測寄り）。
+    """
     months = months or [7, 8]
     config = config or AnalysisConfig()
     rows = []
@@ -53,6 +59,8 @@ def scan_all(
         t0 = time.time()
         rec = {"site": code, "n_mapped": 0, "healthy_site_years": 0,
                "years_span": "", "n_files": 0, "note": ""}
+        if ebr:
+            rec.update({"ebr": float("nan"), "ebr_bad_years": 0, "ebr_note": ""})
         try:
             site = resolved[code]
             files = find_corevars_files(site)
@@ -70,34 +78,64 @@ def scan_all(
                     yrs = sorted(set(int(y) for y in tbl["year"]))
                     if yrs:
                         rec["years_span"] = f"{yrs[0]}-{yrs[-1]}"
+            if ebr:
+                _fill_ebr(rec, site, months, ebr_qc)
         except Exception as e:  # noqa: BLE001
             rec["note"] = f"error: {type(e).__name__}: {e}"
         rows.append(rec)
+        etag = (f" EBR={rec['ebr']:.2f}" if ebr and rec.get("ebr") == rec.get("ebr")
+                else (f" EBR:{rec['ebr_note']}" if ebr else ""))
         print(f"  [{i:>3}/{len(codes)}] {code:<10} "
-              f"map={rec['n_mapped']}/11 healthy={rec['healthy_site_years']:>3} "
-              f"({time.time()-t0:.0f}s) {rec['note']}", flush=True)
+              f"map={rec['n_mapped']}/11 healthy={rec['healthy_site_years']:>3}"
+              f"{etag} ({time.time()-t0:.0f}s) {rec['note']}", flush=True)
     df = pd.DataFrame(rows)
     return df.sort_values(["healthy_site_years", "n_mapped"],
                           ascending=False).reset_index(drop=True)
 
 
+def _fill_ebr(rec: dict, site: SiteSpec, months: list[int], ebr_qc: int) -> None:
+    """rec に EBR 情報を書き込む（閉合コアは energy_closure に集約）。"""
+    from .energy_closure import site_ebr
+    r = site_ebr(site, months, qc_max=ebr_qc)
+    if "note" in r:
+        rec["ebr_note"] = r["note"]
+        return
+    rec["ebr"] = round(r["ebr"], 3)
+    rec["ebr_bad_years"] = int(r["n_bad"])
+    rec["ebr_note"] = ("G=0近似" if r["g_approx"] else "") + \
+        (f" 不閉合{r['n_bad']}/{r['n_years']}年" if r["n_bad"] else "")
+
+
 def report(root: str = JAPANFLUX_ROOT, months: list[int] | None = None,
            n_min: int = 500, n_max: int = 1500, top: int | None = None,
-           csv: str | None = None) -> pd.DataFrame:
+           csv: str | None = None, ebr: bool = False, ebr_qc: int = 1) -> pd.DataFrame:
     months = months or [7, 8]
-    print(f"### 全サイト走査 (months={months}, 健全域 {n_min}-{n_max} 点)\n", flush=True)
-    df = scan_all(root, months, n_min, n_max)
+    print(f"### 全サイト走査 (months={months}, 健全域 {n_min}-{n_max} 点"
+          f"{'・EBR併記' if ebr else ''})\n", flush=True)
+    df = scan_all(root, months, n_min, n_max, ebr=ebr, ebr_qc=ebr_qc)
 
     full = df[df["n_mapped"] == 11].copy()
     partial = df[df["n_mapped"] < 11].copy()
 
     print(f"\n=== 11/11 マッピング済み × 健全 site-year 数 ランキング "
           f"(months={months}) ===")
-    print(f"  {'site':<10} {'健全年':>6} {'期間':>12} {'files':>6}")
+    if ebr:
+        print(f"  {'site':<10} {'健全年':>6} {'EBR':>6} {'閉合':>4} "
+              f"{'期間':>12} {'files':>6}   EBR注")
+    else:
+        print(f"  {'site':<10} {'健全年':>6} {'期間':>12} {'files':>6}")
     shown = full if top is None else full.head(top)
     for _, r in shown.iterrows():
-        print(f"  {r['site']:<10} {int(r['healthy_site_years']):>6} "
-              f"{r['years_span']:>12} {int(r['n_files']):>6}")
+        if ebr:
+            e = r.get("ebr")
+            estr = f"{e:>6.2f}" if e == e else f"{'—':>6}"    # NaN 判定
+            ok = "✅" if (e == e and e >= 0.7) else ("⚠" if e == e else "—")
+            print(f"  {r['site']:<10} {int(r['healthy_site_years']):>6} {estr} "
+                  f"{ok:>4} {r['years_span']:>12} {int(r['n_files']):>6}   "
+                  f"{r.get('ebr_note', '')}")
+        else:
+            print(f"  {r['site']:<10} {int(r['healthy_site_years']):>6} "
+                  f"{r['years_span']:>12} {int(r['n_files']):>6}")
     print(f"\n  合計 (11/11 サイト): {len(full)} サイト, "
           f"健全 site-year 総数 = {int(full['healthy_site_years'].sum())} "
           f"(×{len(months)} 月/年)")
@@ -122,8 +160,13 @@ def main(argv: list[str] | None = None) -> None:
     p.add_argument("--max", dest="n_max", type=int, default=1500)
     p.add_argument("--top", type=int, default=None)
     p.add_argument("--csv", default=None)
+    p.add_argument("--ebr", action="store_true",
+                   help="エネルギー収支閉合 EBR も計算（H/LE/Rn/G を追加で読むため遅い）")
+    p.add_argument("--ebr-qc", type=int, default=1,
+                   help="EBR 算出時の QC 閾値（既定 1＝実測寄り）")
     args = p.parse_args(argv)
-    report(args.root, args.months, args.n_min, args.n_max, args.top, args.csv)
+    report(args.root, args.months, args.n_min, args.n_max, args.top, args.csv,
+           ebr=args.ebr, ebr_qc=args.ebr_qc)
 
 
 if __name__ == "__main__":
