@@ -59,18 +59,21 @@ def load_energy(site, months, qc_max):
     header0 = _read_table_header(files[0])
     for k, cands in CAND.items():
         cols[k] = _resolve(header0, cands)
-    missing = [k for k, v in cols.items() if v is None]
+    # 必須は H/LE/Rn。G(地中熱)は無いサイトがある(例 JP-Ta2)ので任意扱い＝G=0近似。
+    missing = [k for k in ("H", "LE", "Rn") if cols[k] is None]
     if missing:
-        return None, cols, missing
+        return None, cols, missing, False
+    g_approx = cols["G"] is None
+    present = {k: c for k, c in cols.items() if c is not None}
 
     # QC 列 (存在するもののみ)。--qc-max 指定時に低品質 gap-fill を落とす。
     qc_of = {}
     if qc_max is not None:
-        for k, c in cols.items():
+        for k, c in present.items():
             qc = c + "_QC"
             if qc in set(header0):
                 qc_of[k] = qc
-    want = {"TIMESTAMP_START", *cols.values(), *qc_of.values()}
+    want = {"TIMESTAMP_START", *present.values(), *qc_of.values()}
     parts = []
     for f in files:
         df = _read_table_columns(f, want)
@@ -84,12 +87,15 @@ def load_energy(site, months, qc_max):
     raw = raw.replace(cfg.na_sentinel, np.nan)
     # QC>閾値 (低品質補完) を NaN 化してから改名。
     for k, qc in qc_of.items():
-        raw[cols[k]] = raw[cols[k]].where(raw[qc] <= qc_max)
-    ren = {v: k for k, v in cols.items()}
-    raw = raw.rename(columns=ren)[list(cols)]
+        raw[present[k]] = raw[present[k]].where(raw[qc] <= qc_max)
+    ren = {v: k for k, v in present.items()}
+    raw = raw.rename(columns=ren)
+    if g_approx:                       # G 列が無いサイトは G=0 で近似
+        raw["G"] = 0.0
+    raw = raw[["H", "LE", "Rn", "G"]]
     if months:
         raw = raw[raw.index.month.isin(months)]
-    return raw, cols, []
+    return raw, cols, [], g_approx
 
 
 def closure(df):
@@ -166,16 +172,17 @@ def main():
     print(f"  {'サイト':<8} {'EBR':>5} {'傾き':>5} {'R²':>5} {'N':>7}  判定")
     for s in sites:
         try:
-            df, cols, missing = load_energy(get_site(s), a.month, a.qc_max)
+            df, cols, missing, g_approx = load_energy(get_site(s), a.month, a.qc_max)
         except Exception as e:
             print(f"  {s:<8} SKIP {type(e).__name__}: {e}"); continue
         if missing:
-            print(f"  {s:<8} 列欠如 {missing}（このサイトは EBR 算出不可）"); continue
+            print(f"  {s:<8} 必須列欠如 {missing}（H/LE/Rn が無く EBR 算出不可）"); continue
         c = closure(df)
         if c is None:
             print(f"  {s:<8} データ不足"); continue
+        gtag = "  ⚠G無し(G=0近似)" if g_approx else ""
         print(f"  {s:<8} {c['ebr']:>5.2f} {c['slope']:>5.2f} {c['r2']:>5.2f} "
-              f"{c['n']:>7}  {verdict(c['ebr'])}")
+              f"{c['n']:>7}  {verdict(c['ebr'])}{gtag}")
         yr = by_year(df)
         bad = [y for y, cc in yr.items() if np.isfinite(cc['ebr']) and cc['ebr'] < 0.7]
         if yr:
@@ -183,9 +190,10 @@ def main():
             print(f"           年別 EBR: {min(evals):.2f}–{max(evals):.2f}"
                   f"（{len(yr)}年）" + (f"  ⚠ <0.7 の年: {bad}" if bad else ""))
         print(f"           使用列: H={cols['H']} LE={cols['LE']} "
-              f"Rn={cols['Rn']} G={cols['G']}")
+              f"Rn={cols['Rn']} G={cols['G'] if cols['G'] else '（無し→0近似）'}")
     print("\n  留保：貯留補正(canopy/soil storage)を引いていないので夏の EBR は")
     print("    やや低めに出うる。gap-fill 込みは補完で 1 に寄るため --qc-max 1 が本筋。")
+    print("    G無しサイトは G=0 近似（夏積算では G は小さく相殺するが EBR はやや高めに出うる）。")
 
 
 if __name__ == "__main__":
