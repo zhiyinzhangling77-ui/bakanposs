@@ -150,8 +150,12 @@ def main():
     raw_all = load_raw_all(get_site(a.site), cfg)
     qtag = f"・QC≤{a.qc_max}(実測寄り)" if a.qc_max is not None else "・gap-fill込み(既定)"
     ms = sorted(a.month)
+    years = a.years
+    if not years:                     # --years 省略時は健全年を自動発見（旗27/30と同じ）
+        from japanflux_pn.run_robustness import get_site_years
+        years, _mo = get_site_years(a.site)
     frames, used = [], []
-    for y in a.years or []:
+    for y in years:
         start = pd.Timestamp(year=y, month=ms[0], day=1)
         end = pd.Timestamp(year=y, month=ms[-1], day=1) + pd.offsets.MonthBegin(1)
         r = raw_all[(raw_all.index >= start) & (raw_all.index < end)]
