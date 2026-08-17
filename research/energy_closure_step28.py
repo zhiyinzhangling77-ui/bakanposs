@@ -193,7 +193,8 @@ def main():
               f"Rn={cols['Rn']} G={cols['G'] if cols['G'] else '（無し→0近似）'}")
     print("\n  留保：貯留補正(canopy/soil storage)を引いていないので夏の EBR は")
     print("    やや低めに出うる。gap-fill 込みは補完で 1 に寄るため --qc-max 1 が本筋。")
-    print("    G無しサイトは G=0 近似（夏積算では G は小さく相殺するが EBR はやや高めに出うる）。")
+    print("    G無しサイトは G=0 近似（分母 Rn−G の G を落とす＝分母が大きく＝EBR はやや"
+          "低めに出る。真値はもう少し高い）。")
 
 
 if __name__ == "__main__":
