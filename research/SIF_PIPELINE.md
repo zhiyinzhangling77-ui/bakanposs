@@ -78,6 +78,17 @@ python research/sif_extract_netcdf.py --coords site_coords.csv --ncdir /path/to/
 **留保**：2018+ で夏の重なり~4年＝短いが、**ほぼ日次で4日記憶を分解できる**（GOSIF 8日はできなかった）。
 画素~3.5×5.5km で footprint 不一致は残る。RTSIF 等の「再構成TROPOMI」は GOSIF 同様の再構成なので**避ける**（真SIFで）。
 
+**重要（配布形態の実態）**：Caltech の無料公開は **ungridded L2（軌道ごとの sounding 点群, netCDF4）**。gridded は
+リクエスト制、gridded TROPOSIF は 0.2°(≒22km)で GOSIF より粗い。**良 footprint の真SIF は ungridded L2 経路のみ**＝
+格子でなく点群なので、タワー半径 N km 内の sounding を日次集約する専用抽出器 `sif_extract_ungridded.py` を使う：
+```bash
+# 入手(ローカル): Caltech ungridded TROPOMI SIF  ftp://fluo.gps.caltech.edu/data/tropomi/ (L2, 2018-03〜2021-07)
+python research/sif_extract_ungridded.py --ncdir /path/to/L2 --list                 # 変数名を確認
+python research/sif_extract_ungridded.py --coords site_coords.csv --ncdir /path/to/L2 \
+    --var sif --lat-var lat --lon-var lon --time-var TIME --radius 20               # 半径20kmで日次集約
+```
+`sif_extract_netcdf.py`(格子用)は gridded 品にのみ有効。ungridded L2 は必ず `sif_extract_ungridded.py`。
+
 ### 3. 検証：SIF は残差の記憶を説明するか（旗38）
 ```bash
 python research/sif_respiration_step38.py --site JP-Tak --sif JP-Tak_sif.csv --qc-max 1
