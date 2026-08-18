@@ -22,13 +22,13 @@ _NUM = re.compile(r"[-+]?\d+\.?\d*")
 
 
 def _num_in(cells):
+    """セル全体が数値のものだけを採る（"decimal deg ref WGS84" の 84 等の埋め込み数字を弾く）。"""
     for c in cells:
-        m = _NUM.search(str(c))
-        if m:
-            try:
-                return float(m.group())
-            except ValueError:
-                continue
+        s = str(c).strip()
+        try:
+            return float(s)
+        except ValueError:
+            continue
     return None
 
 
@@ -90,6 +90,11 @@ def main():
             lat, lon = coords_from_badm(spec.data_dir, s)
         except Exception as e:
             print(f"  {s:<8} SKIP {type(e).__name__}: {e}")
+        # 妥当域チェック（緯度[-90,90]・経度[-180,180]外は疑い→手入力扱い）
+        if lat is not None and not (-90 <= lat <= 90):
+            lat = None
+        if lon is not None and not (-180 <= lon <= 180):
+            lon = None
         src = "BADM" if (lat is not None and lon is not None) else "★要手入力"
         rows.append((s, lat, lon, src))
         ls = f"{lat:.5f}" if lat is not None else ""
