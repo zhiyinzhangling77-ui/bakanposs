@@ -65,6 +65,19 @@ for _, r in coords.iterrows():
 ```
 出力：各サイト `<site>_sif.csv`（列 date, sif）。夏(7-8月)を含めば足りる。
 
+### 2-TROPOMI. 真SIF（GOSIF が null だった後の、より公平なテスト）
+旗38 で GOSIF(再構成8日)は記憶を説明せず、旗39 で記憶は「生物×分割窓の混在」と判明。**真のSIF(TROPOMI, 実測・
+ほぼ日次)は GOSIF の2弱点(再構成・8日)を外す**＝「生物成分がどれだけ残るか」を測る。NetCDF 配布なので専用抽出器：
+```bash
+# 入手(ローカル): Caltech TROPOMI SIF  ftp://fluo.gps.caltech.edu/data/tropomi/  (2018-03〜2021-07, ほぼ日次)
+# まず中身(変数名・座標名)を確認
+python research/sif_extract_netcdf.py --ncdir /path/to/tropomi --list
+# 抽出（--var は上の一覧から, 既定は名前に sif を含む変数を自動選択）
+python research/sif_extract_netcdf.py --coords site_coords.csv --ncdir /path/to/tropomi --var <SIF変数>
+```
+**留保**：2018+ で夏の重なり~4年＝短いが、**ほぼ日次で4日記憶を分解できる**（GOSIF 8日はできなかった）。
+画素~3.5×5.5km で footprint 不一致は残る。RTSIF 等の「再構成TROPOMI」は GOSIF 同様の再構成なので**避ける**（真SIFで）。
+
 ### 3. 検証：SIF は残差の記憶を説明するか（旗38）
 ```bash
 python research/sif_respiration_step38.py --site JP-Tak --sif JP-Tak_sif.csv --qc-max 1
