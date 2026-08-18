@@ -96,24 +96,31 @@ def _partial_spearman(y, x, ctrl):
     return float(np.corrcoef(xr, yr)[0, 1])
 
 
-def analyze(daily, sif_daily):
-    """気象のみ vs 気象+SIF で残差の記憶(ACF)がどう変わるか。"""
+def analyze(daily, sif_daily, deseason=False):
+    """気象(+季節) のみ vs +SIF で残差の記憶(ACF)がどう変わるか。deseason=通日を制御に足し、
+    SIF の偏相関が『季節フェノロジー』か『季節を超えた信号』かを切り分ける。"""
     r2_w, res_w = fit_residual(daily)          # 気象のみ
     ac_w = _autocorr(res_w); ef_w, _ = efolding_days(res_w)
     d2, sif_cols = add_sif_terms(daily, sif_daily)
     if not sif_cols:
         return {"note": "SIF 整列不足"}
-    # SIF を足す前(この部分集合での気象のみ)と後
-    r2_w2, res_w2 = fit_residual(d2)
-    r2_s, res_s = fit_residual(d2, sif_cols)
+    seas = []
+    if deseason:
+        doy = d2.index.dayofyear.to_numpy().astype(float)
+        d2 = d2.copy()
+        d2["doy_sin"] = np.sin(2 * np.pi * doy / 365.25)
+        d2["doy_cos"] = np.cos(2 * np.pi * doy / 365.25)
+        seas = ["doy_sin", "doy_cos"]
+    # SIF を足す前(気象+季節)と後
+    r2_w2, res_w2 = fit_residual(d2, seas)
+    r2_s, res_s = fit_residual(d2, sif_cols + seas)
     ac_s = _autocorr(res_s); ef_s, _ = efolding_days(res_s)
-    # 残差 vs SIF の偏相関（気象を差し引いた上で SIF が呼吸残差を説明するか）
-    pr = _partial_spearman(d2["GER"].to_numpy(),
-                           d2["SIF"].to_numpy(),
-                           [d2[v].to_numpy() for v in DRIVERS if v in d2])
+    # 残差 vs SIF の偏相関（気象+季節 を差し引いた上で SIF が呼吸残差を説明するか）
+    ctrl = [d2[v].to_numpy() for v in DRIVERS if v in d2] + [d2[c].to_numpy() for c in seas]
+    pr = _partial_spearman(d2["GER"].to_numpy(), d2["SIF"].to_numpy(), ctrl)
     return {"n": len(d2), "r2_weather": r2_w2, "r2_sif": r2_s,
             "ac_weather": _autocorr(res_w2), "ac_sif": ac_s,
-            "ef_weather": ef_w, "ef_sif": ef_s, "partial_r": pr}
+            "ef_weather": ef_w, "ef_sif": ef_s, "partial_r": pr, "deseason": deseason}
 
 
 def make_synth(kind, days=900, seed=0):
@@ -163,6 +170,8 @@ def main():
     p.add_argument("--sif", help="SIF csv（列: date, sif）")
     p.add_argument("--month", type=int, nargs="+", default=[7, 8])
     p.add_argument("--qc-max", type=int, default=None)
+    p.add_argument("--deseason", action="store_true",
+                   help="通日(季節)を制御に足す＝SIFの偏相関が季節フェノロジーか季節超えかを切り分ける")
     a = p.parse_args()
 
     if not a.site:
@@ -178,11 +187,15 @@ def main():
         print("実データには --sif <csv> が必要（SIF_PIPELINE.md で取得）。"); return
     daily = load_flux_daily(a.site, a.month, a.qc_max)
     sif = load_sif(a.sif)
-    print(f"=== 旗38 実データ {a.site}（SIFは呼吸残差の記憶を説明するか, QC≤{a.qc_max}）===")
-    _report(analyze(daily, sif), f"{a.site}")
-    print("\n  読み方：SIFは分割に依らない独立な光合成シグナル。SIFで記憶が落ちれば＝基質供給が本物で")
-    print("    旗37の『生物か分割窓か』の交絡を破れる。落ちなければ更に深い未観測（土壌/微生物/深水分）。")
-    print("  留保：SIFピクセルとタワーfootprintの空間不一致・4/8日→日次補間・GERは分割派生量。")
+    dtag = "・季節制御" if a.deseason else ""
+    print(f"=== 旗38 実データ {a.site}（SIFは呼吸残差の記憶を説明するか, QC≤{a.qc_max}{dtag}）===")
+    _report(analyze(daily, sif, deseason=a.deseason), f"{a.site}")
+    if a.deseason:
+        print("\n  --deseason：偏相関が残れば＝季節を超えた信号（速い基質の候補）、消えれば＝季節フェノロジーの共変動。")
+    print("\n  読み方：SIFは分割に依らない独立な光合成シグナル。SIFで記憶(ACF)が落ちれば＝基質供給が本物で")
+    print("    旗37の『生物か分割窓か』の交絡を破れる。偏相関だけ残り ACF が落ちなければ＝季節/緩い結合はあるが")
+    print("    4日記憶は未分解（8日SIFの限界）。落ちなければ更に深い未観測（土壌/微生物/深水分）。")
+    print("  留保：SIFピクセルとタワーfootprint不一致・8日→日次補間(4日記憶は分解不可)・GERは分割派生量・2018+の~4夏。")
 
 
 if __name__ == "__main__":
