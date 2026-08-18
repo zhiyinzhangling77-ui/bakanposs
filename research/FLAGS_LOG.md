@@ -735,3 +735,11 @@
   入手=Caltech FTP(2018-03〜2021-07)。抽出後は旗38(sif_respiration_step38.py)で検証、エンジンは不変。
 - 留保：2018+で夏の重なり~4年(短い)だがほぼ日次(4日記憶を分解可, GOSIF 8日は不可)。画素~3.5×5.5kmでfootprint不一致残る。
   再構成TROPOMI(RTSIF等)はGOSIF同様なので避け真SIFで。egress制限で取得はローカル。
+
+### 旗38-TROPOMI続き（ungridded L2）：真SIFは点群集約が要ると判明・専用抽出器を用意
+- 文献確認で、無料TROPOMIは **ungridded L2(軌道ごとsounding点群)** のみ（Caltech, data.caltech.edu/records/8hm1f-w5492）。
+  gridded はリクエスト制、gridded TROPOSIF は 0.2°(≒22km)＝GOSIF(5.5km)より粗い。**良footprintの真SIFは ungridded L2 経路のみ**。
+- `sif_extract_ungridded.py`：格子でなく点群なので、タワー(lat,lon)から**半径N km内のsoundingをhaversineで拾って日次平均**→CSV。
+  変数自動検出＋--listで一覧(捏造せず)、時刻はCF units変数 or ファイル名、品質フラグは--qc-var対応。haversine/日付解析を単体検証。
+  抽出後は旗38で検証(エンジン不変)。入手はCaltech FTP(2018-03〜2021-07)、egress制限でローカル。
+- 留保：2018+(~4夏)・半径集約で空間平均・footprint不一致は残るが真SIF・ほぼ日次(4日記憶を分解可)。再構成TROPOMI(RTSIF)は避ける。
