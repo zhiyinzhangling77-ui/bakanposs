@@ -28,7 +28,21 @@ python research/sif_coords.py --sites JP-Tak JP-Ta2 JP-Mse JP-BBY CN-HaM MN-Hst 
 ```
 BADM があれば lat/lon が入る。**空欄のサイトは AsiaFlux/FLUXNET のサイト情報から手入力**（座標は一次情報から、捏造不可）。
 
-### 2. SIF をタワー画素で抽出（Google Earth Engine, ローカルで認証）
+### 2. SIF をタワー画素で抽出
+
+**推奨：GeoTIFF から抽出（GEE 認証不要・取得元非依存）** `sif_extract_geotiff.py`。
+GOSIF/CSIF を公式配布から直接DL、または GEE でエクスポートした GeoTIFF、どれでも動く。
+```bash
+# 例: GOSIF 8-day（ファイル名 GOSIF_2018001.tif=年+通日, scale/nodata は要確認）
+python research/sif_extract_geotiff.py --coords site_coords.csv --tifdir /path/to/GOSIF \
+    --date-regex "(\d{4})(\d{3})" --date-fmt yyyyddd --scale 0.0001 --nodata 32767
+# 例: CSIF 4-day（ファイル名に YYYYMMDD）
+python research/sif_extract_geotiff.py --coords site_coords.csv --tifdir /path/to/CSIF \
+    --date-regex "(\d{8})" --date-fmt yyyymmdd
+```
+出力：各サイト `<site>_sif.csv`（列 date, sif）。**--scale/--nodata は各プロダクト仕様を要確認**。
+
+**代替：Google Earth Engine（アセットがあれば, ローカルで認証）**
 GEE の Python API（`pip install earthengine-api`, `earthengine authenticate`）。CSIF/GOSIF が GEE アセットに
 無い場合は (a) 各研究室の配布 GeoTIFF を直接ダウンロードしてタワー画素を抽出、(b) TROPOMI L2 SIF を GEE で。
 下は **GOSIF(GEE コミュニティアセット例) or 任意の SIF ImageCollection** に対する雛形（アセット ID は各自確認）：
