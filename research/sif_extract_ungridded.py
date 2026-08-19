@@ -137,13 +137,18 @@ def main():
             times = None
             if timev and timev in ds.variables:
                 tv = ds.variables[timev]
+                vals = np.asarray(tv[:]).ravel()[:n]
+                u = getattr(tv, "units", "")
                 try:
                     times = pd.to_datetime(netCDF4.num2date(
-                        np.asarray(tv[:]).ravel()[:n], getattr(tv, "units", ""),
-                        getattr(tv, "calendar", "standard"),
+                        vals, u, getattr(tv, "calendar", "standard"),
                         only_use_cftime_datetimes=False).astype("datetime64[ns]"))
                 except Exception:
-                    times = None
+                    # 非標準 units（例 "UTC, seconds since 1970..."）→ unix 秒として扱う
+                    try:
+                        times = pd.to_datetime(vals, unit="s") if "1970" in u else None
+                    except Exception:
+                        times = None
             fdate = _file_date(f.name, a.date_regex, a.date_fmt)
             for r in coords.itertuples():
                 d = haversine_km(float(r.lat), float(r.lon), lat, lon)
