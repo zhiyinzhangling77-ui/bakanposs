@@ -772,3 +772,14 @@
 - 留保：JP-Tak閉合0.42・複雑地形・20km集約で空間平均・2サイト・2018-2021。だが結果は両サイト・両解像度(8日/near-daily)で一貫(r≈0,ACF不動)＝頑健。
 - ＝違和感駆動で未観測駆動を追い、GOSIF→DT/NT→真SIF(8日)→真SIF(near-daily)と多段の独立検証で「季節生物成分＋非基質の4日記憶(一部artifact)」に
   完全分解。主要仮説を最強テストで棄却しチャンバーの必要性を決定的に示した＝強い負の結果。誇張せず環を閉じた。
+
+## 旗40（チャンバー呼吸COSOREの4日記憶を直接測る / `cosore_memory_step40.py`）
+- **狙い**：段2まで4日記憶は(a)速い基質でない(真SIF棄却)(b)一部は分割窓artifact(旗39)だが、「本物の生物記憶」と「分割の平滑さ」を
+  完全に切れなかった(両方がGER分割派生量に同居)。**チャンバーRsは分割を通さない直接測定**(COSORE, Bond-Lamberty2020, 連続自動,
+  1時間ごと)。同型DBF森林でチャンバーRs日残差の4日記憶を旗37と同じ方法で測る＝記憶あれば生物物理で本物/なければ分割の産物。
+- **COSORE 0.7.0 入手済**(/mnt/hdd)：description.csv＋datasets/data_*.csv。Rs=CSR_FLUX_CO2[µmol/m²/s, GERと同単位]・
+  CSR_T<深さ>土壌温度・CSR_SM<深さ>土壌水分。**★TKY-Takayama(d20200109_KISHIMOTO-MO)＝我々のJP-Takと完全同一地点
+  (137.423,36.146,1420m,DBF,AsiaFlux/JapanFlux)がメタデータに在るがデータファイルはv0.7に無い(embargo/要連絡=Kishimoto-Mo/Murayama)**。
+  併設DBF実データ：Harvard US-Ha1(SAVAGE 43657行)・Morgan Monroe US-MMS(ZHANG 59182)・Willow Creek US-WCr(DESAI 53887)。
+- **合成検証OK**：生物記憶あり(気象独立4-5日AR)→残差ACF+0.77 e-fold5★/記憶なし(温度水分で説明)→ACF−0.01 e-fold1·＝判別器機能。
+- 土壌温度(5cm近傍)・水分を自動検出、日次集約→残差→ACF/e-fold。実データはローカル。留保：チャンバーは点測定・土壌呼吸のみ・サイト固有。
