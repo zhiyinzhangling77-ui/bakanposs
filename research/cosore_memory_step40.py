@@ -178,7 +178,7 @@ def run_batch(cosore_dir, months, igbp_filter="forest", min_days=90):
     desc = pd.read_csv(root / "description.csv")
     rows = []
     print(f"=== 旗40 バッチ：COSORE 全サイトのチャンバーRs残差メモリ（{igbp_filter or '全'}, 月={months or '全'}）===")
-    print(f"  {'dataset':<34}{'IGBP':<14}{'国/経度':>8} {'日数':>5} {"R²":>5} {"残差ACF":>7} {'e-fold':>6}  判定")
+    print(f"  {'dataset':<34}{'IGBP':<14}{'国/経度':>8} {'日数':>5} {'R2':>5} {'残差ACF':>7} {'e-fold':>6}  判定")
     for _, d in desc.iterrows():
         ds = str(d["CSR_DATASET"]); igbp = str(d.get("CSR_IGBP", ""))
         if igbp_filter and igbp_filter.lower() not in igbp.lower():
