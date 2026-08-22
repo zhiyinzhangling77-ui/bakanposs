@@ -178,7 +178,7 @@ def run_batch(cosore_dir, months, igbp_filter="forest", min_days=90):
     desc = pd.read_csv(root / "description.csv")
     rows = []
     print(f"=== 旗40 バッチ：COSORE 全サイトのチャンバーRs残差メモリ（{igbp_filter or '全'}, 月={months or '全'}）===")
-    print(f"  {'dataset':<34}{'IGBP':<14}{'国/経度':>8} {'日数':>5} {'生ACF':>6} {'残差ACF':>7} {'e-fold':>6}  判定")
+    print(f"  {'dataset':<34}{'IGBP':<14}{'国/経度':>8} {'日数':>5} {"R²":>5} {"残差ACF":>7} {'e-fold':>6}  判定")
     for _, d in desc.iterrows():
         ds = str(d["CSR_DATASET"]); igbp = str(d.get("CSR_IGBP", ""))
         if igbp_filter and igbp_filter.lower() not in igbp.lower():
@@ -193,23 +193,34 @@ def run_batch(cosore_dir, months, igbp_filter="forest", min_days=90):
             print(f"  {ds:<34}{igbp[:12]:<14} SKIP {type(e).__name__}"); continue
         if "note" in r:
             print(f"  {ds:<34}{igbp[:12]:<14} {r['note']}"); continue
-        mem = "★記憶" if (r["ac_res"] > 0.5 and r["ef"] >= 3) else \
-              ("·なし" if r["ac_res"] < 0.3 else "△中間")
-        r.update({"dataset": ds, "igbp": igbp, "lon": d.get("CSR_LONGITUDE"),
-                  "lat": d.get("CSR_LATITUDE"), "mem": mem})
+        # 厳しい分類（穴①再集計）：ドライバーが季節を除去(R²≥0.3)した上で、短e-fold(≤7日)の残差記憶＝真の~4日メモリ。
+        # R²低=生の季節ACFを見ているだけ／e-fold長=季節(我々の発見でない)。
+        if r["r2"] < 0.3:
+            mem = "駆動弱"                       # 温度で季節を除けず＝残差≈生（判定不能）
+        elif r["ac_res"] > 0.4 and r["ef"] <= 7:
+            mem = "★短メモリ"                   # 我々の~4日メモリと同型（真）
+        elif r["ac_res"] > 0.4:
+            mem = "季節(長)"                     # e-fold長＝季節自己相関
+        else:
+            mem = "·なし"
+        r.update({"dataset": ds, "igbp": igbp, "lon": d.get("CSR_LONGITUDE"), "mem": mem})
         rows.append(r)
         print(f"  {ds:<34}{igbp[:12]:<14}{str(d.get('CSR_LONGITUDE'))[:7]:>8} "
-              f"{r['n_days']:>5} {r['ac_raw']:>+6.2f} {r['ac_res']:>+7.2f} {r['ef']:>5}日  {mem}")
+              f"{r['n_days']:>5} {r['r2']:>5.2f} {r['ac_res']:>+7.2f} {r['ef']:>5}日  {mem}")
     if not rows:
         print("  該当サイトなし"); return
     from collections import Counter
     c = Counter(r["mem"] for r in rows)
-    med_ef = np.median([r["ef"] for r in rows if r["mem"] == "★記憶"]) if c["★記憶"] else np.nan
-    print(f"\n  === まとめ（n={len(rows)} サイト）===")
-    print(f"  ★記憶あり(残差ACF>0.5,e-fold≥3)：{c['★記憶']}/{len(rows)}"
-          f"（記憶ありの中央 e-fold={med_ef:.0f}日）／△中間：{c['△中間']}／·なし：{c['·なし']}")
-    print("  読み方：地理的に独立な多数の森林で★が多数なら＝「呼吸の遅い記憶は生物物理」は擬似反復でなく普遍。")
-    print("    分割を通さない直接測定＝穴②(サイト不一致)も叩く。留保：チャンバーは点測定・土壌呼吸のみ・駆動は単一深度。")
+    judged = c["★短メモリ"] + c["季節(長)"] + c["·なし"]     # 駆動弱を除いた判定可能サイト
+    ef_short = [r["ef"] for r in rows if r["mem"] == "★短メモリ"]
+    print(f"\n  === まとめ（n={len(rows)}, 厳しい基準: R²≥0.3 で季節除去 × 残差ACF>0.4 × e-fold≤7）===")
+    print(f"  ★短メモリ(真の~4日)：{c['★短メモリ']}／季節(長e-fold)：{c['季節(長)']}／なし：{c['·なし']}"
+          f"／駆動弱(R²<0.3,判定不能)：{c['駆動弱']}")
+    if judged:
+        print(f"  判定可能({judged})サイト中 ★短メモリ：{c['★短メモリ']}/{judged}"
+              f"（中央 e-fold={np.median(ef_short):.0f}日）" if ef_short else "")
+    print("  読み方：★短メモリ＝温度で季節を除いた上で残る数日記憶＝我々の~4日メモリと同型（真の生物物理）。")
+    print("    これが独立多サイトで多数なら擬似反復でない。季節(長)は季節自己相関＝別物。駆動弱はドライバー欠で判定不能。")
 
 
 def main():
