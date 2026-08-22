@@ -32,17 +32,26 @@ def _num_in(cells):
     return None
 
 
-def _find_badm(data_dir):
-    """BADM ファイル(xlsx優先=JapanFlux2024, csv も)。Site_General を最優先。"""
-    root = Path(data_dir)
-    pats = ["**/*BADM*Site_General*.xlsx", "**/*BADM*.xlsx",
-            "**/*BADM*Site_General*.csv", "**/*BADM*.csv",
-            "**/*BIF*.xlsx", "**/*BIF*.csv"]
+def _find_badm(data_dir, code=None):
+    """BADM ファイル(xlsx優先, Site-General 最優先)。curated は data_dir 直下、
+    auto-discovered は親の BADM/ 兄弟フォルダにあるので両方＋code で探す。__MACOSX/._ junk除外。"""
     out = []
-    for p in pats:
-        for f in sorted(root.glob(p)):
-            if f not in out and not f.name.startswith("~$"):
-                out.append(f)
+
+    def add(root, pats):
+        for p in pats:
+            for f in sorted(Path(root).glob(p)):
+                if "__MACOSX" in f.parts or f.name.startswith(("._", "~$")):
+                    continue
+                if f not in out:
+                    out.append(f)
+    # "Site*General" はハイフン(Site-General-Info)/アンダースコア(Site_General_Info)両対応
+    base = ["**/*BADM*Site*General*.xlsx", "**/*BADM*Site*General*.csv",
+            "**/*BADM*.xlsx", "**/*BADM*.csv", "**/*BIF*.xlsx", "**/*BIF*.csv"]
+    add(data_dir, base)
+    if code:
+        add(Path(data_dir).parent,
+            [f"**/*{code}*BADM*Site*General*.xlsx", f"**/*{code}*BADM*.xlsx",
+             f"**/*{code}*BADM*Site*General*.csv"])
     return out
 
 
@@ -57,7 +66,7 @@ def _read_any(f):
 def coords_from_badm(data_dir, code):
     """BADM 群から (lat, lon) を抽出。見つからねば (None, None)。"""
     lat = lon = None
-    for f in _find_badm(data_dir):
+    for f in _find_badm(data_dir, code):
         try:
             df = _read_any(f)
         except Exception:
