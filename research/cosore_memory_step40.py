@@ -61,7 +61,8 @@ def load_cosore(path, months=None):
         raise ValueError(f"CSR_FLUX_CO2 が無い。列: {cols[:12]}")
     tcol = "CSR_TIMESTAMP_BEGIN" if "CSR_TIMESTAMP_BEGIN" in cols else "CSR_TIMESTAMP_END"
     ts = pd.to_datetime(df[tcol], errors="coerce")
-    out = pd.DataFrame({"Rs": pd.to_numeric(df["CSR_FLUX_CO2"], errors="coerce")}, index=ts)
+    out = pd.DataFrame(
+        {"Rs": pd.to_numeric(df["CSR_FLUX_CO2"], errors="coerce").to_numpy()}, index=ts)
     st, sm = _pick_soil_temp(cols), _pick_sm(cols)
     if st:
         out["Tsoil"] = pd.to_numeric(df[st], errors="coerce").to_numpy()
