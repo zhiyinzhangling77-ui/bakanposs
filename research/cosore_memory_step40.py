@@ -74,36 +74,64 @@ def load_cosore(path, months=None):
     return out.dropna(subset=["Rs"]), st, sm
 
 
+def _acf_gap(x, lag=1):
+    """ギャップ(NaN)対応の lag 自己相関＝カレンダー上 lag 日離れた有限ペアだけで相関。"""
+    x = np.asarray(x, float); mu = np.nanmean(x)
+    a, b = x[:-lag] - mu, x[lag:] - mu
+    m = np.isfinite(a) & np.isfinite(b)
+    if m.sum() < 10 or a[m].std() == 0 or b[m].std() == 0:
+        return np.nan
+    return float(np.corrcoef(a[m], b[m])[0, 1])
+
+
+def _efold_gap(x, maxlag=30):
+    for k in range(1, maxlag + 1):
+        r = _acf_gap(x, k)
+        if np.isfinite(r) and r < 1 / np.e:
+            return k
+    return maxlag
+
+
 def fit_resid(daily, use_drivers=True):
-    """日次 Rs を土壌温度・水分(＋2次・交互作用)で回帰し残差。use_drivers=False は平均のみ。"""
+    """日次 Rs を土壌温度・水分(＋2次・交互作用)で回帰し残差。欠測は NaN で温存。
+    ほぼ全欠測のドライバーは採らない。NaN 行はマスクして回帰。"""
     Y = daily["Rs"].to_numpy(float)
-    cols = []
+    cols, used = [], []
     if use_drivers:
         z = {}
         for v in ("Tsoil", "SM"):
             if v in daily:
-                z[v] = _z(daily[v].to_numpy(float)); cols.append(z[v])
+                a = _z(daily[v].to_numpy(float))
+                if np.isfinite(a).sum() > 0.5 * len(a):     # 半分以上 finite のみ採用
+                    z[v] = a; cols.append(a); used.append(v)
         if "Tsoil" in z:
             cols.append(z["Tsoil"] ** 2)
         if "Tsoil" in z and "SM" in z:
             cols.append(z["Tsoil"] * z["SM"])
     X = np.column_stack(cols + [np.ones(len(Y))]) if cols else np.ones((len(Y), 1))
-    coef, *_ = np.linalg.lstsq(X, Y, rcond=None)
-    resid = Y - X @ coef
-    ss = np.sum((Y - Y.mean()) ** 2)
-    r2 = 1 - np.sum(resid ** 2) / ss if ss > 0 else np.nan
-    return r2, resid
+    mask = np.isfinite(Y) & np.all(np.isfinite(X), axis=1)
+    resid = np.full(len(Y), np.nan)
+    if mask.sum() < 30:
+        return np.nan, resid, used
+    coef, *_ = np.linalg.lstsq(X[mask], Y[mask], rcond=None)
+    resid[mask] = Y[mask] - X[mask] @ coef
+    ss = np.sum((Y[mask] - Y[mask].mean()) ** 2)
+    r2 = 1 - np.sum(resid[mask] ** 2) / ss if ss > 0 else np.nan
+    return r2, resid, used
 
 
 def analyze(df):
-    daily = df.groupby(df.index.normalize()).mean().dropna(subset=["Rs"])
-    if len(daily) < 60:
-        return {"note": f"日数不足({len(daily)})"}
-    ac_raw = _autocorr(daily["Rs"].to_numpy())
-    r2, res = fit_resid(daily, use_drivers=True)
-    ac_res = _autocorr(res); ef, _ = efolding_days(res)
-    return {"n_days": len(daily), "ac_raw": ac_raw, "r2": r2,
-            "ac_res": ac_res, "ef": ef,
+    daily = df.groupby(df.index.normalize()).mean()
+    # 連続日グリッドに張り直す（歯抜けを NaN 明示＝lag が真のカレンダー日になる）
+    grid = pd.date_range(daily.index.min(), daily.index.max(), freq="D")
+    daily = daily.reindex(grid)
+    n_obs = int(daily["Rs"].notna().sum())
+    if n_obs < 60:
+        return {"note": f"日数不足({n_obs})"}
+    ac_raw = _acf_gap(daily["Rs"].to_numpy())
+    r2, res, used = fit_resid(daily, use_drivers=True)
+    return {"n_days": n_obs, "n_grid": len(grid), "ac_raw": ac_raw, "r2": r2,
+            "ac_res": _acf_gap(res), "ef": _efold_gap(res), "used": used,
             "has_T": "Tsoil" in daily, "has_SM": "SM" in daily}
 
 
@@ -127,8 +155,9 @@ def make_synth(kind, days=800, seed=0):
 def _report(r, tag, st=None, sm=None):
     if "note" in r:
         print(f"  {tag}: {r['note']}"); return
-    drv = f"土壌温度={st or '—'} 水分={sm or '—'}"
-    print(f"\n  === {tag}（{r['n_days']}日, {drv}）===")
+    drv = f"使用ドライバー={r.get('used') or 'なし(平均のみ)'}（温度列={st or '—'} 水分列={sm or '—'}）"
+    cov = f"{r['n_days']}日/{r.get('n_grid','?')}日グリッド"
+    print(f"\n  === {tag}（{cov}, {drv}）===")
     print(f"  生Rs 日次ACF        = {r['ac_raw']:+.2f}")
     print(f"  ドライバー回帰 R²   = {r['r2']:.3f}")
     print(f"  日残差ACF           = {r['ac_res']:+.2f}   e-fold = {r['ef']}日")
