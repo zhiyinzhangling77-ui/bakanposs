@@ -147,7 +147,7 @@ footer .files{margin-top:10px}
   <div class="meta">
     <span><b>データ</b> 渦相関・熱帯〜亜寒帯・7–8月・5日アノマリ/日次</span>
     <span><b>手法</b> 情報理論 × 因果探索 × 派生量監査</span>
-    <span><b>旗</b> 13–48</span>
+    <span><b>旗</b> 13–49</span>
   </div>
 </header>
 <hr>
@@ -427,10 +427,25 @@ footer .files{margin-top:10px}
   <p>この分野には強い先行研究がある——呼吸のメモリ＝基質供給（Migliavacca 2011・Stoy 2007）、
   PCMCI×FLUXNET（Krich 2020/21）、相乗/冗長の情報分解 TIPNet（Goodwell 2018）。
   <strong>発見の多くには先行があり、上書きせず引用する</strong>のが誠実な立ち位置。</p>
-  <p>新規性がありうるのは三点：<strong>(a)</strong> O-information の FLUXNET 直接適用（査読研究に見当たらない）、
-  <strong>(b)</strong> 派生量監査・因果リンクの素性仕分け・EBR という方法論の厳密化、
-  <strong>(c)</strong> フラックス・衛星・チャンバーの3観測系を突き合わせた設計。
-  水分依存 Q10 は Davidson の DAMM（基質拡散の水分律速）でほぼ確立しており、我々のは<strong>再発見の可能性が高い</strong>。
+  <p>当初この研究は、新規性の一つとして<strong>「O-information をフラックスに適用した査読研究は見当たらない」</strong>と
+  書いていた。<strong>一次確認の結果、これは誤りだったので撤回する</strong>（旗49）。</p>
+  <div class="callout" style="border-left-color:var(--crit)"><span class="k" style="color:var(--crit)">新規性の撤回</span>
+    <strong>Eldhose &amp; Ghosh (2025), Environmental Research Letters 20(7)</strong> が、まさに O-Information の枠組みで
+    気温・降水・VPD・陸水貯留・PAR から NEE への相乗／冗長を分解している（VPD-PAR は相乗、T-VPD と T-陸水貯留は冗長）。
+    残る差分は、彼らが<strong>月次グリッドの FLUXCOM NEE</strong> を使うのに対し我々が<strong>半時間・サイト単位の渦相関</strong>を
+    使う点と、<strong>派生量監査を伴う</strong>点だけで、当初の主張より遥かに薄い。
+    しかも彼らの所見（放射と VPD をめぐる相乗・冗長）は我々の背骨と<strong>収束的</strong>で、対立ではなく補強関係にある。<br><br>
+    <strong>水分依存 Q10 も新発見ではない</strong>：<strong>Davidson et al. (2012) の DAMM</strong> が、土壌水分が酸素と
+    可溶性炭素の<strong>拡散</strong>を制御することで「見かけの温度感度そのもの」を変える、という機構をすでに与えている。
+    我々の結果はその<strong>再発見</strong>である（ただし分割を通さないチャンバーで多サイト検証し、温度交絡を分離した点には検証価値がある）。<br><br>
+    逆に、<strong>旗44 の前提は文献に支持された</strong>：<strong>Lloyd &amp; Taylor (1994)</strong> が「実効活性化エネルギーは
+    温度と逆方向に変化する（＝低温ほど見かけ Q10 が大きい）」を示しており、我々が温度曲率を吸収してから
+    水分の効果を測った処置は、この文献に沿った正しい方向だった。<br><br>
+    <em>確認の水準：出版社サイトはこの環境から遮断されており、書誌情報と要約までの確認で一次PDFは未読。
+    論文化の際は必ず一次で確認する。</em></div>
+  <p>＝残る独自性は「発見」ではなく<strong>方法論の監査一式</strong>——何が測定で何が計算か（旗32/35）、分割窓の分離（旗39）、
+  多サイト族補正（旗43）、温度交絡の分離（旗44）、ギャップフィルの影響（旗46）、因果十分性の限界の実証（旗47）、
+  後付けを検出する out-of-sample（旗48）——と、<strong>フラックス・衛星・チャンバーの3観測系を突き合わせた消去法の設計</strong>。
   ＝正直な位置づけは「発見の論文」ではなく<strong>「何が測定で何が計算かを一貫して追う、方法論監査の論文」</strong>。</p>
 
   <h3 style="margin-top:26px">前提そのものに残る穴</h3>
@@ -466,15 +481,15 @@ footer .files{margin-top:10px}
 
 <hr>
 <footer class="wrap">
-  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–48）。文献は Perplexity 検索で所在を確認した段階で、
-  引用前に一次確認が必要（DAMM・Lloyd &amp; Taylor・Migliavacca は未一次確認）。</div>
+  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–49）。文献は Perplexity 検索で所在を確認した段階で、
+  旗49 で書誌を確認したが、出版社サイトが遮断されており<b>一次PDFは未読</b>＝論文化の際は必ず一次で確認する。</div>
   <div class="files"><b>記録</b> · research/FLAGS_LOG.md（各旗の詳細）· research/VALIDITY_SYNTHESIS.md（妥当性検証）·
   research/LIMITATIONS.md（穴と対処）· research/PREMISE_AUDIT.md（前提の監査）· research/LITERATURE_NOTES.md（先行研究）·
   japanflux_pn/DATA_QUALITY.md（品質基準）</div>
   <div class="files"><b>データ利用</b> · チャンバー呼吸は COSORE（Bond-Lamberty et al. 2020, GCB）— 公表時は各データセット提供者への
   クレジットと同論文の引用が要る。TROPOMI SIF は Caltech（Köhler / Frankenberg）— 公表時は要連絡。</div>
   <div class="files"><b>主要文献</b> · Ruddell &amp; Kumar 2009 · Krich 2020/2021 · Goodwell 2018 · Migliavacca 2011 ·
-  Stoy 2007 · Rosas 2019 · Lasslop 2010 · Reichstein 2005 · Pastorello 2020 · Wang 2025 · Bond-Lamberty 2020 · Lloyd &amp; Taylor 1994 · Davidson 2012（DAMM）· Cable 2013</div>
+  Stoy 2007 · Rosas 2019 · Lasslop 2010 · Reichstein 2005 · Pastorello 2020 · Wang 2025 · Bond-Lamberty 2020 · Lloyd &amp; Taylor 1994 · Davidson 2012（DAMM）· Cable 2013 · Eldhose &amp; Ghosh 2025 · Gerhardus &amp; Runge 2020（LPCMCI）</div>
 </footer>
 
 </div>
