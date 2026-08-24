@@ -112,6 +112,20 @@ td.num,th.num{text-align:right}
 .callout .k{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase;
   color:var(--amber);font-weight:500;display:block;margin-bottom:.5em}
 
+/* --- elimination panel --- */
+.elim{display:flex;flex-direction:column;gap:9px;margin:1.2em 0}
+.elim .item{display:flex;gap:16px;align-items:baseline;background:var(--surface);
+  border:1px solid var(--line);border-radius:4px;padding:13px 17px}
+.elim .item .h{flex:1;color:var(--muted);text-decoration:line-through;
+  text-decoration-color:var(--crit);text-decoration-thickness:1.5px;text-underline-offset:2px}
+.elim .item .by{font-family:var(--mono);font-size:11.5px;color:var(--faint);
+  white-space:nowrap;letter-spacing:.04em}
+.elim .rest{background:var(--accent-soft);border:1px solid transparent;border-radius:4px;
+  padding:17px 19px}
+.elim .rest .k{font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--accent);font-weight:500;display:block;margin-bottom:.45em}
+.elim .rest p{margin:0;font-size:1.0rem}
+
 /* --- footer --- */
 footer{padding:40px 0 70px;color:var(--faint);font-family:var(--mono);font-size:12px;line-height:1.9}
 footer b{color:var(--muted);font-weight:500}
@@ -127,13 +141,13 @@ footer .files{margin-top:10px}
 <div class="wrap">
 
 <header class="mast">
-  <div class="eyebrow">生態系フラックスの情報構造 · JapanFlux2024 ほか 31 サイト</div>
+  <div class="eyebrow">生態系フラックスの情報構造 · JapanFlux2024 ほか 31 サイト＋COSORE チャンバー</div>
   <h1>観測の隙間</h1>
   <p class="thesis">豊かな因果構造は、貧しく・一部は計算で作られた観測に、どこまで写り、どこで写らないか。</p>
   <div class="meta">
     <span><b>データ</b> 渦相関・熱帯〜亜寒帯・7–8月・5日アノマリ/日次</span>
     <span><b>手法</b> 情報理論 × 因果探索 × 派生量監査</span>
-    <span><b>旗</b> 13–39</span>
+    <span><b>旗</b> 13–45</span>
   </div>
 </header>
 <hr>
@@ -169,9 +183,10 @@ footer .files{margin-top:10px}
       <p>Σ(H+LE)/Σ(Rn−G) で site-year 丸ごとの「測れ具合」を物理で1数字に。信頼度の重み（一発除外でなく）。</p>
     </div>
     <div class="card" style="--rail:var(--accent)">
-      <div class="num">旗31 · 36</div>
-      <h3>統計の頑健化</h3>
-      <p>年ブロック・ブート（自己相関）＋季節制御。甘い日ブートの偽陽性を除去し、残ったものだけを主張。</p>
+      <div class="num">旗31 · 36 · 41 · 43 · 44</div>
+      <h3>統計と交絡の除去</h3>
+      <p>年ブロック・ブート＋季節制御に加え、多重比較の FDR、多サイト「何サイト有意」の族補正、
+      Q10 の温度エイリアシング分離まで。<strong>自分の発見を統計で叩き直す装置</strong>。</p>
     </div>
     <div class="card" style="--rail:var(--amber)">
       <div class="num">旗30 · 37 · 39</div>
@@ -217,11 +232,13 @@ footer .files{margin-top:10px}
 
     <div class="card" style="--rail:var(--amber)">
       <div class="num">層 ③ — 高次 / 未観測</div>
-      <h3>呼吸の「遅い記憶」と、その正体 <span class="chip good dot">生物物理と確定</span></h3>
-      <p>呼吸 GER の日残差は、観測変数（瞬間＋累積 1–30 日）では作れない<strong>約4日の記憶</strong>を全生態系で持つ。
-      違和感を near-daily 真SIF と直接チャンバー測定まで追い詰めた結果——<strong>~4日記憶は本物の生物物理</strong>
-      （大陸をまたぐ独立森林の約 1/3 で直接測定が確認・普遍ではない）だが<strong>最近の光合成による基質供給ではなく</strong>（真SIFが棄却）、
-      正体は<strong>遅い土壌プロセス（深土壌水分・熱慣性・微生物）</strong>だった。次節がその弧。</p>
+      <h3>呼吸の「遅い記憶」＝観測の外側 <span class="chip good dot">生物物理と確定</span></h3>
+      <p>呼吸の日残差は、観測変数では作れない<strong>約4日の記憶</strong>を持つ。分割を通さないチャンバー直接測定で
+      <strong>本物の生物物理</strong>と確定（大陸をまたぐ独立森林の約 1/3・中央 e-fold 4 日＝普遍ではない）。</p>
+      <p>そこから正体を候補で当てにいき、<strong>4つの仮説がすべて外れた</strong>——最近の光合成でも、
+      観測された土壌水の履歴でも、非線形 Birch 効果でも、熱慣性でもない。
+      ＝正体は<strong>チャンバー＋土壌センサの観測の外側</strong>（基質の遅い転流・微生物動態・根の動態）。
+      この研究の題名そのものに、機構レベルで到達した。次節がその弧。</p>
     </div>
 
   </div>
@@ -261,18 +278,81 @@ footer .files{margin-top:10px}
       <p>ungridded L2 の点群を集約し <strong>near-daily 真SIF</strong>（JP-Tak 241 日）で、4日記憶を分解できる最強のテスト。
       結果は <strong>残差 ACF +0.78 → +0.78（不動）・季節制御後の偏相関 −0.07</strong>。
       ＝<strong>「4日記憶＝最近の光合成による基質供給」という主要仮説を最強テストで棄却</strong>。</p></div>
-    <div class="step"><div class="tag">旗40 · 最終決着</div>
+    <div class="step"><div class="tag">旗40</div>
       <h3>チャンバー直接測定 → 4日記憶は本物の生物物理</h3>
-      <p>分割を一切通さない <strong>チャンバー呼吸（COSORE の併設 DBF 森林）</strong>で、土壌温度・水分を差し引いた残差の記憶を測る。
-      COSORE の森林チャンバーを厳しく再集計すると、<strong>大陸をまたぐ独立森林の約 1/3（判定可能 35 中 12・中央 e-fold 4 日）</strong>で
-      温度を除いても残る短い記憶＝<strong>直接測定でも ~4 日記憶が本物</strong>（普遍ではないが、擬似反復でも単一サイトの偶然でもない）。
-      ＝呼吸の ~4 日記憶は<strong>本物の生物物理</strong>で、分割アーティファクトではない（旗39 の「一部は分割窓」は本物の記憶の増幅だった）。</p></div>
+      <p>分割を一切通さない <strong>チャンバー呼吸（COSORE）</strong>で、土壌温度・水分を差し引いた残差の記憶を測る。
+      厳しい基準で再集計すると <strong>大陸をまたぐ独立森林の約 1/3（判定可能 35 中 12・中央 e-fold 4 日）</strong>に残る
+      ＝<strong>直接測定でも ~4 日記憶が本物</strong>（普遍ではないが、擬似反復でも単一サイトの偶然でもない）。</p></div>
+    <div class="step"><div class="tag">旗45 · 最終決着</div>
+      <h3>候補を総当たり → 観測された水・熱の履歴でも説明できない</h3>
+      <p>文献が指す候補——先行湿潤・先行水分の積算・深層土壌水分・<strong>非線形 Birch 効果（乾燥期間 × 再湿潤）</strong>・
+      熱慣性（深部地温・ラグ地温）——を残差に当て、<strong>過剰適合を測るためのプラセボ</strong>（同次元・位相だけずらした系列）を併走。
+      結果は <strong>12/12 のサイトで「どの候補も説明せず」</strong>（候補の残差 ACF 低下はプラセボと同水準）。</p></div>
   </div>
-  <div class="callout"><span class="k">弧の決着</span>
-    違和感（呼吸の遅い記憶）に絞り、GOSIF → DT/NT → 真SIF(8日→near-daily) → 直接測定チャンバー と多段の独立検証で正体を分解した。
-    呼吸の ~4 日記憶は —— <strong>本物の生物物理</strong>（チャンバーが確認）／<strong>最近の光合成ではない</strong>（真SIFが棄却）／
-    <strong>分割窓は見かけを修飾するが源ではない</strong>。残る正体は <strong>遅い土壌プロセス（深土壌水分・熱慣性・微生物）</strong>——
-    林冠由来でなく、文献が強調する基質供給とも別。一度も過大主張せず、直接測定で環を最深まで閉じた。</div>
+
+  <h3 style="margin:26px 0 4px">消去法で残ったもの</h3>
+  <div class="elim">
+    <div class="item"><span class="h">分割アルゴリズムの産物</span><span class="by">旗40 チャンバー直接測定で再現</span></div>
+    <div class="item"><span class="h">最近の光合成による基質供給</span><span class="by">旗38 near-daily 真SIF が棄却</span></div>
+    <div class="item"><span class="h">観測された土壌水の履歴・非線形 Birch</span><span class="by">旗45 プラセボ超えず</span></div>
+    <div class="item"><span class="h">熱慣性・温度の位相遅れ</span><span class="by">旗45 プラセボ超えず</span></div>
+    <div class="rest"><span class="k">残るもの</span>
+      <p><strong>基質の遅い転流・微生物群集の動態・根の動態</strong>——いずれも
+      <strong>チャンバー＋土壌センサでは測れていない量</strong>。「観測の隙間」は比喩ではなく、
+      いま名指しできる具体的な欠落になった。次に効く観測は <strong>降水の実測・複数深度の土壌水分・
+      同位体パルス標識・微生物バイオマス</strong>。</p></div>
+  </div>
+
+  <div class="callout"><span class="k">この弧の限定</span>
+    読めた COSORE 全サイトで<strong>降水列が無く</strong>、Birch 検定は θ 増加の代理で行った。土壌水分が 30cm 深のみ、
+    あるいは無いサイトも含む。モデル族は線形＋Birch 非線形の範囲で、あらゆる非線形形を試したわけではない。対象は 12 サイト・草原は 0。
+    ＝「水の履歴では説明できない」は<strong>手元のセンサとこのモデル族の範囲で</strong>、という限定付きの結論である。</div>
+</section>
+
+<hr>
+<section class="spine">
+  <div class="slabel">自己批判 — 自分の岩盤を最初に疑う</div>
+  <h2>統計と交絡で、自分の発見を叩き直す</h2>
+  <p class="lead">発見が出揃った後、それらを<strong>壊す側に回った</strong>。多重比較・擬似反復・温度交絡——
+  自分の主張が生き残るかを、同じ厳しさで測った。</p>
+
+  <h3 style="margin-top:22px">① 多重比較（旗41）</h3>
+  <p>旗13/15 の事前指定・順列検定 6 件に Benjamini-Hochberg。<strong>q=0.05 で 0/6、q=0.10 で 2/6</strong> が生存
+  ＝状態依存の主張は<strong>周辺的</strong>（中程度の証拠・年数の積み増しが要る）と定量化された。
+  一方ヌル（呼吸の相乗は状態非依存, p=0.27）は補正後も頑健。</p>
+
+  <h3 style="margin-top:22px">② 「何サイト有意」の族補正（旗43）</h3>
+  <p>多サイト主張は per-site の信頼区間が 0 を跨がないサイトを数える形式で、族補正がない。
+  帰無下の二項上側 p を、<strong>per-site の偽陽性率 α を 0.025〜0.20 で掃引</strong>し、さらに
+  <strong>近接サイトを 1 試行に潰して</strong>再判定した。</p>
+  <div class="tbl"><table>
+    <thead><tr><th>族</th><th class="num">有意/検定</th><th class="num">クラスタ縮約後</th><th>判定</th></tr></thead>
+    <tbody>
+      <tr><td>水分依存 Q10（森林・チャンバー）</td><td class="num">18/36</td><td class="num">18/22</td><td class="pos">岩盤（p=8.3e−10）</td></tr>
+      <tr><td>~4日メモリ（森林・チャンバー）</td><td class="num">12/35</td><td class="num">12/20</td><td class="pos">岩盤</td></tr>
+      <tr><td>呼吸の相乗支配（O-info）</td><td class="num">19/21</td><td class="num">12/12</td><td class="pos">岩盤</td></tr>
+      <tr><td>乾燥ステップの θ 支配</td><td class="num">3/3</td><td class="num zero">1/1</td><td class="neg">反復 n=1</td></tr>
+    </tbody>
+  </table></div>
+  <p>地理的に散らばった族は、CI が自己相関で狭すぎると仮定（α=0.20）しても、近接を潰しても<strong>偶然を超える</strong>。
+  対して<strong>乾燥ステップの水マスターは 3 サイトが 1 クラスタに潰れ、統計的重みは独立地点 1 つ分</strong>になる——
+  効果量は実在するが一般化はできない。<em>既にかけていたスコープ限定が、なぜ必須だったかを数字で裏づけた形になった。</em></p>
+
+  <h3 style="margin-top:22px">③ 温度エイリアシング — 最新の「岩盤」を自分で崩す（旗42 → 旗44）</h3>
+  <p>この研究で一番脆かった<strong>水分依存 Q10</strong>を、分割を通さないチャンバーで検証すると
+  <strong>森林 25/37 で再現</strong>し（旗42）、「分割アルゴリズムの産物」説は否定された。だが——</p>
+  <div class="callout"><span class="k">自己修正</span>
+    Q10 は<strong>温度そのものの関数</strong>（Lloyd &amp; Taylor 1994：低温ほど見かけ Q10 が大きい）。温帯林では
+    <strong>湿ったビン＝春秋（低温）／乾いたビン＝真夏（高温）</strong>にエイリアスする。合成データで確かめると、
+    <strong>水分が感度に一切効かなくても、温度曲率だけで r(Q10,θ)=+0.90〜1.00</strong>——旗42 が報告したのと同じ値が出た。
+  </div>
+  <p>そこで温度曲率を吸収した交互作用モデルで測り直したところ、<strong>25/37 → 18/36（約半数）</strong>。
+  <strong>旗42 の★のうち約 7 サイトは温度エイリアシングの産物だった</strong>＝「約 2/3」は撤回し「約半数」に下げる。
+  ただし<strong>核は生存</strong>——最もエイリアスしやすいサイト（θ-T 相関 −0.85）でも係数は 0 から離れ、
+  符号検定（有意 24 中 正 18 対 負 6）も p=0.011。逆符号（熱帯排水泥炭・凍土）も曲率制御後に残る＝
+  <strong>符号の生態系依存は本物</strong>。</p>
+  <p><em>付随して自分の道具の欠陥も見つかった：Q10=5.5×10⁴⁷ という当てはめ崩壊を結果として計上していた（サニティガードを追加）。
+  また別のサイトでは、位相をずらした無意味な系列が ΔR²=+0.214 を叩き出した——決定係数だけで判断していれば偽陽性を掴んでいた。</em></p>
 </section>
 
 <hr>
@@ -287,8 +367,15 @@ footer .files{margin-top:10px}
     <div class="row"><div class="verdict"><span class="chip good">確定</span></div>
       <div class="what"><b>呼吸の未観測の遅い駆動</b>は、直接測定チャンバーで<b>本物の生物物理</b>と確認（旗40）。ただし
       <b>最近の光合成ではなく</b>（真SIF棄却, 旗38-段2）、遅い土壌プロセス。分割窓は見かけを修飾するのみ（旗39を上書き）。</div></div>
+    <div class="row"><div class="verdict"><span class="chip good">復権</span></div>
+      <div class="what"><b>水分依存 Q10</b>はフラックスでは分割依存で脆かったが、<b>分割を通さないチャンバー</b>で再現（旗42）
+      ＝「分割の産物」説は否定。</div></div>
     <div class="row"><div class="verdict"><span class="chip warn">格下げ</span></div>
-      <div class="what"><b>水分依存 Q10</b>は最厳QCで 5/8→4/8、DT/NT分割で 2/5＝分割依存。頑健なのは JP-Fhk・JP-Fjy のみ。</div></div>
+      <div class="what">その<b>水分依存 Q10 の普及率</b>は、温度エイリアシングを除くと <b>25/37 → 18/36（約半数）</b>。
+      「約 2/3 で本物」は自分で撤回した（旗44）。核と符号の生態系依存は生存。</div></div>
+    <div class="row"><div class="verdict"><span class="chip good">確定</span></div>
+      <div class="what"><b>~4日メモリの正体は観測の外側</b>。先行湿潤・先行水分・深層水分・非線形 Birch・熱慣性の
+      いずれもプラセボを超えず（旗45, 12/12）。ただし<b>全サイトで降水が未観測</b>という限定付き。</div></div>
     <div class="row"><div class="verdict"><span class="chip crit">撤回</span></div>
       <div class="what"><b>「湛水系は負」の符号反転</b>：韓国水田 KR-CRK が逆符号＝水管理の差。単一サイトの現象に後退。</div></div>
     <div class="row"><div class="verdict"><span class="chip crit">撤回</span></div>
@@ -305,21 +392,48 @@ footer .files{margin-top:10px}
   <strong>発見の多くには先行があり、上書きせず引用する</strong>のが誠実な立ち位置。</p>
   <p>新規性がありうるのは三点：<strong>(a)</strong> O-information の FLUXNET 直接適用（査読研究に見当たらない）、
   <strong>(b)</strong> 派生量監査・因果リンクの素性仕分け・EBR という方法論の厳密化、
-  <strong>(c)</strong> SIF × 呼吸残差の交絡切り分け。</p>
+  <strong>(c)</strong> フラックス・衛星・チャンバーの3観測系を突き合わせた設計。
+  水分依存 Q10 は Davidson の DAMM（基質拡散の水分律速）でほぼ確立しており、我々のは<strong>再発見の可能性が高い</strong>。
+  ＝正直な位置づけは「発見の論文」ではなく<strong>「何が測定で何が計算かを一貫して追う、方法論監査の論文」</strong>。</p>
+
+  <h3 style="margin-top:26px">前提そのものに残る穴</h3>
+  <p>個々の解析ではなく、枠組みの前提に残る弱点も名指ししておく。</p>
+  <div class="ledger">
+    <div class="row"><div class="verdict"><span class="chip crit">論理</span></div>
+      <div class="what"><b>因果十分性の自己矛盾</b>：旗25 が「未観測の駆動がある」と結論した瞬間、PCMCI の
+      「未観測交絡なし」という前提は壊れている。因果骨格が与えるのは<b>条件付き独立のスキーマ</b>であって、
+      同定された因果ではない。物理的妥当性は先験知識が担保しており、アルゴリズムの手柄ではない。</div></div>
+    <div class="row"><div class="verdict"><span class="chip warn">恒等式</span></div>
+      <div class="what"><b>エネルギー背骨の冗長はほぼ自明</b>：地表エネルギー収支 H+LE ≈ Rn−G が制約として存在し、
+      Rn は Rg の関数。冗長の存在は発見ではなく健全性チェックで、意味があるのは<b>収支からのズレ</b>の方。</div></div>
+    <div class="row"><div class="verdict"><span class="chip warn">弱い検定</span></div>
+      <div class="what"><b>SIF は基質仮説に対する弱い操作変数</b>：文献は環状剥皮や ¹³C 標識で検証する。SIF は林冠上部の
+      光化学であって<b>地下への転流フラックスではない</b>。正しくは「衛星スケールの林冠蛍光は残差メモリを線形に説明しない」。</div></div>
+    <div class="row"><div class="verdict"><span class="chip warn">未検証</span></div>
+      <div class="what"><b>背骨はギャップフィル込みで計算している</b>：MDS は ±7 日窓の気象類似日で埋めるため、
+      埋めた点は気象の関数＝<b>気象-フラックス冗長を機械的に押し上げる</b>。実測のみでの再計算は未実施。
+      また<b>out-of-sample 検証が一つもない</b>——全て同一データ上の記述統計である。</div></div>
+  </div>
   <div class="callout" style="border-left-color:var(--accent)"><span class="k" style="color:var(--accent)">北極星</span>
-    「観測を増やす」を実際にやり切った。衛星（真SIF）で<strong>季節の生物成分</strong>を捉え、<strong>速い基質仮説を棄却</strong>し、
-    独立な<strong>直接測定（チャンバー呼吸）</strong>で<strong>4日記憶が本物の生物物理だと確認</strong>した。残る一点は
-    <strong>その土壌プロセスの特定</strong>（深土壌水分か・熱慣性か・微生物動態か）——多深度の土壌水分/地温プローブや同位体ラベリングが要る。
-    フラックス・衛星・チャンバーを貫き、隙間を具体的な「次の観測」まで名指しした。</div>
+    「観測を増やす」を実際にやり切った。衛星（真SIF）で速い基質仮説を棄却し、独立な直接測定（チャンバー）で
+    4日記憶を本物と確認し、さらに候補を総当たりして<strong>観測された水・熱の履歴でも説明できない</strong>ことまで示した。
+    ＝<strong>隙間は比喩でなく、いま名指しできる具体的な欠落</strong>になった——<strong>降水の実測・複数深度の土壌水分・
+    同位体パルス標識・微生物バイオマス</strong>。同時にこの研究は、自分の最新の「岩盤」を自分で崩し（旗44）、
+    主張を「約 2/3」から「約半数」へ下げ、乾燥ステップの一般化を反復 n=1 と認めた。
+    <strong>削って残ったものだけを主張する</strong>——この台帳自体が、結論と同じだけの成果である。</div>
 </section>
 
 <hr>
 <footer class="wrap">
-  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–39）。文献は Perplexity 検索で所在を確認、引用前に一次確認。</div>
-  <div class="files"><b>記録</b> · research/VALIDITY_SYNTHESIS.md（妥当性検証の統合）· research/FLAGS_LOG.md（各旗の詳細）·
-  research/LITERATURE_NOTES.md（文献・先行研究）· japanflux_pn/DATA_QUALITY.md（品質基準）</div>
+  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–45）。文献は Perplexity 検索で所在を確認した段階で、
+  引用前に一次確認が必要（DAMM・Lloyd &amp; Taylor・Migliavacca は未一次確認）。</div>
+  <div class="files"><b>記録</b> · research/FLAGS_LOG.md（各旗の詳細）· research/VALIDITY_SYNTHESIS.md（妥当性検証）·
+  research/LIMITATIONS.md（穴と対処）· research/PREMISE_AUDIT.md（前提の監査）· research/LITERATURE_NOTES.md（先行研究）·
+  japanflux_pn/DATA_QUALITY.md（品質基準）</div>
+  <div class="files"><b>データ利用</b> · チャンバー呼吸は COSORE（Bond-Lamberty et al. 2020, GCB）— 公表時は各データセット提供者への
+  クレジットと同論文の引用が要る。TROPOMI SIF は Caltech（Köhler / Frankenberg）— 公表時は要連絡。</div>
   <div class="files"><b>主要文献</b> · Ruddell &amp; Kumar 2009 · Krich 2020/2021 · Goodwell 2018 · Migliavacca 2011 ·
-  Stoy 2007 · Rosas 2019 · Lasslop 2010 · Reichstein 2005 · Pastorello 2020 · Wang 2025</div>
+  Stoy 2007 · Rosas 2019 · Lasslop 2010 · Reichstein 2005 · Pastorello 2020 · Wang 2025 · Bond-Lamberty 2020 · Lloyd &amp; Taylor 1994 · Davidson 2012（DAMM）· Cable 2013</div>
 </footer>
 
 </div>
