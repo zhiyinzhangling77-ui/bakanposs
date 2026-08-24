@@ -105,7 +105,7 @@ def run_real(sites, obins):
 
     print("=== 旗46 実データ：背骨（エネルギー系の冗長）はギャップフィルの産物か ===")
     print("  Ω>0=冗長支配。(b)実測のみ と (c)同N間引きの gap-fill込み を比べるのが判定。\n")
-    rows = []
+    rows, skipped = [], []
     for site in sites:
         years, months = get_site_years(site)
         spec = get_site(site)
@@ -122,6 +122,7 @@ def run_real(sites, obins):
                 continue
             n_gf, n_m0 = int(va_gf.sum()), int(va_m0.sum())
             if n_m0 < 500 or n_gf < 500:
+                skipped.append((site, y, n_gf, n_m0))
                 continue
             def _tbl(anom, valid, cfg):
                 pre = PreprocessResult(anomaly=anom, valid=valid, site=site, year=y,
@@ -141,6 +142,12 @@ def run_real(sites, obins):
                              "z_gf": t_gf.loc[sub, "z"], "z_m0": t_m0.loc[sub, "z"]})
             print(f"  {site} {y}: 実測率 {n_m0/n_gf:.0%} (N {n_gf}→{n_m0})", flush=True)
 
+    if skipped:
+        print(f"\n  除外 {len(skipped)} site-year（実測点<500＝O-info推定に不足）：")
+        for st, y, a_, b_ in skipped[:12]:
+            print(f"    {st} {y}: N {a_}→{b_}（実測率 {b_/a_:.0%}）")
+        if len(skipped) > 12:
+            print(f"    …他 {len(skipped)-12}")
     if not rows:
         print("  有効な site-year なし"); return
     import pandas as pd
@@ -151,14 +158,21 @@ def run_real(sites, obins):
     for sub, g in df.groupby("sub"):
         a, b, c = g["gf"].mean(), g["m0"].mean(), g["ctl"].mean()
         d = b - c
-        rel = abs(d) / abs(c) if c else np.nan
-        if np.isfinite(rel) and rel < 0.15:
-            v = "★実測だけで立つ"
+        n_lower = int((g["m0"] < g["ctl"]).sum())            # (b)<(c) の site-year 数
+        n_flip = int(((g["gf"] > 0) & (g["m0"] < 0)).sum())  # 冗長→相乗の符号反転
+        scale = max(abs(c), 0.05)                            # 0近傍で割らない（相対値の暴走を防ぐ）
+        if n_flip >= 0.6 * len(g):
+            v = f"▲符号反転 gap込=冗長→実測=相乗 ({n_flip}/{len(g)})"
+        elif abs(d) / scale < 0.15:
+            v = f"★実測だけで立つ ({n_lower}/{len(g)}が低下)"
         elif d < 0:
-            v = f"▲gap-fillが押し上げ({rel:.0%}減)"
+            v = f"▲gap-fillが押し上げ ({n_lower}/{len(g)}が低下)"
         else:
-            v = f"○実測の方が強い(+{rel:.0%})"
+            v = f"○実測の方が強い ({len(g)-n_lower}/{len(g)})"
         print(f"  {sub:<24} {a:>10.4f} {b:>10.4f} {c:>12.4f} {d:>+9.4f}  {v}")
+    print("\n  注：相対比は |Ω(c)| が 0 近傍だと発散するので下限 0.05 で丸めてある。")
+    print("      符号反転（gap込みでは冗長 Ω>0 なのに実測では相乗 Ω<0）が多数なら、その系の"
+          "『冗長支配』は gap-fill が作っていた可能性が高い。")
     bb = df[df["sub"] == BACKBONE]
     if not bb.empty:
         print(f"\n  === 背骨 {BACKBONE} ===")
