@@ -147,7 +147,7 @@ footer .files{margin-top:10px}
   <div class="meta">
     <span><b>データ</b> 渦相関・熱帯〜亜寒帯・7–8月・5日アノマリ/日次</span>
     <span><b>手法</b> 情報理論 × 因果探索 × 派生量監査</span>
-    <span><b>旗</b> 13–47</span>
+    <span><b>旗</b> 13–48</span>
   </div>
 </header>
 <hr>
@@ -363,8 +363,27 @@ footer .files{margin-top:10px}
   <p>そこで温度曲率を吸収した交互作用モデルで測り直したところ、<strong>25/37 → 18/36（約半数）</strong>。
   <strong>旗42 の★のうち約 7 サイトは温度エイリアシングの産物だった</strong>＝「約 2/3」は撤回し「約半数」に下げる。
   ただし<strong>核は生存</strong>——最もエイリアスしやすいサイト（θ-T 相関 −0.85）でも係数は 0 から離れ、
-  符号検定（有意 24 中 正 18 対 負 6）も p=0.011。逆符号（熱帯排水泥炭・凍土）も曲率制御後に残る＝
-  <strong>符号の生態系依存は本物</strong>。</p>
+  符号検定（有意 24 中 正 18 対 負 6）も p=0.011。逆符号のサイトも曲率制御後に残った。</p>
+
+  <h3 style="margin-top:22px">④ 自分の説明を予測で試す — 初めての out-of-sample（旗48）</h3>
+  <p>この研究の結果はすべて<strong>同一データ上の記述統計</strong>で、保留サンプル予測が一つも無かった。
+  そこで一番「後付け」な説明——上の<strong>逆符号を「排水泥炭・凍土だから」とまとめた話</strong>——を予測にかけた。
+  COSORE 35 サイトの符号をラベルにし、<em>そのサイトを見ずに</em>サイト属性から当てられるかを測る。</p>
+  <div class="tbl"><table>
+    <thead><tr><th>やり方</th><th class="num">正答率</th><th class="num">多数決</th><th class="num">並べ替え p</th><th>判定</th></tr></thead>
+    <tbody>
+      <tr><td>leave-one-site-out</td><td class="num">0.886</td><td class="num">0.800</td><td class="num">0.005</td><td class="pos">★に見えた</td></tr>
+      <tr><td>leave-one-<b>cluster</b>-out（50km 圏を丸ごと除外）</td><td class="num">0.800</td><td class="num">0.800</td><td class="num">0.220</td><td class="neg">▲消滅</td></tr>
+    </tbody>
+  </table></div>
+  <p>差の <strong>0.086 はすべて擬似反復</strong>——近接サイト同士で答えを覗き合っていた分だった。
+  <em>旗43 で自分が名指しした穴を、新しいテストの中で自分が踏んでいた。</em></p>
+  <div class="callout" style="border-left-color:var(--crit)"><span class="k" style="color:var(--crit)">訂正</span>
+    さらに、<strong>「排水泥炭・凍土で逆転する」という要約そのものが、負符号 7 サイトを正しく記述していなかった</strong>。
+    内訳は インドネシア泥炭 3（ただし 50km 圏内＝<strong>実質 1 地点</strong>）／プエルトリコ湿潤熱帯林／アラスカ内陸／
+    <strong>秋田の温帯落葉樹林</strong>／<strong>中国の草原</strong>——後ろの二つは泥炭でも凍土でもない。
+    <strong>秋田のサイトを「凍土」と書いたのは誤記であり、訂正する。</strong>
+    ＝<strong>逆転するサイトが実在することは観察事実。だが「どの生態系で逆転するか」は未解明</strong>と記す。</div>
   <p><em>付随して自分の道具の欠陥も見つかった：Q10=5.5×10⁴⁷ という当てはめ崩壊を結果として計上していた（サニティガードを追加）。
   また別のサイトでは、位相をずらした無意味な系列が ΔR²=+0.214 を叩き出した——決定係数だけで判断していれば偽陽性を掴んでいた。</em></p>
 </section>
@@ -386,7 +405,11 @@ footer .files{margin-top:10px}
       ＝「分割の産物」説は否定。</div></div>
     <div class="row"><div class="verdict"><span class="chip warn">格下げ</span></div>
       <div class="what">その<b>水分依存 Q10 の普及率</b>は、温度エイリアシングを除くと <b>25/37 → 18/36（約半数）</b>。
-      「約 2/3 で本物」は自分で撤回した（旗44）。核と符号の生態系依存は生存。</div></div>
+      「約 2/3 で本物」は自分で撤回した（旗44）。核は生存。</div></div>
+    <div class="row"><div class="verdict"><span class="chip crit">撤回</span></div>
+      <div class="what"><b>「逆符号は排水泥炭・凍土だから」</b>：擬似反復を除くと属性から予測できず（旗48）、
+      しかも負符号には秋田の温帯林・中国の草原が含まれ<b>要約自体が誤りだった</b>。逆転の存在は観察事実として残すが、
+      <b>どの生態系で逆転するかは未解明</b>と記す。</div></div>
     <div class="row"><div class="verdict"><span class="chip good">確定</span></div>
       <div class="what"><b>~4日メモリの正体は観測の外側</b>。先行湿潤・先行水分・深層水分・非線形 Birch・熱慣性の
       いずれもプラセボを超えず（旗45, 12/12）。ただし<b>全サイトで降水が未観測</b>という限定付き。</div></div>
@@ -427,10 +450,10 @@ footer .files{margin-top:10px}
     <div class="row"><div class="verdict"><span class="chip warn">弱い検定</span></div>
       <div class="what"><b>SIF は基質仮説に対する弱い操作変数</b>：文献は環状剥皮や ¹³C 標識で検証する。SIF は林冠上部の
       光化学であって<b>地下への転流フラックスではない</b>。正しくは「衛星スケールの林冠蛍光は残差メモリを線形に説明しない」。</div></div>
-    <div class="row"><div class="verdict"><span class="chip warn">未検証</span></div>
+    <div class="row"><div class="verdict"><span class="chip warn">一部対処</span></div>
       <div class="what"><b>背骨はギャップフィル込みで計算している</b>：MDS は ±7 日窓の気象類似日で埋めるため、
       埋めた点は気象の関数＝<b>気象-フラックス冗長を機械的に押し上げる</b>。実測のみでの再計算は未実施。
-      また<b>out-of-sample 検証が一つもない</b>——全て同一データ上の記述統計である。</div></div>
+      out-of-sample 検証は旗48 で初めて入れた——そして<b>自分の説明が落第した</b>。</div></div>
   </div>
   <div class="callout" style="border-left-color:var(--accent)"><span class="k" style="color:var(--accent)">北極星</span>
     「観測を増やす」を実際にやり切った。衛星（真SIF）で速い基質仮説を棄却し、独立な直接測定（チャンバー）で
@@ -443,7 +466,7 @@ footer .files{margin-top:10px}
 
 <hr>
 <footer class="wrap">
-  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–47）。文献は Perplexity 検索で所在を確認した段階で、
+  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–48）。文献は Perplexity 検索で所在を確認した段階で、
   引用前に一次確認が必要（DAMM・Lloyd &amp; Taylor・Migliavacca は未一次確認）。</div>
   <div class="files"><b>記録</b> · research/FLAGS_LOG.md（各旗の詳細）· research/VALIDITY_SYNTHESIS.md（妥当性検証）·
   research/LIMITATIONS.md（穴と対処）· research/PREMISE_AUDIT.md（前提の監査）· research/LITERATURE_NOTES.md（先行研究）·
