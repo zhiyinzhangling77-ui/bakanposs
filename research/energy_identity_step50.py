@@ -38,16 +38,21 @@ def _omega(cols_raw, bins=BINS):
     return float(it.o_information_indices(cols, bins, correct=True))
 
 
-def partition_surrogate(gH, gLE, rng):
-    """総乱流フラックスは保存し、ボーエン配分だけを時間シャッフルしたサロゲート。"""
-    T = gH + gLE
-    ok = np.abs(T) > 1e-9
-    beta = np.full_like(T, np.nan)
-    beta[ok] = gH[ok] / T[ok]
-    idx = np.flatnonzero(np.isfinite(beta))
-    b_sh = beta.copy()
-    b_sh[idx] = beta[idx][rng.permutation(len(idx))]
-    return b_sh * T, (1 - b_sh) * T, T, beta
+def sd_coords(gH, gLE):
+    """アノマリでも安全な直交座標：S=総量(γH+γLE), D=配分コントラスト(γH−γLE)。
+    比 β=γH/(γH+γLE) はアノマリだと分母がゼロを跨いで発散するので**使わない**（旗50 第1回の失敗）。"""
+    return gH + gLE, gH - gLE
+
+
+def surrogate(gH, gLE, rng, shuffle="D"):
+    """S,D の一方だけを時間シャッフルする。割り算を含まないので発散しない。
+    shuffle='D'：総量Sを保存し**配分だけ壊す** ／ 'S'：配分Dを保存し**総量だけ壊す**。"""
+    S, D = sd_coords(gH, gLE)
+    if shuffle == "D":
+        D = D[rng.permutation(len(D))]
+    else:
+        S = S[rng.permutation(len(S))]
+    return (S + D) / 2.0, (S - D) / 2.0
 
 
 def analyze(Rg, Ta, gH, gLE, nrep=20, seed=0):
@@ -57,36 +62,55 @@ def analyze(Rg, Ta, gH, gLE, nrep=20, seed=0):
         return {"note": f"点不足({len(Rg)})"}
     rng = np.random.default_rng(seed)
     obs = _omega([Rg, Ta, gH, gLE])
-    sur = []
+    surD, surS = [], []
     for _ in range(nrep):
-        h, e, T, beta = partition_surrogate(gH, gLE, rng)
-        m = np.isfinite(h) & np.isfinite(e)
-        if m.sum() > 500:
-            sur.append(_omega([Rg[m], Ta[m], h[m], e[m]]))
-    T = gH + gLE
-    with np.errstate(invalid="ignore", divide="ignore"):
-        beta = np.where(np.abs(T) > 1e-9, gH / T, np.nan)
-    m = np.isfinite(beta)
-    reparam = _omega([Rg[m], Ta[m], T[m], beta[m]]) if m.sum() > 500 else np.nan
+        h, e = surrogate(gH, gLE, rng, "D")      # 総量は保存・配分だけ壊す
+        surD.append(_omega([Rg, Ta, h, e]))
+        h, e = surrogate(gH, gLE, rng, "S")      # 配分は保存・総量だけ壊す
+        surS.append(_omega([Rg, Ta, h, e]))
+    S, D = sd_coords(gH, gLE)
+    reparam = _omega([Rg, Ta, S, D])
     return {"n": int(len(Rg)), "obs": obs,
-            "sur": float(np.mean(sur)) if sur else np.nan,
-            "sur_sd": float(np.std(sur)) if sur else np.nan,
+            "sur": float(np.mean(surD)), "sur_sd": float(np.std(surD)),
+            "surS": float(np.mean(surS)), "surS_sd": float(np.std(surS)),
             "reparam": reparam}
 
 
-def verdict(r):
+def rho(r):
+    """ρ＝Δ配分／Δ総量。配分を壊した損失が総量を壊した損失に比べてどれだけ大きいか。
+    **閾値で切らず、合成の2基準点（配分が無情報／情報あり）と比べて読む**（旗50の較正）。"""
+    if "note" in r:
+        return np.nan
+    dD, dS = r["obs"] - r["sur"], r["obs"] - r["surS"]
+    return dD / dS if dS > 0 else np.nan
+
+
+def verdict(r, ref_lo=None, ref_hi=None):
     if "note" in r:
         return "―" + r["note"]
-    if not np.isfinite(r["sur"]):
-        return "△サロゲート不能"
-    d = r["obs"] - r["sur"]
-    rel = abs(d) / abs(r["sur"]) if r["sur"] else np.nan
-    z = d / r["sur_sd"] if r["sur_sd"] > 0 else np.nan
-    if np.isfinite(rel) and rel < 0.10:
-        return f"▲収支の言い換え（差 {d:+.4f}, {rel:.0%}）"
-    if d > 0:
-        return f"★配分自体が情報を持つ（差 {d:+.4f}, z={z:+.1f}）"
-    return f"○観測の方が低い（差 {d:+.4f}, z={z:+.1f}）"
+    q = rho(r)
+    if not np.isfinite(q):
+        return "△判定不能"
+    if ref_lo is None or ref_hi is None:
+        return f"ρ={q:.2f}"
+    mid = (ref_lo + ref_hi) / 2
+    if q < ref_lo * 1.2:
+        return f"▲収支の言い換え寄り（ρ={q:.2f} ≈ 無情報基準 {ref_lo:.2f}）"
+    if q > mid:
+        return f"★配分が情報を持つ（ρ={q:.2f} ≳ 情報あり基準 {ref_hi:.2f}）"
+    return f"○中間（ρ={q:.2f}, 基準 {ref_lo:.2f}〜{ref_hi:.2f}）"
+
+
+def synth_references(nrep=8):
+    """合成の2基準点 ρ を返す：(配分が無情報, 配分が情報を持つ)。実データの物差しにする。"""
+    out = []
+    for kind in ("beta_uninformative", "beta_informative"):
+        qs = []
+        for k in range(nrep):
+            Rg, Ta, gH, gLE = _synth(kind, seed=k)
+            qs.append(rho(analyze(Rg, Ta, gH, gLE, nrep=6, seed=k)))
+        out.append(float(np.nanmean(qs)))
+    return out[0], out[1]
 
 
 # ---------- 合成 -------------------------------------------------------------------
@@ -106,13 +130,17 @@ def _synth(kind, n=6000, seed=0):
 def run_synth():
     print("=== 旗50 合成検証：配分βが情報を持つ場合／持たない場合を見分けられるか ===")
     print("  どちらも総乱流フラックス T は放射に従う（＝収支の制約は共通）。\n")
-    print(f"  {'仕込み':<24}{'Ω(観測)':>10}{'Ω(配分シャッフル)':>18}{'Ω(Rg,Ta,T,β)':>14}  判定")
+    print(f"  {'仕込み':<24}{'Ω(観測)':>10}{'配分壊す':>10}{'総量壊す':>10}{'ρ=Δ配分/Δ総量':>16}")
     for kind, lab in [("beta_uninformative", "配分は無情報（収支のみ）"),
                       ("beta_informative", "配分が駆動と結ぶ")]:
         Rg, Ta, gH, gLE = _synth(kind)
         r = analyze(Rg, Ta, gH, gLE)
-        print(f"  {lab:<24}{r['obs']:>10.4f}{r['sur']:>18.4f}{r['reparam']:>14.4f}  {verdict(r)}")
-    print("\n  → 上が▲（収支の言い換え）、下が★（配分自体が情報）と出れば検出器は妥当。")
+        print(f"  {lab:<24}{r['obs']:>10.4f}{r['sur']:>10.4f}{r['surS']:>10.4f}{rho(r):>16.3f}")
+    lo, hi = synth_references()
+    print(f"\n  基準点（8シード平均）：配分が無情報 ρ={lo:.2f} ／ 配分が情報を持つ ρ={hi:.2f}")
+    print("  → 2つが十分に離れていれば、実データの ρ をこの物差しで読める。")
+    print("  ※閾値による二値判定は諦めた：どんなサロゲートも乗法結合を壊すため、")
+    print("    『配分が無情報』でも Δ配分 は完全にはゼロにならない（第2回の設計判断）。")
 
 
 # ---------- 実データ ---------------------------------------------------------------
@@ -124,9 +152,12 @@ def run_real(sites, months):
                                          slice_span_and_anomaly)
     cfg = AnalysisConfig()
     print("=== 旗50 実データ：エネルギー背骨の冗長は収支の言い換えか ===")
-    print("  Ω>0=冗長。観測 と『総量は保存・配分だけシャッフル』を比べる。\n")
-    print(f"  {'site-year':<16}{'N':>7}{'Ω(観測)':>10}{'Ω(配分シャッフル)':>18}"
-          f"{'Ω(Rg,Ta,T,β)':>14}  判定")
+    print("  合成で物差しを作ってから読む（数十秒）…", flush=True)
+    ref_lo, ref_hi = synth_references()
+    print(f"  基準点：配分が無情報 ρ={ref_lo:.2f} ／ 配分が情報を持つ ρ={ref_hi:.2f}")
+    print("  ρ＝Δ配分/Δ総量。ρ が無情報基準に近い＝背骨は収支の言い換え。\n")
+    print(f"  {'site-year':<16}{'N':>7}{'Ω(観測)':>10}{'配分壊す':>10}{'総量壊す':>10}"
+          f"{'Ω(Rg,Ta,S,D)':>13}  判定")
     rows = []
     for site in sites:
         years, mons = get_site_years(site)
@@ -152,17 +183,19 @@ def run_real(sites, months):
             if "note" in r:
                 continue
             rows.append(r)
-            print(f"  {site+' '+str(y):<16}{r['n']:>7}{r['obs']:>10.4f}"
-                  f"{r['sur']:>18.4f}{r['reparam']:>14.4f}  {verdict(r)}", flush=True)
+            print(f"  {site+' '+str(y):<16}{r['n']:>7}{r['obs']:>10.4f}{r['sur']:>10.4f}"
+                  f"{r['surS']:>10.4f}{r['reparam']:>13.4f}  {verdict(r, ref_lo, ref_hi)}", flush=True)
     if not rows:
         print("  有効な site-year なし"); return
     obs = np.mean([r["obs"] for r in rows]); sur = np.mean([r["sur"] for r in rows])
-    rep = np.mean([r["reparam"] for r in rows])
-    n_id = sum(1 for r in rows if "▲" in verdict(r))
+    surS = np.mean([r["surS"] for r in rows]); rep = np.mean([r["reparam"] for r in rows])
+    n_id = sum(1 for r in rows if "▲" in verdict(r, ref_lo, ref_hi))
+    qs = np.array([rho(r) for r in rows], float)
     print(f"\n  === まとめ（{len(rows)} site-year 平均）===")
-    print(f"  Ω(観測) {obs:.4f} ／ Ω(配分シャッフル) {sur:.4f} ／ 差 {obs-sur:+.4f}"
-          f" ({abs(obs-sur)/abs(sur):.0%})")
-    print(f"  『収支の言い換え』判定：{n_id}/{len(rows)} site-year")
+    print(f"  Ω(観測) {obs:.4f}")
+    print(f"  配分Dを壊す {sur:.4f}（差 {obs-sur:+.4f}）／ 総量Sを壊す {surS:.4f}（差 {obs-surS:+.4f}）")
+    print(f"  ρ 中央値 {np.nanmedian(qs):.2f}（基準：無情報 {ref_lo:.2f} ／ 情報あり {ref_hi:.2f}）")
+    print(f"  『収支の言い換え寄り』判定：{n_id}/{len(rows)} site-year")
     print(f"  座標張替え Ω(Rg,Ta,総量,配分) の平均 {rep:.4f}")
     print("\n  読み：差がほぼ無い＝**背骨の冗長は『H と LE が同じ利用可能エネルギーを分け合う』ことの")
     print("        言い換え**＝発見でなく収支の再記述。主張をそう書き直す（前提③の対処）。")
