@@ -71,9 +71,13 @@ def analyze(T, th, R):
     Tc = T - T.mean(); thz = (th - th.mean()) / th.std(); lnR = np.log(R)
     b_nq, d_nq = _fit_d(Tc, thz, lnR, quad=False)     # 曲率を入れない（＝旗26/42と同じ土俵）
     b_q, d_q = _fit_d(Tc, thz, lnR, quad=True)        # Lloyd-Taylor曲率を吸収
+    # 当てはめ崩壊の検出：Q10が生物学的にありえない範囲＝この site では Q10 という量が定義できない
+    q10_dry, q10_wet = np.exp(10 * (b_q - d_q)), np.exp(10 * (b_q + d_q))
+    if not (0.3 < q10_dry < 30 and 0.3 < q10_wet < 30) or abs(d_q) > 0.3:
+        return {"note": f"当てはめ崩壊(Q10={q10_dry:.2g}→{q10_wet:.2g})=判定不能"}
     ci = _boot_d(Tc, thz, lnR, quad=True)
     return {"n": int(len(T)), "d_noquad": d_nq, "d_quad": d_q, "ci": ci,
-            "q10_dry": float(np.exp(10 * (b_q - d_q))), "q10_wet": float(np.exp(10 * (b_q + d_q))),
+            "q10_dry": float(q10_dry), "q10_wet": float(q10_wet),
             "corr_thT": float(np.corrcoef(th, T)[0, 1])}
 
 
