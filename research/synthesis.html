@@ -147,7 +147,7 @@ footer .files{margin-top:10px}
   <div class="meta">
     <span><b>データ</b> 渦相関・熱帯〜亜寒帯・7–8月・5日アノマリ/日次</span>
     <span><b>手法</b> 情報理論 × 因果探索 × 派生量監査</span>
-    <span><b>旗</b> 13–46</span>
+    <span><b>旗</b> 13–47</span>
   </div>
 </header>
 <hr>
@@ -415,8 +415,12 @@ footer .files{margin-top:10px}
   <div class="ledger">
     <div class="row"><div class="verdict"><span class="chip crit">論理</span></div>
       <div class="what"><b>因果十分性の自己矛盾</b>：旗25 が「未観測の駆動がある」と結論した瞬間、PCMCI の
-      「未観測交絡なし」という前提は壊れている。因果骨格が与えるのは<b>条件付き独立のスキーマ</b>であって、
-      同定された因果ではない。物理的妥当性は先験知識が担保しており、アルゴリズムの手柄ではない。</div></div>
+      「未観測交絡なし」という前提は壊れている。<b>潜在交絡を許す LPCMCI で塞ごうとしたが、効かなかった</b>（旗47）——
+      未観測駆動を仕込んだ合成で、<b>潜在交絡の印 <code>&lt;-&gt;</code> は 4 条件すべてで 1 本も出ず</b>、
+      <b>真の因果すら「判断保留」に格下げ</b>され、しかも<b>潜在駆動が遅いほど、偽のリンクが「因果」として確定される</b>。
+      ＝我々が実在を示した<b>遅い未観測駆動は、この手法群にとって最悪ケース</b>だった。
+      よって因果骨格は「同定された因果」ではなく<b>条件付き独立のスキーマ</b>と呼ぶ。物理的妥当性は
+      先験知識が担保しており、アルゴリズムの手柄ではない。</div></div>
     <div class="row"><div class="verdict"><span class="chip warn">恒等式</span></div>
       <div class="what"><b>エネルギー背骨の冗長はほぼ自明</b>：地表エネルギー収支 H+LE ≈ Rn−G が制約として存在し、
       Rn は Rg の関数。冗長の存在は発見ではなく健全性チェックで、意味があるのは<b>収支からのズレ</b>の方。</div></div>
@@ -439,7 +443,7 @@ footer .files{margin-top:10px}
 
 <hr>
 <footer class="wrap">
-  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–46）。文献は Perplexity 検索で所在を確認した段階で、
+  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–47）。文献は Perplexity 検索で所在を確認した段階で、
   引用前に一次確認が必要（DAMM・Lloyd &amp; Taylor・Migliavacca は未一次確認）。</div>
   <div class="files"><b>記録</b> · research/FLAGS_LOG.md（各旗の詳細）· research/VALIDITY_SYNTHESIS.md（妥当性検証）·
   research/LIMITATIONS.md（穴と対処）· research/PREMISE_AUDIT.md（前提の監査）· research/LITERATURE_NOTES.md（先行研究）·
