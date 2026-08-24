@@ -12,12 +12,13 @@
 |---|---|---|
 | 呼吸に未観測の遅いメモリ（旗25）| **Migliavacca 2011・Cranko Page 2022・Stoy 2007 等＝ほぼコンセンサス**（正体=最近の光合成による基質供給, ラグ1〜5日）| メモリ自体は既知。**独立な検出法（残差自己相関×多生態系）と時間スケール特徴づけ**の切り口 |
 | 因果骨格（PCMCI）・干ばつで NEE 脱結合 | **Krich 2020/2021 (Biogeosciences) が PCMCI を FLUXNET に適用済み**。季節で NEE 脱結合・気候帯を越えた機能収束を報告 | 骨格・脱結合は既出。**派生量監査(旗32)・リンク素性仕分け(旗35)・EBR品質重み**は独自寄り |
-| O-info 相乗/冗長（旗14/34）| Goodwell & Kumar 2017/2018 (PNAS) が **TIPNet=PID(Williams-Beer)** で相乗冗長を実施 | **★O-information(Rosas 2019)を FLUXNET に直接適用した査読研究は Perplexity 検索で"確認できず"＝ここが最も新規性がありうる** |
+| O-info 相乗/冗長（旗14/34）| Goodwell & Kumar 2017/2018 (PNAS) が **TIPNet=PID(Williams-Beer)** で相乗冗長を実施 | ~~★O-information の FLUXNET 直接適用は査読研究に見当たらない~~ **【旗49で撤回】Eldhose & Ghosh 2025 ERL が O-Information を NEE に適用済み（ただし月次グリッドのFLUXCOM）。残る差分は半時間タワーデータ＋派生量監査のみ** |
 | 乾燥草原=水分律速の呼吸・蒸発（旗31/36）| Budyko 枠組み・Wang 2025 単峰応答・Cable 2013 antecedent moisture | 情報理論での定量化・偏相関での炭素×水の統一署名は独自寄り |
 
-**結論（方針）**：発見の「新規性」は慎重に。呼吸メモリ=基質供給も、PCMCI×FLUXNET も既出。
-**新規性がありうるのは (a) O-information の FLUXNET 直接適用、(b) 派生量監査/リンク素性/EBR という"方法論の厳密化"、
-(c) SIF×呼吸残差（下記, まだ初期段階）**。これらに寄せて位置づける。既存を必ず引用し、上書きしない。
+**結論（方針・旗49で更新）**：発見の「新規性」は慎重に。呼吸メモリ=基質供給も、PCMCI×FLUXNET も、
+**O-information×NEE も、水分依存Q10(DAMM)も既出**。
+**残る独自性は (a)~~O-information の適用~~→**半時間タワー×派生量監査**という適用の仕方、(b) 方法論の監査一式
+(旗32/35/39/43/44/46/47/48)、(c) フラックス／衛星／チャンバー3観測系の消去法設計**。既存を必ず引用し、上書きしない。
 
 ---
 
@@ -122,3 +123,60 @@
 - Pastorello et al. (2020) Scientific Data; Lasslop et al. (2010) GCB; Reichstein et al. (2005) GCB;
   Papale et al. (2006) Biogeosciences; Stoy et al. (2020) Boundary-Layer Meteorology; Hammerle et al. (2007)
   ※旗29/30/32 の裏づけ（別途 DATA_QUALITY / FLAGS_LOG に記録済み）
+
+---
+
+# 旗49（前提監査⑦）：一次確認による位置づけの訂正 — 2026-08
+
+> **確認の水準（重要）**：出版社サイト（ScienceDirect / IOPscience）と OpenAlex API は本コンテナの
+> egress プロキシで遮断されており、**一次PDFは読めていない**。以下は **WebSearch が返した書誌情報と
+> 要約に基づく**。書誌（巻・ページ）まで含め、**論文に引用する前に一次で必ず確認すること**。
+> 原文引用・独自の数値は一切書かない（捏造防止）。
+
+## ★① 新規性主張(a)は成立しない — O-information はすでに NEE に適用されている
+- **Eldhose, E. & Ghosh, S. (2025)「Exploration of synergistic and redundant information sharing from
+  hydrometeorological variables to net ecosystem exchange」Environmental Research Letters 20(7),
+  doi:10.1088/1748-9326/add8a7（2025-06-06 公開）**。
+  **O-Information の枠組みを明示的に用いて**、気温・降水・VPD・陸水貯留量・PAR から NEE への
+  相乗/冗長の寄与を分解している。報告された所見：**VPD-PAR は一貫して相乗**、**T-VPD と T-陸水貯留は主に冗長**。
+- **使用データ（重要な差分）**：NEE は **FLUXCOM (RS+METEO)**＝機械学習でアップスケールした**月次グリッド積**。
+  ほかに Berkeley Earth（気温）・GPCP（降水）・CSR GRACE/GRACE-FO Mascon（陸水貯留）・ERA5（VPD）・
+  CERES SYN1deg（PAR）。＝**タワーの半時間渦相関データではない**。
+- **我々の主張の訂正**：LITERATURE_NOTES 冒頭の「**O-information(Rosas 2019)を FLUXNET に直接適用した査読研究は
+  確認できず＝ここが最も新規性がありうる**」は**誤り＝撤回する**。残る差分は
+  「**半時間・サイト単位の渦相関データに適用した点**」と「**派生量監査を伴う点**」のみで、当初主張より遥かに薄い。
+  （半時間タワーデータへの O-information 適用例は追加検索でも見つからなかったが、"見つからなかった"は
+  "存在しない"ではない。）
+- なお彼らの所見（VPD-PAR 相乗／T-VPD 冗長）は、我々の「放射共通駆動による冗長」と**収束的**で、
+  対立ではなく補強関係にある。
+
+## ★② 水分依存Q10は「再発見」で確定 — DAMM が機構として先行
+- **Davidson, E.A., Samanta, S., Caramori, S.S., Savage, K. (2012)「The Dual Arrhenius and Michaelis-Menten
+  kinetics model for decomposition of soil organic matter at hourly to seasonal time scales」
+  Global Change Biology 18:371–384**。
+  DAMM は Arrhenius（温度）と Michaelis-Menten（基質・酸素）を結合し、**土壌水分が酸素と可溶性炭素の拡散を
+  制御することで、呼吸そのものだけでなく"見かけの温度感度"をも変える**という機構を与える。
+- ＝**旗26/42/44 の「湿るほど温度感度が上がる」は、この確立した機構の再発見**。
+  乾燥時は基質供給が律速するので温度感度が低く、再湿潤で基質制限が解けると温度感度が上がる、という
+  DAMM の予測と我々のチャンバー実測（森林 18/36・草原 4/5）は同じ向き。**引用して上書きしないこと**。
+- 関連：土壌の乾燥/再湿潤で Q10 が異なるかを直接扱った研究も存在する（Soil Biology & Biochemistry,
+  「Is the temperature-dependence of soil respiration Q10 similar during soil drying and rewetting?」）。
+  **本文未読**＝要一次確認。我々の結果と最も近い先行になりうる。
+
+## ★③ 旗44 の前提（温度エイリアシング）は文献的に正しい
+- **Lloyd, J. & Taylor, J.A. (1994)「On the temperature dependence of soil respiration」
+  Functional Ecology 8(3):315–323**。
+  指数(Q10)型・通常の Arrhenius 型は呼吸速度の不偏推定を与えず、**呼吸の"実効活性化エネルギーは温度と
+  逆方向に変化する"**（＝**低温ほど見かけ Q10 が大きい**）とし、広い温度域で不偏な経験式を提示した。
+- ＝旗44 で我々が「Q10 は温度そのものの関数だから、θビンが季節（＝温度帯）にエイリアスすると
+  水分効果がゼロでも湿→高Q10 が出る」と述べた前提は、**文献的に支持される**。
+  曲率項 e·Tc² を入れて交互作用 d を測った処置は、この文献に沿った正しい方向の対処だった。
+
+## 位置づけへの帰結（誠実版）
+1. **「O-information の生態系フラックス適用」は我々の新規性ではない**（撤回）。
+2. **水分依存Q10 も新発見ではない**（DAMM の再発見。ただし**分割非依存のチャンバーで多サイト検証し、
+   温度交絡を分離した**点は独自の検証価値がある）。
+3. 残る独自性は**方法論の監査**——何が測定で何が計算か（旗32/35）、分割窓の分離（旗39）、
+   多サイト族補正（旗43）、温度交絡の分離（旗44）、ギャップフィルの影響（旗46）、
+   因果十分性の限界の実証（旗47）、後付け検出の out-of-sample（旗48）——と、
+   **フラックス／衛星／チャンバーの3観測系を突き合わせた消去法の設計**（旗38/40/45）。
