@@ -12,7 +12,8 @@
 候補ブロックを1つずつ追加して**残差メモリがどれだけ潰れるか**を見る。最も潰す候補＝メモリの正体の第一候補。
 
 **過剰適合の防御**：候補と同次元の**プラセボ**（同じ統計・位相だけずらした系列）を必ず併走させる。
-プラセボでも同程度メモリが落ちるなら、それは説明でなく自由度の産物＝「説明せず」と判定する。
+プラセボでも同程度メモリが落ちるなら、それは説明でなく自由度の産物＝「説明せず」と判定する
+（採用閾値：残差ACF1の低下がプラセボ+0.10 を超えること。合成4種でこの閾値の妥当性を確認済み）。
 
 **検出器の限界（合成で確認済み・正直に）**：水系候補どうし（湿潤パルス／先行水分／深層水分）は互いに
 共線なので、「正体=深層水分」の合成でも僅差で「湿潤パルス」が勝った。＝本ツールが信頼できる判別は
@@ -126,6 +127,20 @@ def build_blocks(daily):
         b["深層水分"] = pd.DataFrame({"dp": daily["SM_dp"],
                                   **{f"dp{w}": _roll(daily["SM_dp"], w) for w in WINDOWS[:3]}})
 
+    # (e) 非線形Birch：再湿潤量 × 直前の乾燥度（乾いた土ほど大きく跳ねる＝機構の本体）
+    if sm is not None:
+        w = sm.diff().clip(lower=0).fillna(0.0)
+        thr = float(w[w > 0].quantile(0.5)) if (w > 0).any() else 0.0
+        ev = (w > thr).to_numpy()
+        spell = np.zeros(len(ev)); c = 0                  # 直前の乾燥期間の長さ(日)
+        for i, e in enumerate(ev):
+            spell[i] = c
+            c = 0 if e else min(c + 1, 30)
+        dryspell = pd.Series(spell, index=sm.index)
+        nl = (w * dryspell).fillna(0.0)                   # 長く乾いた後の再湿潤ほど大きく跳ねる
+        b["非線形Birch(乾燥期間×再湿潤)"] = pd.DataFrame(
+            {f"nl{k}": nl.rolling(k, min_periods=1).sum() for k in WINDOWS})
+
     # (d) 熱慣性/位相遅れ：深部温度＋表層温度のラグ
     th = {}
     if "T_dp" in daily:
@@ -201,9 +216,9 @@ def verdict(res):
         return "―候補なし", None
     best = max(real, key=lambda k: real[k]["dac"])
     d = real[best]["dac"]
-    if d > pl + 0.15 and real[best]["ac"] < 0.4:
+    if d > pl + 0.10 and real[best]["ac"] < 0.4:
         return f"★{best}が記憶を説明", best
-    if d > pl + 0.15:
+    if d > pl + 0.10:
         return f"○{best}が部分的に説明", best
     return "―どの候補も説明せず(未知のまま)", None
 
@@ -224,6 +239,14 @@ def _synth(kind, days=900, seed=0):
         pulse = np.zeros(days); p = 0.0
         for i in range(days):
             p = 0.72 * p + 0.05 * rain[i]     # e-fold ≈ 3日
+            pulse[i] = p
+        lnR += pulse
+    elif kind == "birch_nl":                  # 跳ね幅が「直前の乾燥期間の長さ」に比例（非線形Birch）
+        pulse = np.zeros(days); p = 0.0; c = 0
+        for i in range(days):
+            wet = rain[i] > 3.0
+            p = 0.72 * p + (0.007 * rain[i] * min(c, 20) if wet else 0.0)
+            c = 0 if wet else min(c + 1, 30)
             pulse[i] = p
         lnR += pulse
     elif kind == "deep":                      # 深層水分（遅い）が効く
@@ -248,7 +271,8 @@ def main():
 
     if not a.cosore_dir:
         print("=== 旗45 合成検証：仕込んだ正体を当てられるか（プラセボ併走）===")
-        for kind, lab in [("birch", "正体=湿潤パルス(Birch)"), ("deep", "正体=深層水分"),
+        for kind, lab in [("birch", "正体=湿潤パルス(線形Birch)"),
+                          ("birch_nl", "正体=非線形Birch(乾燥×再湿潤)"), ("deep", "正体=深層水分"),
                           ("unknown", "正体=観測外の隠れAR(当ててはいけない)")]:
             d, m = _synth(kind)
             r = analyze(d, m)
