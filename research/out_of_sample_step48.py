@@ -6,13 +6,19 @@
 
 テスト：COSORE の各サイトについて、旗44 の曲率制御後の交互作用係数 d の**符号**をラベルとし、
 **サイト属性（緯度・気候・IGBP）だけから、そのサイトを見ずに符号を当てられるか**を
-leave-one-site-out で測る。比較対象を2つ置く：
+leave-one-**cluster**-out で測る（後述）。比較対象を2つ置く：
   ・**多数決ベースライン**（常に多数派の符号と答える）… これを超えなければ「属性で説明できている」とは言えない
   ・**ラベル並べ替えヌル**（符号をシャッフルして同じ手続き）… 偶然当たる確率の分布
 判定：LOO 正答率が多数決を超え、並べ替えヌルに対して p<0.05 なら＝**符号の生態系依存は転移可能な本物**。
 超えなければ＝**後付けの物語**であり、そう記す。
 
 分類器は k-NN（標準化属性空間, k=3）＝当てはめの自由度が小さく、少数サイトでも解釈が容易。
+
+**擬似反復の罠（第1回で実際に踏んだ）**：使える属性が緯度・経度・標高＝純粋な地理だったため、
+素朴な leave-one-site-out は「**近いサイト同士で当て合う**」だけで高い正答率を出す。実際、負符号
+7 サイトのうち 3 つは Hirano のインドネシア泥炭（ほぼ同一地点）だった。そこで **50km 以内を1クラスタと
+みなし、予測時にそのクラスタを丸ごと除外する leave-one-cluster-out** を主判定にする。
+(1) サイト単位と (2) クラスタ単位の両方を出し、その差＝近接で当て合っていた分を可視化する。
 
     python research/out_of_sample_step48.py                                    # 合成で検証
     python research/out_of_sample_step48.py --cosore-dir /mnt/hdd/cosore-0.7.0
@@ -32,25 +38,56 @@ ATTR_CANDIDATES = ["CSR_LATITUDE", "CSR_LONGITUDE", "CSR_ELEVATION",
                    "CSR_MAT", "CSR_MAP", "CSR_ANNUAL_PRECIP", "CSR_ANNUAL_TEMP"]
 
 
-def loo_knn(X, y, k=3):
-    """leave-one-out の k-NN 正答率。X は標準化済み、y は ±1。"""
+def _haversine(lat1, lon1, lat2, lon2):
+    R = 6371.0
+    p1, p2 = np.radians(lat1), np.radians(lat2)
+    dp, dl = p2 - p1, np.radians(lon2 - lon1)
+    a = np.sin(dp / 2) ** 2 + np.cos(p1) * np.cos(p2) * np.sin(dl / 2) ** 2
+    return 2 * R * np.arcsin(np.sqrt(a))
+
+
+def geo_clusters(lat, lon, km=50.0):
+    """近接サイトを単連結でまとめる＝擬似反復の単位（同一地点の反復を1つと数える）。"""
+    n = len(lat); lab = -np.ones(n, int); c = 0
+    for i in range(n):
+        if lab[i] >= 0:
+            continue
+        stack, lab[i] = [i], c
+        while stack:
+            j = stack.pop()
+            for m in range(n):
+                if lab[m] < 0 and _haversine(lat[j], lon[j], lat[m], lon[m]) <= km:
+                    lab[m] = c; stack.append(m)
+        c += 1
+    return lab
+
+
+def loo_knn(X, y, k=3, groups=None):
+    """leave-one-out の k-NN 正答率。groups を渡すと**同じクラスタを丸ごと除外**して予測する
+    （近接サイト同士で当て合う＝擬似反復による水増しを防ぐ）。"""
     n = len(y)
     if n < k + 2:
         return np.nan
     hit = 0
     for i in range(n):
         d = np.linalg.norm(X - X[i], axis=1)
-        d[i] = np.inf                       # 自分自身は使わない＝out-of-sample
-        nb = np.argsort(d)[:k]
+        if groups is None:
+            d[i] = np.inf
+        else:
+            d[groups == groups[i]] = np.inf     # 自分のクラスタは全部使わない
+        if not np.isfinite(d).any():
+            continue
+        kk = min(k, int(np.isfinite(d).sum()))
+        nb = np.argsort(d)[:kk]
         hit += int(np.sign(y[nb].sum() or 1) == y[i])
     return hit / n
 
 
-def evaluate(X, y, k=3, nperm=2000, seed=0):
-    acc = loo_knn(X, y, k)
+def evaluate(X, y, k=3, nperm=2000, seed=0, groups=None):
+    acc = loo_knn(X, y, k, groups)
     base = max((y > 0).mean(), (y < 0).mean())          # 多数決ベースライン
     rng = np.random.default_rng(seed)
-    null = np.array([loo_knn(X, rng.permutation(y), k) for _ in range(nperm)])
+    null = np.array([loo_knn(X, rng.permutation(y), k, groups) for _ in range(nperm)])
     p = float((null >= acc).mean()) if np.isfinite(acc) else np.nan
     return acc, base, p, null
 
@@ -149,8 +186,24 @@ def run_real(cosore_dir, igbp, months):
     X = X[:, keep]; used = [attrs[j] for j in keep]
     Xs = (X - X.mean(0)) / X.std(0)
     y = df["y"].to_numpy()
-    acc, base, p, _ = evaluate(Xs, y)
-    report(acc, base, p, y, used, len(y))
+
+    print("\n  --- (1) leave-one-SITE-out（近接サイトを使ってよい＝擬似反復を許す）---")
+    acc1, base, p1, _ = evaluate(Xs, y)
+    print(f"  LOO 正答率 {acc1:.3f} ／ 多数決 {base:.3f} ／ 並べ替え p {p1:.3f}")
+
+    if "CSR_LATITUDE" in attrs and "CSR_LONGITUDE" in attrs:
+        g = geo_clusters(df["CSR_LATITUDE"].to_numpy(float),
+                         df["CSR_LONGITUDE"].to_numpy(float), km=50.0)
+        sizes = np.bincount(g)
+        print(f"\n  --- (2) leave-one-CLUSTER-out（50km以内を1クラスタとして丸ごと除外）---")
+        print(f"  {len(sizes)} クラスタ（最大 {sizes.max()} サイト・"
+              f"2以上のクラスタ {int((sizes>1).sum())} 個）＝これが実効的な独立標本数")
+        acc2, _, p2, _ = evaluate(Xs, y, groups=g)
+        print(f"  LOO 正答率 {acc2:.3f} ／ 多数決 {base:.3f} ／ 並べ替え p {p2:.3f}")
+        report(acc2, base, p2, y, used, len(y))
+        print(f"  ※(1)と(2)の差 {acc1-acc2:+.3f} ＝近接サイト同士で当て合っていた分。")
+    else:
+        report(acc1, base, p1, y, used, len(y))
     print(f"  内訳：正 {(y>0).sum()} サイト／負 {(y<0).sum()} サイト")
     print("  留保：属性は description.csv にある数値のみ（泥炭排水・凍土という"
           "『我々が後から気づいた区分』そのものは属性に入っていない）。")
