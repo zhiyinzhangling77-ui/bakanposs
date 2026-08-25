@@ -124,7 +124,9 @@ def main():
             tw_all = tower_daily(site)
             tw_ov = tower_daily(site, span)
         except Exception as e:
-            print(f"    タワー側の読み込み失敗 {type(e).__name__}\n"); continue
+            # **例外の中身も出す**（旗66 第1版は型名だけで、未登録なのか変数欠けなのか分からなかった）
+            msg = str(e)
+            print(f"    タワー側の読み込み失敗 {type(e).__name__}: {msg[:160]}\n"); continue
 
         rows = []
         m = memory_from_daily(ch_all, "Rs", "Tsoil", "SM")
