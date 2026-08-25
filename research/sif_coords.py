@@ -33,26 +33,41 @@ def _num_in(cells):
 
 
 def _find_badm(data_dir, code=None):
-    """BADM ファイル(xlsx優先, Site-General 最優先)。curated は data_dir 直下、
-    auto-discovered は親の BADM/ 兄弟フォルダにあるので両方＋code で探す。__MACOSX/._ junk除外。"""
-    out = []
+    """BADM ファイル(xlsx優先, Site-General 最優先)を返す。
 
-    def add(root, pats):
-        for p in pats:
-            for f in sorted(Path(root).glob(p)):
-                if "__MACOSX" in f.parts or f.name.startswith(("._", "~$")):
-                    continue
-                if f not in out:
-                    out.append(f)
-    # "Site*General" はハイフン(Site-General-Info)/アンダースコア(Site_General_Info)両対応
-    base = ["**/*BADM*Site*General*.xlsx", "**/*BADM*Site*General*.csv",
-            "**/*BADM*.xlsx", "**/*BADM*.csv", "**/*BIF*.xlsx", "**/*BIF*.csv"]
-    add(data_dir, base)
+    **コードが与えられたら、コードで絞った候補を最優先し、見つかればそれだけを返す。**
+    旧実装は data_dir 直下を*コード無関係で*先に総なめしており、トップ階層を渡すと
+    **アルファベット順で最初のサイトの BADM が全サイトに返る**という沈黙する誤りがあった
+    （旗64 で発覚：JP- の10サイト全部に CN-HaM の座標が返っていた）。
+    """
+    def collect(roots, pats):
+        out = []
+        for root in roots:
+            for pat in pats:
+                for f in sorted(Path(root).glob(pat)):
+                    if "__MACOSX" in f.parts or f.name.startswith(("._", "~$")):
+                        continue
+                    if f not in out:
+                        out.append(f)
+        return out
+
+    general = ["**/*BADM*Site*General*.xlsx", "**/*BADM*Site*General*.csv"]
+    anybadm = ["**/*BADM*.xlsx", "**/*BADM*.csv", "**/*BIF*.xlsx", "**/*BIF*.csv"]
+
     if code:
-        add(Path(data_dir).parent,
-            [f"**/*{code}*BADM*Site*General*.xlsx", f"**/*{code}*BADM*.xlsx",
-             f"**/*{code}*BADM*Site*General*.csv"])
-    return out
+        roots = [data_dir, Path(data_dir).parent]
+        pats = ([f"**/*{code}*BADM*Site*General*.xlsx", f"**/*{code}*BADM*Site*General*.csv",
+                 f"**/*{code}*BADM*.xlsx", f"**/*{code}*BADM*.csv"]
+                + [f"**/*{code}*/{p}" for p in general + anybadm])
+        hit = collect(roots, pats)
+        # 念のため：パスにコードが含まれるものだけ残す（誤ヒット防止）
+        hit = [f for f in hit if code.lower() in str(f).lower()]
+        if hit:
+            return hit
+        # **コード指定があるのに見つからない場合は空を返す**（無関係なサイトの座標を返さない）
+        return []
+
+    return collect([data_dir], general + anybadm)
 
 
 def _read_any(f):
@@ -64,7 +79,10 @@ def _read_any(f):
 
 
 def coords_from_badm(data_dir, code):
-    """BADM 群から (lat, lon) を抽出。見つからねば (None, None)。"""
+    """BADM 群から (lat, lon) を抽出。見つからねば (None, None)。
+
+    **コードで絞った BADM が無ければ (None, None) を返す**——無関係なサイトの座標を
+    黙って返すより、見つからないと言う方がよい（旗64 の教訓）。"""
     lat = lon = None
     for f in _find_badm(data_dir, code):
         try:
