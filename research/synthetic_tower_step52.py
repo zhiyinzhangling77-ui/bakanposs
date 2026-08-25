@@ -35,7 +35,8 @@ NIGHT_RG = 20.0         # 夜間判定 (W/m2)
 
 
 # ---------- 1. 真の過程 -------------------------------------------------------------
-def simulate_truth(years=3, plant_memory=True, plant_wq10=False, seed=0):
+def simulate_truth(years=3, plant_memory=True, plant_wq10=False, seed=0, hid_sd=0.02,
+                   hid_efold_days=4.0):
     """半時間値の「真の」生態系。夏(7-8月)を years 年分。"""
     rng = np.random.default_rng(seed)
     idx = pd.DatetimeIndex([])
@@ -62,9 +63,11 @@ def simulate_truth(years=3, plant_memory=True, plant_wq10=False, seed=0):
         s = np.clip(s + 0.004 * rain[i] - 0.0009 * (s - 0.12), 0.05, 0.45); th[i] = s
 
     # 遅い未観測駆動（e-fold ≈ 4日）＝本研究が「在る」と言っている当のもの
+    # 仕込む記憶の時定数を **e-fold（日）で直接指定**する（旗53：以前は 2.9日で「4日」になっていなかった）
+    phi = float(np.exp(-1.0 / (hid_efold_days * 48)))
     hid = np.zeros(n); v = 0.0
     for i in range(n):
-        v = 0.9928 * v + rng.normal(0, 0.02); hid[i] = v                 # 0.9928^48 ≈ 0.71/日
+        v = phi * v + rng.normal(0, hid_sd); hid[i] = v
     if not plant_memory:
         hid[:] = 0.0
 
