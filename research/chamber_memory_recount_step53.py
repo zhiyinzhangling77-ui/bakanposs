@@ -126,15 +126,22 @@ def run_real(cosore_dir, igbp, months, thr):
             continue
         tally["判定可能"] += 1
         old = (lin["r2"] >= 0.3) and (lin["acf1"] > 0.4) and (2 <= lin["efold"] <= 7)   # 旗40 の基準
-        new = (flx["r2"] >= 0.3) and (flx["acf1"] >= thr)                               # 較正後
+        # 較正後：ACF1 で帰無と分離しつつ、**短メモリに限定**する時間スケール条件も必ず併用する
+        # （第1版は ACF1 だけにして e-fold 20〜30日の季節メモリまで拾ってしまった＝欠陥）
+        new = (flx["r2"] >= 0.3) and (flx["acf1"] >= thr) and (flx["efold"] <= 7)
+        seasonal = (flx["r2"] >= 0.3) and (flx["acf1"] >= thr) and (flx["efold"] > 7)
         tally["旗40★"] += int(old); tally["較正後★"] += int(new)
+        tally["季節(長)"] = tally.get("季節(長)", 0) + int(seasonal)
         print(f"  {ds:<32}{lin['acf1']:>10.2f}{lin['efold']:>8.1f}{flx['acf1']:>10.2f}"
               f"{flx['efold']:>8.1f}{flx['r2']:>8.2f}  {'★' if old else '·'} / {'★' if new else '·'}")
     print(f"\n  === まとめ（判定可能 {tally['判定可能']}）===")
     print(f"  旗40 の基準（線形・e-fold 2〜7日）で ★：{tally['旗40★']}")
-    print(f"  較正後（非線形基底・ACF1 ≥ {thr:.2f}）で ★：{tally['較正後★']}")
-    print("  読み：★が大きく減る＝旗40 の集計には**検出器由来の偽陽性**が含まれていた。")
-    print("        減らない＝メモリは非線形の取り残しでは説明できない＝旗40 の主張は較正後も立つ。")
+    print(f"  較正後（非線形基底・ACF1 ≥ {thr:.2f} かつ e-fold ≤ 7日）で ★短メモリ：{tally['較正後★']}")
+    print(f"  （参考）ACF1 は超えるが e-fold > 7日＝**季節メモリ**：{tally.get('季節(長)', 0)}")
+    print("  読み：★が減る＝旗40 に検出器由来の偽陽性が含まれていた。")
+    print("        ★が増える＝旗40 の線形検出器が**e-fold を膨らませて短メモリを季節側へ誤分類**していた")
+    print("        （非線形の取り残しが残差を滑らかにするため）。どちらにせよメモリ自体は")
+    print("        非線形基底を通しても残る＝**非線形の取り残しでは説明できない**。")
     print("  留保：較正は合成に依存する。閾値は『帰無＋余裕』であって物理的な境界ではない。")
 
 
