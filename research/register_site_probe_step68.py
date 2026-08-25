@@ -58,12 +58,29 @@ def probe(code, data_dir, max_show=12):
 
     # どちらの変数マップに合うか採点
     from japanflux_pn.sites import DEFAULT_VAR_MAP, DEFAULT_VAR_MAP_BASE
+    best = None
     for name, vm in (("japanflux", DEFAULT_VAR_MAP), ("base", DEFAULT_VAR_MAP_BASE)):
         need = list(vm.values())
         hit = [v for v in need if v in cols]
         miss = [k for k, v in vm.items() if v not in cols]
         print(f"    変数マップ '{name}'：{len(hit)}/{len(need)} 一致"
               f"{'／欠け ' + ','.join(miss) if miss else ''}")
+        if best is None or len(hit) > best[1]:
+            best = (name, len(hit), vm, miss)
+
+    # **欠けている変数の候補列を探す**（旗68 第1版はここを出しておらず、
+    # 「列が無い」で終わって var_overrides を書けなかった）
+    TOKENS = {"Ts": ("TS", "SOIL_T", "TSOIL"), "th": ("SWC", "SM_", "SOIL_W", "VWC"),
+              "Rg": ("SW_IN", "RG"), "Ta": ("TA_", "TAIR"), "VPD": ("VPD",),
+              "P": ("P_", "PREC"), "gH": ("H_",), "gLE": ("LE_",),
+              "GER": ("RECO",), "NEE": ("NEE",), "GEP": ("GPP",)}
+    if best and best[3]:
+        print(f"    → 採用候補 '{best[0]}'。**欠けている変数の候補列**：")
+        for k in best[3]:
+            toks = TOKENS.get(k, (k.upper(),))
+            cand = [c for c in cols if any(t in c.upper() for t in toks)]
+            print(f"       {k:<4}: {cand[:10] if cand else '**候補なし**'}"
+                  f"{' …他 %d' % (len(cand)-10) if len(cand) > 10 else ''}")
     # 登録案
     rel = big.relative_to(root)
     site_root = rel.parts[0] if len(rel.parts) > 1 else "."
