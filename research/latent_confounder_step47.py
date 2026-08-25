@@ -40,28 +40,38 @@ CONTROL = [("GEP", "NEE")]
 
 
 def _classify(graph, names, src, dst):
-    """graph[i,j,tau] の文字列から、src→dst のリンク型を全ラグで拾う。"""
+    """src→dst のリンク型。**PAG の記号を正しく読む**（旗47 第1回はここを誤読していた）：
+      `-->` 祖先関係を主張（因果）／`o->` 終点に矢だけ確定（部分的）／
+      `o-o` 隣接するが**向きは決まらない**（＝潜在交絡を排除できない・因果を主張しない）／
+      `<->` 潜在交絡が確定。
+    第1回は `<->` だけを潜在交絡の証拠とみなし、`o-o` を「向き未定」と軽く扱っていたが、
+    **`o-o` こそが「因果と言えない」の主要な出力**である（合成で確認）。"""
     i, j = names.index(src), names.index(dst)
-    marks = [graph[i, j, t] for t in range(graph.shape[2]) if graph[i, j, t] not in ("", None)]
+    marks = [str(graph[i, j, t]) for t in range(graph.shape[2])
+             if graph[i, j, t] not in ("", None)]
     if not marks:
         return "—"
-    if "-->" in marks:
-        return "-->"
-    if "<->" in marks:
-        return "<->"
+    for pref in ("-->", "<->", "o->", "o-o"):      # 強い主張から順に拾う
+        if pref in marks:
+            return pref
     return marks[0]
 
 
 def _verdict(pc, lp):
+    """問いを「どのリンクが交絡か」から**「PCMCI の因果主張が潜在交絡を許しても残るか」**へ。
+    LPCMCI は交絡を積極的に同定できるとは限らず（合成では `o-o` を返す）、
+    **向きを付けない**ことで「因果と言えない」を表明する。そこを判定に使う。"""
     if pc == "—" and lp == "—":
         return "―どちらも無し"
+    if pc != "-->":
+        return f"―PCMCIが因果を主張していない（{pc}）"
     if lp == "-->":
-        return "★LPCMCIでも因果（潜在交絡があっても立つ）"
+        return "★因果主張が残る（潜在交絡を許しても祖先関係）"
     if lp == "<->":
-        return "▲潜在交絡＝共通の未観測原因の写り込み"
+        return "▲潜在交絡が確定＝因果ではない"
     if lp == "—":
-        return "▲LPCMCIでは消える"
-    return f"△向き未定（{lp}）"
+        return "▲LPCMCIでは辺自体が消える"
+    return f"▲**向きを失う（{lp}）＝潜在交絡を排除できない＝因果と言えない**"
 
 
 def run_pair(data, names, tau_max, pc_alpha):
