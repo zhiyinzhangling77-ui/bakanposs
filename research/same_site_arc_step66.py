@@ -30,12 +30,18 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cosore_memory_step40 import load_cosore, _acf_gap, _efold_gap
 from memory_attribution_flex_step54 import flex_basis, _fit, ACF_THR, EFOLD_MAX
 
-# 旗64/65 で確定した同一地点の対（距離は旗51 の再実行値）
-PAIRS = [("JP-Fhk", "d20200328_UEYAMA_HOKUROKU", 0.00),
-         ("JP-Tef", "d20200328_UEYAMA_TESHIO", 0.01)]
+# 旗64/65/67 で確定した同一地点の対（距離は旗51/67 の値）。
+# 旗67 で**登録済み10サイトでなく手元の83サイト全部**と突き合わせた結果、対が 2→7 に増えた。
+PAIRS = [("JP-Fhk", "d20200328_UEYAMA_HOKUROKU", 0.00),   # 済（旗66・一致）
+         ("JP-Tef", "d20200328_UEYAMA_TESHIO", 0.01),     # 済（旗66・不一致）
+         ("JP-Yms", "d20200212_ATAKA", 0.03),             # 新規：同じタワーに2つ目のチャンバー
+         ("JP-Yms", "d20200328_UEYAMA_YAMASHIRO", 0.69),  # 新規：↑と対で比べられる
+         ("ID-PaB", "d20200109_HIRANO_PDB", 0.00),        # 新規：インドネシア泥炭
+         ("ID-PaD", "d20200109_HIRANO_PDF", 0.00),        # 新規
+         ("ID-Pag", "d20200109_HIRANO_PUF", 0.44)]        # 新規
 # 旗38 の実測（記録済み）：季節制御後の SIF 偏相関と、記憶ACFが落ちたか
 SIF_NOTE = {"JP-Fhk": "偏相関 +0.03・記憶ACFは落ちず",
-            "JP-Tef": "偏相関 +0.09・記憶ACFは落ちず"}
+            "JP-Tef": "偏相関 +0.09・記憶ACFは落ちず"}   # 他サイトはSIF未取得
 
 
 def memory_from_daily(daily, ycol, tcol, wcol):
