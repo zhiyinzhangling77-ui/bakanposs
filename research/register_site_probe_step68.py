@@ -79,8 +79,30 @@ def probe(code, data_dir, max_show=12):
         for k in best[3]:
             toks = TOKENS.get(k, (k.upper(),))
             cand = [c for c in cols if any(t in c.upper() for t in toks)]
-            print(f"       {k:<4}: {cand[:10] if cand else '**候補なし**'}"
+            print(f"       {k:<4}: {cand[:10] if cand else '（本体HHには無し）'}"
                   f"{' …他 %d' % (len(cand)-10) if len(cand) > 10 else ''}")
+
+        # **本体HH に無くても、補助ファイル（AUXMETEO 等）にあるかもしれない**
+        # ——「本体に無い＝測っていない」と早合点しない（旗64 の教訓）。
+        others = [c for c in csvs[1:] if c != big]
+        found_elsewhere = {}
+        for f2 in others[:12]:                      # 大きい順に十数件だけ見る
+            try:
+                h2 = pd.read_csv(f2, nrows=2)
+            except Exception:
+                continue
+            for k in best[3]:
+                toks = TOKENS.get(k, (k.upper(),))
+                cand = [c for c in h2.columns if any(t in c.upper() for t in toks)]
+                if cand:
+                    found_elsewhere.setdefault(k, []).append((f2.name, cand[:6]))
+        print("    → **他ファイルも探した**（本体に無い変数が補助ファイルにある場合）：")
+        for k in best[3]:
+            if k in found_elsewhere:
+                for fname, cand in found_elsewhere[k][:3]:
+                    print(f"       {k:<4}: {fname} → {cand}")
+            else:
+                print(f"       {k:<4}: **どのファイルにも無い＝このサイトは測っていない**")
     # 登録案
     rel = big.relative_to(root)
     site_root = rel.parts[0] if len(rel.parts) > 1 else "."
