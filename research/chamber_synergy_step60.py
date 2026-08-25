@@ -9,8 +9,12 @@ GER＝分割派生量に依存している。旗56 でタワー側メモリを�
 （例：SAVAGE_hf006-03 は 8 深度、CARBONE_SC_EMBUDO は T 4深度＋SM 3深度）。
 ＝**{Rs, T浅, T深, SM}** の4変数がそろい、**分割も穴埋めも通さずに O-information が計算できる**。
 
-  ・チャンバーでも相乗支配（Ω<0）なら → 旗14 の主張が**測定量だけで裏取りされる**（B→A へ移せる）。
-  ・冗長支配（Ω>0）または符号が割れるなら → 旗14 の相乗は**分割派生量に固有**の可能性＝そう記す。
+  ・チャンバーでも相乗支配なら → 旗14 の主張が**測定量だけで裏取りされる**（B→A へ移せる）。
+  ・そうでなければ → 旗14 の相乗は**分割派生量に固有**の可能性＝そう記す。
+
+**判定は必ず z（シャッフルヌルからの距離）で行う。Ω の生の符号で判定してはならない**——
+4変数・8ビン・N数百では有限標本バイアスでヌルの平均自体が負になり、Ω<0 は相乗を意味しない。
+旗14 も z で報告している（mean z=−7.1）。旗60 第1回はここを誤り、結論を逆に出した。
 
 前処理はタワー側と揃える：**5日アノマリ**（値から5日中心移動平均を引く）＝季節共変動を除く。
 O-information と シャッフルヌルからの z は本研究の実装（`japanflux_pn.information_theory`）をそのまま使う。
@@ -126,7 +130,7 @@ def run_real(cosore_dir, igbp, months):
     print("  変数 {Rs, T浅, T深, SM}（5日アノマリ）。Ω<0＝相乗支配、Ω>0＝冗長支配。")
     print(f"  比較：タワー側の呼吸系 {{Rg,Ta,θ,GER}} は **相乗 19/21・mean z=−7.1**（旗14, GER依存）\n")
     print(f"  {'dataset':<32}{'深度(浅,深,SM)':>18}{'N':>6}{'Ω':>10}{'z':>8}  判定")
-    n_syn = n_red = 0
+    n_syn = n_red = n_ns = 0
     skipped = 0
     for _, d in desc.iterrows():
         ds = str(d["CSR_DATASET"]); ig = str(d.get("CSR_IGBP", ""))
@@ -146,17 +150,22 @@ def run_real(cosore_dir, igbp, months):
             om, z = omega_z([anom[c].to_numpy() for c in ("Rs", "T_sh", "T_dp", "SM")])
         except Exception:
             continue
-        syn = om < 0
-        n_syn += int(syn); n_red += int(not syn)
+        # **判定は z で行う**（Ω の生の符号ではない）。4変数・8ビン・N数百では有限標本バイアスで
+        # シャッフルヌルの平均自体が負になるため、Ω を 0 と比べるのは無効。旗14 も z で報告している。
+        # （旗60 第1回はここを誤り、Ω の符号で「相乗5/6」と出していた＝結論が逆転する誤り）
+        syn = np.isfinite(z) and z < -2
+        red = np.isfinite(z) and z > 2
+        n_syn += int(syn); n_red += int(red); n_ns += int(not (syn or red))
         u = meta["used"]
         print(f"  {ds:<32}{f'{u[0]:.0f},{u[1]:.0f},{u[2]:.0f}cm':>18}{len(anom):>6}"
-              f"{om:>10.4f}{z:>8.1f}  {'★相乗' if syn else '·冗長'}", flush=True)
+              f"{om:>10.4f}{z:>8.1f}  "
+              f"{'★相乗(z<-2)' if syn else ('·冗長(z>+2)' if red else '△有意でない')}", flush=True)
     print(f"\n  === まとめ ===")
-    print(f"  多深度がそろって計算できたサイト：{n_syn + n_red}（不足で除外 {skipped}）")
-    if n_syn + n_red == 0:
+    print(f"  多深度がそろって計算できたサイト：{n_syn + n_red + n_ns}（不足で除外 {skipped}）")
+    if n_syn + n_red + n_ns == 0:
         print("  → **測定量だけでは計算できない**＝旗14 は B（計算量依存）に留まる。")
         return
-    print(f"  ★相乗支配（Ω<0）：{n_syn}／ ·冗長支配（Ω>0）：{n_red}")
+    print(f"  ★相乗支配（z<−2）：{n_syn}／ ·冗長支配（z>+2）：{n_red}／ △有意でない：{n_ns}")
     print("\n  読み：相乗が多数＝**旗14 の相乗支配が測定量だけで裏取りされた**＝B から A へ移せる。")
     print("        冗長が多数／割れる＝相乗は**分割派生量に固有**の可能性＝旗14 は B に留めそう記す。")
     print("  留保：チャンバーは土壌呼吸のみ・点測定で、タワーの生態系呼吸とは対象が違う。")
