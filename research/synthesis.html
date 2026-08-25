@@ -258,7 +258,8 @@ footer .files{margin-top:10px}
       <div class="num">層 ③ — 高次 / 未観測</div>
       <h3>呼吸の「遅い記憶」＝観測の外側 <span class="chip good dot">生物物理と確定</span></h3>
       <p>呼吸の日残差は、観測変数では作れない<strong>約4日の記憶</strong>を持つ。分割を通さないチャンバー直接測定で
-      <strong>本物の生物物理</strong>と確定（大陸をまたぐ独立森林の約 1/3・中央 e-fold 4 日＝普遍ではない）。</p>
+      <strong>本物の生物物理</strong>と確定。検出器そのものを合成データで較正し直した結果、
+      <strong>独立森林の約半数（22/45）</strong>で、<em>駆動の非線形性を吸収してもなお</em>残る短い記憶だった。</p>
       <p>そこから正体を候補で当てにいき、<strong>4つの仮説がすべて外れた</strong>——最近の光合成でも、
       観測された土壌水の履歴でも、非線形 Birch 効果でも、熱慣性でもない。
       ＝正体は<strong>チャンバー＋土壌センサの観測の外側</strong>（基質の遅い転流・微生物動態・根の動態）。
@@ -305,13 +306,28 @@ footer .files{margin-top:10px}
     <div class="step"><div class="tag">旗40</div>
       <h3>チャンバー直接測定 → 4日記憶は本物の生物物理</h3>
       <p>分割を一切通さない <strong>チャンバー呼吸（COSORE）</strong>で、土壌温度・水分を差し引いた残差の記憶を測る。
-      厳しい基準で再集計すると <strong>大陸をまたぐ独立森林の約 1/3（判定可能 35 中 12・中央 e-fold 4 日）</strong>に残る
+      厳しい基準で再集計すると <strong>大陸をまたぐ独立森林に</strong>（当時の集計で 35 中 12。のちに検出器を較正して 45 中 22 へ改訂）残る
       ＝<strong>直接測定でも ~4 日記憶が本物</strong>（普遍ではないが、擬似反復でも単一サイトの偶然でもない）。</p></div>
     <div class="step"><div class="tag">旗45 · 最終決着</div>
       <h3>候補を総当たり → 観測された水・熱の履歴でも説明できない</h3>
       <p>文献が指す候補——先行湿潤・先行水分の積算・深層土壌水分・<strong>非線形 Birch 効果（乾燥期間 × 再湿潤）</strong>・
       熱慣性（深部地温・ラグ地温）——を残差に当て、<strong>過剰適合を測るためのプラセボ</strong>（同次元・位相だけずらした系列）を併走。
       結果は <strong>12/12 のサイトで「どの候補も説明せず」</strong>（候補の残差 ACF 低下はプラセボと同水準）。</p></div>
+    <div class="step"><div class="tag">旗52 · 自分の道具を疑う</div>
+      <h3>合成タワーで全体を較正 → <strong>メモリの相当部分は検出器が作っていた</strong></h3>
+      <p>真の過程 → 欠測 → 穴埋め → 分割 → 検出器、を一本のパイプラインとして書き、<strong>真値が分かっている
+      合成サイト</strong>を通した。すると<strong>遅い駆動を一切仕込まなくても</strong>、線形回帰の残差に
+      <strong>ACF1=+0.87・e-fold 6.2 日</strong>の「記憶」が出た。呼吸は駆動の<em>非線形</em>関数なのに
+      日平均へ線形回帰しているため、非線形の取り残しが遅い駆動の滑らかさを引き継ぐ——
+      非線形基底に替えると <strong>+0.48・2.5 日</strong>まで落ちる。
+      一方 <strong>穴埋めと分割は記憶を無からは作らなかった</strong>（増幅はする）。</p></div>
+    <div class="step"><div class="tag">旗53 · 54 · 較正してやり直す</div>
+      <h3>検出器を直して再集計 → 記憶は残り、しかも<strong>より広く</strong>見つかった</h3>
+      <p>合成で帰無分布を作り直すと、<strong>e-fold は判別に使えず</strong>（帰無 2.5 日 vs 4 日を仕込んで 3.7 日）、
+      <strong>旗40 が使っていた ACF1&gt;0.4 という閾値は帰無（0.49）をそのまま通す</strong>と分かった。
+      較正値（非線形基底・ACF1 ≥ 0.64・e-fold ≤ 7 日）で再集計すると <strong>22/45</strong>——
+      線形当てはめが e-fold を膨らませ、短い記憶を「季節」側へ誤分類していた分だけ<strong>増えた</strong>。
+      そのうえで候補を当て直しても、<strong>20/22 でどれも説明しない</strong>。</p></div>
   </div>
 
   <h3 style="margin:26px 0 4px">消去法で残ったもの</h3>
@@ -319,12 +335,15 @@ footer .files{margin-top:10px}
     <div class="item"><span class="h">分割アルゴリズムの産物</span><span class="by">旗40 チャンバー直接測定で再現</span></div>
     <div class="item"><span class="h">最近の光合成による基質供給</span><span class="by">旗38 near-daily 真SIF が棄却</span></div>
     <div class="item"><span class="h">観測された土壌水の履歴・非線形 Birch</span><span class="by">旗45 プラセボ超えず</span></div>
-    <div class="item"><span class="h">熱慣性・温度の位相遅れ</span><span class="by">旗45 プラセボ超えず</span></div>
+    <div class="item"><span class="h">熱慣性・温度の位相遅れ</span><span class="by">旗45・54 プラセボ超えず</span></div>
+    <div class="item"><span class="h">検出器のモデル形（線形当てはめの取り残し）</span><span class="by">旗52 で発見 → 旗53・54 で制御しても残存</span></div>
     <div class="rest"><span class="k">残るもの</span>
       <p><strong>基質の遅い転流・微生物群集の動態・根の動態</strong>——いずれも
       <strong>チャンバー＋土壌センサでは測れていない量</strong>。「観測の隙間」は比喩ではなく、
       いま名指しできる具体的な欠落になった。次に効く観測は <strong>降水の実測・複数深度の土壌水分・
-      同位体パルス標識・微生物バイオマス</strong>。</p></div>
+      同位体パルス標識・微生物バイオマス</strong>——そして<strong>深部の地温</strong>。
+      土壌温度を 8 深度（36cm まで）測っている唯一のサイトでだけ、熱慣性が記憶の一部を説明した
+      （周辺的・1 サイト）。<em>測れば見える部分が、まだ残っている。</em></p></div>
   </div>
 
   <div class="callout"><span class="k">この弧の限定</span>
@@ -396,6 +415,30 @@ footer .files{margin-top:10px}
     ＝<strong>逆転するサイトが実在することは観察事実。だが「どの生態系で逆転するか」は未解明</strong>と記す。</div>
   <p><em>付随して自分の道具の欠陥も見つかった：Q10=5.5×10⁴⁷ という当てはめ崩壊を結果として計上していた（サニティガードを追加）。
   また別のサイトでは、位相をずらした無意味な系列が ΔR²=+0.214 を叩き出した——決定係数だけで判断していれば偽陽性を掴んでいた。</em></p>
+
+  <h3 style="margin-top:22px">⑤ 道具そのものを疑う — 合成タワーで全体を較正（旗52〜54）</h3>
+  <p>ここまでの検証はすべて「処理済みのデータを解析し、アーティファクトを事後に引き算する」形だった。
+  そこで向きを逆にした——<strong>真の過程 → 欠測 → 穴埋め → 分割 → 検出器</strong>を一本のパイプラインとして書き、
+  <em>真値が分かっている合成サイト</em>を通す。問いが「この発見は本物か」から
+  <strong>「仕込んだ場合と仕込まない場合で、道具は何と言うか」</strong>に変わる。</p>
+  <div class="tbl"><table>
+    <thead><tr><th>帰無（遅い駆動を仕込まない）</th><th class="num">ACF1</th><th class="num">e-fold</th><th>意味</th></tr></thead>
+    <tbody>
+      <tr><td>線形回帰（＝これまで使ってきた形）</td><td class="num">+0.87</td><td class="num">6.2 日</td><td class="neg">記憶が出てしまう</td></tr>
+      <tr><td>非線形基底（当てはめ R²=1.00）</td><td class="num">+0.48</td><td class="num">2.5 日</td><td class="pos">大幅に減る</td></tr>
+    </tbody>
+  </table></div>
+  <p>呼吸は駆動の<strong>非線形</strong>関数なのに日平均へ線形回帰していたため、
+  <strong>非線形の取り残しが遅い駆動の滑らかさを引き継いで自己相関を持っていた</strong>。
+  ＝報告してきた記憶の<em>大きさ</em>は相当部分がこれだった。さらに
+  <strong>旗40 が使っていた「ACF1&gt;0.4」は帰無（0.49）をそのまま通す</strong>——閾値が低すぎた。</p>
+  <div class="callout" style="border-left-color:var(--accent)"><span class="k" style="color:var(--accent)">そして、それでも残った</span>
+    較正した道具（非線形基底・ACF1 ≥ 0.64・e-fold ≤ 7 日）で全部やり直すと——記憶は<strong>消えるどころか
+    より広く見つかり（22/45）</strong>、候補を当て直しても <strong>20/22 でどれも説明しない</strong>。
+    線形当てはめは e-fold を膨らませ、短い記憶を「季節」側へ誤分類してもいた（偽陽性と偽陰性の両方）。
+    ＝<strong>この研究の中心的な発見は、自分の道具を疑い切ったあとに残ったもの</strong>である。</div>
+  <p><em>この過程で自分の実装の欠陥も三度見つけた：帰無条件に土壌温度を入れ忘れ、判別統計に使えない量
+  （e-fold）を選び、対照（プラセボ）が作れなかったサイトに星を付けていた。いずれも出力の数値から気づいて直した。</em></p>
 </section>
 
 <hr>
@@ -416,6 +459,10 @@ footer .files{margin-top:10px}
     <div class="row"><div class="verdict"><span class="chip warn">格下げ</span></div>
       <div class="what">その<b>水分依存 Q10 の普及率</b>は、温度エイリアシングを除くと <b>25/37 → 18/36（約半数）</b>。
       「約 2/3 で本物」は自分で撤回した（旗44）。核は生存。</div></div>
+    <div class="row"><div class="verdict"><span class="chip warn">基準の訂正</span></div>
+      <div class="what"><b>記憶の判定基準そのものが緩かった</b>：旗40 の「ACF1&gt;0.4・e-fold 2〜7 日」は
+      合成の帰無データを通してしまう（旗52）。較正し直した基準では <b>22/45</b>——記憶は残り、
+      <b>普及率はむしろ上がった</b>（線形当てはめが短い記憶を季節側へ誤分類していたため, 旗53・54）。</div></div>
     <div class="row"><div class="verdict"><span class="chip crit">撤回</span></div>
       <div class="what"><b>「逆符号は排水泥炭・凍土だから」</b>：擬似反復を除くと属性から予測できず（旗48）、
       しかも負符号には秋田の温帯林・中国の草原が含まれ<b>要約自体が誤りだった</b>。逆転の存在は観察事実として残すが、
@@ -485,14 +532,17 @@ footer .files{margin-top:10px}
     「観測を増やす」を実際にやり切った。衛星（真SIF）で速い基質仮説を棄却し、独立な直接測定（チャンバー）で
     4日記憶を本物と確認し、さらに候補を総当たりして<strong>観測された水・熱の履歴でも説明できない</strong>ことまで示した。
     ＝<strong>隙間は比喩でなく、いま名指しできる具体的な欠落</strong>になった——<strong>降水の実測・複数深度の土壌水分・
-    同位体パルス標識・微生物バイオマス</strong>。同時にこの研究は、自分の最新の「岩盤」を自分で崩し（旗44）、
-    主張を「約 2/3」から「約半数」へ下げ、乾燥ステップの一般化を反復 n=1 と認めた。
+    深部の地温・同位体パルス標識・微生物バイオマス</strong>。
+    そして最後に<strong>道具そのものを疑った</strong>——合成タワーで全体を較正すると、記憶の相当部分は
+    線形当てはめが作っていたと分かり、基準を組み直した。<strong>それでも記憶は残った（22/45）</strong>。
+    同時にこの研究は、自分の最新の「岩盤」を自分で崩し（旗44）、主張を「約 2/3」から「約半数」へ下げ、
+    乾燥ステップの一般化を反復 n=1 と認め、背骨を恒等式へ格下げした。
     <strong>削って残ったものだけを主張する</strong>——この台帳自体が、結論と同じだけの成果である。</div>
 </section>
 
 <hr>
 <footer class="wrap">
-  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–49）。文献は Perplexity 検索で所在を確認した段階で、
+  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–54）。文献は Perplexity 検索で所在を確認した段階で、
   旗49 で書誌を確認したが、出版社サイトが遮断されており<b>一次PDFは未読</b>＝論文化の際は必ず一次で確認する。</div>
   <div class="files"><b>記録</b> · research/FLAGS_LOG.md（各旗の詳細）· research/VALIDITY_SYNTHESIS.md（妥当性検証）·
   research/LIMITATIONS.md（穴と対処）· research/PREMISE_AUDIT.md（前提の監査）· research/LITERATURE_NOTES.md（先行研究）·

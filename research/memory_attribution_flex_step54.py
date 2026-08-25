@@ -90,11 +90,16 @@ def verdict(res):
     if "note" in res:
         return "―" + res["note"], None
     cs = res["cands"]
-    pl = next((v["dac"] for k, v in cs.items() if "プラセボ" in k), 0.0)
-    pl = pl if np.isfinite(pl) else 0.0
+    pl_raw = next((v["dac"] for k, v in cs.items() if "プラセボ" in k), None)
     real = {k: v for k, v in cs.items() if "プラセボ" not in k and np.isfinite(v["dac"])}
     if not real:
         return "―候補なし", None
+    # **プラセボが作れなかったサイトで★を出さない**（旗54 第1回の欠陥：GUTIERREZ は
+    # プラセボ行が無いまま ★ が付いていた＝過剰適合の対照が無い判定だった）
+    if pl_raw is None or not np.isfinite(pl_raw):
+        best0 = max(real, key=lambda k: real[k]["dac"])
+        return f"△プラセボ無し＝判定保留（最大は {best0} Δ{real[best0]['dac']:+.2f}）", None
+    pl = float(pl_raw)
     best = max(real, key=lambda k: real[k]["dac"])
     d = real[best]["dac"]
     if d > pl + BEAT_PLACEBO and real[best]["ac"] < ACF_THR:
