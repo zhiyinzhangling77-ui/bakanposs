@@ -198,6 +198,33 @@ footer .files{margin-top:10px}
 
 <hr>
 <section class="spine">
+  <div class="slabel">土俵を分ける — 何が測定の上に立つか</div>
+  <h2>測定量だけで組み直す</h2>
+  <p class="lead">この研究の穴の多くは、<strong>解析者自身の処理がデータ生成過程に入っている</strong>ことに根がある——
+  派生量、穴埋め、収支の制約、そして検出器のモデル形。だから最後に、
+  <strong>派生量と制約由来の組み合わせを主張から外し、測定量だけで骨格を組み直した</strong>。</p>
+  <div class="tbl"><table>
+    <thead><tr><th>土俵</th><th>主張</th><th>状態</th></tr></thead>
+    <tbody>
+      <tr><td class="pos"><b>測定だけで立つ</b></td><td>チャンバー呼吸の多日メモリ（Rs・Tsoil・SM）</td><td>22/45・候補は 20/22 で説明せず</td></tr>
+      <tr><td class="pos"><b>測定だけで立つ</b></td><td>チャンバー呼吸の水分依存 Q10</td><td>18/36・符号の規則は未解明</td></tr>
+      <tr><td class="pos"><b>測定だけで立つ</b></td><td>θ→蒸発の支配と Bowen 反転（派生量ゼロ）</td><td>効果は最堅・統計的重みは独立地点 n=1</td></tr>
+      <tr><td class="zero">計算に依存</td><td>タワー側の呼吸メモリ・SIF による棄却・呼吸の相乗・θ→GER</td><td>そう明記して述べる</td></tr>
+      <tr><td class="neg">恒等式</td><td>エネルギー系の冗長（旧「背骨」）</td><td>発見ではなく健全性チェック</td></tr>
+    </tbody>
+  </table></div>
+  <div class="callout"><span class="k">組み直しの限界（旗56）</span>
+    タワー側のメモリを派生量なしで言えないか——<strong>夜間の NEE はそれ自体が呼吸</strong>なので、
+    分割も昼の外挿も穴埋めも通さずに検定できるはずだった。結果は<strong>検定が成立せず</strong>：
+    8 サイト中 7 で駆動モデルの R² が 0.04〜0.22 しかなく（チャンバーでは 0.6〜0.9）、
+    <strong>信号がノイズに埋もれて判定できない</strong>。
+    ＝<strong>分割はアーティファクトの源であると同時に、タワー側の主張を検定可能にしている当のもの</strong>だった。
+    昼の情報と移動窓から情報を借りてノイズを下げる装置であり、外すと信号が下限を割る。
+    <br><br><em>「測定量だけで組み直す」は万能ではない。何を測定量だけで語れるかは、信号対雑音比が決める。</em></div>
+</section>
+
+<hr>
+<section class="spine">
   <div class="slabel">発見 — 情報構造の3層</div>
   <h2>普遍の背骨・水のマスター・観測の隙間</h2>
   <div class="layers">
@@ -549,10 +576,10 @@ footer .files{margin-top:10px}
 
 <hr>
 <footer class="wrap">
-  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–55）。文献は Perplexity 検索で所在を確認した段階で、
+  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–56）。文献は Perplexity 検索で所在を確認した段階で、
   旗49 で書誌を確認したが、出版社サイトが遮断されており<b>一次PDFは未読</b>＝論文化の際は必ず一次で確認する。</div>
   <div class="files"><b>記録</b> · research/FLAGS_LOG.md（各旗の詳細）· research/VALIDITY_SYNTHESIS.md（妥当性検証）·
-  research/LIMITATIONS.md（穴と対処）· research/PREMISE_AUDIT.md（前提の監査）· research/PREREGISTRATION_step55.md（事前登録）· research/LITERATURE_NOTES.md（先行研究）·
+  research/LIMITATIONS.md（穴と対処）· research/PREMISE_AUDIT.md（前提の監査）· research/PREREGISTRATION_step55.md・step57.md（事前登録）· research/MEASURED_ONLY_SPINE.md（測定量だけの骨格）· research/LITERATURE_NOTES.md（先行研究）·
   japanflux_pn/DATA_QUALITY.md（品質基準）</div>
   <div class="files"><b>データ利用</b> · チャンバー呼吸は COSORE（Bond-Lamberty et al. 2020, GCB）— 公表時は各データセット提供者への
   クレジットと同論文の引用が要る。TROPOMI SIF は Caltech（Köhler / Frankenberg）— 公表時は要連絡。</div>
