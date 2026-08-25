@@ -209,7 +209,7 @@ footer .files{margin-top:10px}
       <tr><td class="pos"><b>測定だけで立つ</b></td><td>チャンバー呼吸の多日メモリ（Rs・Tsoil・SM）<b>／森林</b></td><td>森林 22/45・候補は 20/22 で説明せず（非森林は 2/16）</td></tr>
       <tr><td class="pos"><b>測定だけで立つ</b></td><td>チャンバー呼吸の水分依存 Q10</td><td>18/36・符号の規則は未解明</td></tr>
       <tr><td class="pos"><b>測定だけで立つ</b></td><td>θ→蒸発の支配と Bowen 反転（派生量ゼロ）</td><td>効果は最堅・統計的重みは独立地点 n=1</td></tr>
-      <tr><td class="zero">計算に依存</td><td>タワー側の呼吸メモリ・SIF による棄却・呼吸の相乗・θ→GER</td><td>そう明記して述べる</td></tr>
+      <tr><td class="zero">計算に依存</td><td>タワー側の呼吸メモリ・SIF による棄却・呼吸の相乗・θ→GER</td><td>3 項目とも測定量へ移す検定を試し、<b>いずれも移せなかった</b>（旗56・60）</td></tr>
       <tr><td class="neg">恒等式</td><td>エネルギー系の冗長（旧「背骨」）</td><td>発見ではなく健全性チェック</td></tr>
     </tbody>
   </table></div>
@@ -495,6 +495,16 @@ footer .files{margin-top:10px}
       <div class="what"><b>「深部の地温が次の一手」</b>：この研究で初めて<b>予測と判定規則を先に登録してから</b>
       検定し（旗55）、<b>棄却された</b>（クラスタ r=−0.10, p=0.53。50cm まで測る 2 サイトで熱慣性は説明せず）。
       規則通り、公開したばかりのこの示唆を取り下げた。</div></div>
+    <div class="row"><div class="verdict"><span class="chip crit">撤回</span></div>
+      <div class="what"><b>「メモリは植物活動に依存しない」</b>：休眠期にも残るか調べ、閾値でかぞえて
+      「6/9 だから依存しない」と読んだ（旗58）。だが<b>同じデータを二値化せずに対比較すると、
+      ACF1 は系統的に低下していた</b>（−0.076, p=0.017, 16/22, 旗59）——<b>閾値をまたがなかっただけで、
+      値は下がっていた</b>。機構の判別（生物系か物理系か）は<b>未決着に戻す</b>。</div></div>
+    <div class="row"><div class="verdict"><span class="chip warn">移せず</span></div>
+      <div class="what"><b>呼吸の「相乗」は測定量だけでは支持できない</b>：多深度チャンバーで
+      {Rs, T浅, T深, SM} を組み、分割を通さずに測り直した（旗60）。結果は<b>相乗 0／冗長 3／有意でない 3</b>。
+      ＝タワー側の相乗（19/21）は<b>計算量に依存したまま</b>と記す。
+      <em>なお「チャンバーでは2変数しか取れないから不可能」と書いたのは私の誤りで、多深度サイトなら取れた。</em></div></div>
     <div class="row"><div class="verdict"><span class="chip warn">スコープ確定</span></div>
       <div class="what"><b>~4 日メモリの普及率は「森林で」</b>：まだ触っていない非森林サイトに
       <b>予測を先に登録してから</b>当てた（旗57）。普及率は <b>2/16=0.12</b>（森林 0.49）で予測に届かず、
@@ -583,7 +593,7 @@ footer .files{margin-top:10px}
 
 <hr>
 <footer class="wrap">
-  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–57）。文献は Perplexity 検索で所在を確認した段階で、
+  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–60）。文献は Perplexity 検索で所在を確認した段階で、
   旗49 で書誌を確認したが、出版社サイトが遮断されており<b>一次PDFは未読</b>＝論文化の際は必ず一次で確認する。</div>
   <div class="files"><b>記録</b> · research/FLAGS_LOG.md（各旗の詳細）· research/VALIDITY_SYNTHESIS.md（妥当性検証）·
   research/LIMITATIONS.md（穴と対処）· research/PREMISE_AUDIT.md（前提の監査）· research/PREREGISTRATION_step55.md・step57.md（事前登録）· research/MEASURED_ONLY_SPINE.md（測定量だけの骨格）· research/LITERATURE_NOTES.md（先行研究）·
