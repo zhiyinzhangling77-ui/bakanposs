@@ -82,7 +82,7 @@ def main():
     print(f"  判定は旗53 の較正値：非線形基底で ACF1 ≥ {ACF_THR}、短メモリ限定 e-fold ≤ {EFOLD_MAX}日\n")
     print(f"  {'site':<10}{'年数':>5}{'日数':>6}{'線形ACF1':>10}{'線形ef':>8}"
           f"{'柔軟ACF1':>10}{'柔軟ef':>8}{'柔軟R²':>8}  判定")
-    n_star = n_ok = 0
+    n_star = n_ok = n_weak = 0
     for site in a.sites:
         years, mons = get_site_years(site)
         if a.month:
@@ -98,17 +98,30 @@ def main():
         lin, flx = detect(daily, "linear"), detect(daily, "flex")
         if not lin or not flx or not np.isfinite(flx["acf1"]):
             print(f"  {site:<10} 推定不能"); continue
+        # **適格条件を先に当てる**：R²<0.3 は旗40以来「駆動弱＝判定不能」であって「メモリ無し」ではない。
+        # （第1回はこれを怠り、ノイズに支配されたサイトを「·なし」と表示していた＝誤り）
+        if not (np.isfinite(flx["r2"]) and flx["r2"] >= 0.3):
+            n_weak += 1
+            print(f"  {site:<10}{len(years):>5}{len(daily.dropna(subset=['NEE'])):>6}"
+                  f"{lin['acf1']:>10.2f}{lin['efold']:>8.0f}{flx['acf1']:>10.2f}"
+                  f"{flx['efold']:>8.0f}{flx['r2']:>8.2f}  駆動弱＝**判定不能**", flush=True)
+            continue
         n_ok += 1
-        star = (flx["r2"] >= 0.3) and (flx["acf1"] >= ACF_THR) and (flx["efold"] <= EFOLD_MAX)
+        star = (flx["acf1"] >= ACF_THR) and (flx["efold"] <= EFOLD_MAX)
         n_star += int(star)
         note = "★メモリあり" if star else (
-            "季節(長)" if flx["acf1"] >= ACF_THR else "·なし")
+            "季節(長)" if flx["acf1"] >= ACF_THR else "·短メモリなし")
         print(f"  {site:<10}{len(years):>5}{len(daily.dropna(subset=['NEE'])):>6}"
               f"{lin['acf1']:>10.2f}{lin['efold']:>8.0f}{flx['acf1']:>10.2f}"
               f"{flx['efold']:>8.0f}{flx['r2']:>8.2f}  {note}", flush=True)
 
-    print(f"\n  === まとめ（判定できた {n_ok} サイト）===")
-    print(f"  夜間実測NEE で★短メモリ：{n_star}／{n_ok}")
+    print(f"\n  === まとめ ===")
+    print(f"  **駆動弱（R²<0.3）＝判定不能：{n_weak} サイト**"
+          "  ← 夜間NEEはノイズが大きく、駆動モデルが説明できない")
+    print(f"  判定できた {n_ok} サイトのうち ★短メモリ：{n_star}")
+    if n_ok == 0:
+        print("\n  → **この検定は成立しなかった**。『メモリが無い』ではなく"
+              "『測定量だけでは信号がノイズに埋もれて判定できない』が正しい読み。")
     print("\n  読み：★が出る＝**タワー側のメモリも派生量（分割）なしで確認できる**")
     print("        ＝策Bの核心（測定量だけで骨格を組み直す）が呼吸メモリについて成立する。")
     print("        ★が出ない＝タワーのメモリは分割の産物だった可能性＝主張をチャンバーに限定する。")
