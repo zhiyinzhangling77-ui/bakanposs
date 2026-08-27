@@ -130,7 +130,14 @@ def residuals(X, y, oos):
         pred = _fit_predict(X, y, ~test, test)
         if pred is None:
             continue
-        res[test] = y[test] - pred[test]
+        r = y[test] - pred[test]
+        # **ブロックごとに中心化する**（旗74 第1版の欠陥＝14件目）。
+        # 交差検証では各ブロックを**別々のデータで当てはめる**ため、
+        # ブロック間に**系統的な水準差（段差）**が生じる。段差は長い時間尺度の成分であり、
+        # **e-fold を大きく見せて「短メモリ」の判定を潰す**（★が不当に減る）。
+        # ブロック長は全体の1/5（数百日）なので、**4〜7日のメモリには影響しない**。
+        m = np.nanmean(r)
+        res[test] = r - (m if np.isfinite(m) else 0.0)
     return res
 
 
