@@ -131,6 +131,8 @@ def residuals(X, y, oos):
         if pred is None:
             continue
         r = y[test] - pred[test]
+        if not np.isfinite(r).any():        # 有効な残差が無いブロック（警告を出さない）
+            continue
         # **ブロックごとに中心化する**（旗74 第1版の欠陥＝14件目）。
         # 交差検証では各ブロックを**別々のデータで当てはめる**ため、
         # ブロック間に**系統的な水準差（段差）**が生じる。段差は長い時間尺度の成分であり、
