@@ -194,11 +194,63 @@ def surrogate_o_information_stats(
     シャッフルは全依存を壊すので真の Ω=0。推定値はサプシステムと同じ疎性の
     有限標本バイアスを含むため、観測 Ω をこのヌルと比べれば（MM が不完全でも）
     冗長/相乗の有意判定が正しく行える。z = (Ω_obs − μ)/σ。
+
+    .. warning::
+       **自己相関のある系列では、このヌルは正しくない**（旗72 の監査で確定）。
+       各点を独立に並べ替えるため**自己相関まで壊れ**、サロゲートの実効標本数だけが
+       大きくなる。結果、**偽陽性率が 5%→27% に膨らみ、z が「冗長」側へ偏る**
+       （AR(1) φ=0.8・4変数・8ビン・N=500・反復60）。
+       時系列に対しては :func:`surrogate_o_information_stats_block` を使うこと。
+       **本関数の挙動は互換性のため変更していない**。
     """
     n = len(cols[0])
     samples = np.empty(n_surrogates, dtype=float)
     for s in range(n_surrogates):
         shuf = [col[rng.permutation(n)] for col in cols]
+        samples[s] = o_information_indices(shuf, n_bins, correct)
+    mu = float(np.mean(samples))
+    sigma = float(np.std(samples))
+    return {"mu": mu, "sigma": sigma, "threshold": mu + c * sigma}
+
+
+def block_shuffle(a: np.ndarray, block_len: int,
+                  rng: np.random.Generator) -> np.ndarray:
+    """長さ ``block_len`` の連続塊ごと順序を入れ替える（**塊の中の自己相関は保つ**）。"""
+    n = len(a)
+    nb = int(np.ceil(n / block_len))
+    blocks = [a[i * block_len:(i + 1) * block_len] for i in range(nb)]
+    order = rng.permutation(nb)
+    return np.concatenate([blocks[i] for i in order])[:n]
+
+
+def surrogate_o_information_stats_block(
+    cols: list[np.ndarray], n_bins: int, n_surrogates: int, c: float,
+    rng: np.random.Generator, correct: bool = False, block_len: int = 10,
+) -> dict[str, float]:
+    """**自己相関を保つ**ブロック並べ替えによる O-information のヌル分布 (μ, σ)。
+
+    :func:`surrogate_o_information_stats` は各点を独立に並べ替えるため、依存と同時に
+    **自己相関も壊す**。実データは自己相関を持ち実効標本数が N より小さいので、
+    i.i.d. のヌルと比べると**有限標本バイアスの差が z に乗る**。
+
+    旗72 の監査（変数間の依存がゼロ＝真の Ω=0 の系列で測定、反復60）：
+
+    ======  ======================  ===========  ==========
+    φ       ヌル                     z の平均      |z|>2
+    ======  ======================  ===========  ==========
+    0.0     素の並べ替え（従来）        +0.03        3.3%
+    0.8     素の並べ替え（従来）        **+1.21**    **26.7%**
+    0.8     ブロック（本関数）          +0.20        8.3%
+    ======  ======================  ===========  ==========
+
+    ＝**自己相関があると従来のヌルは偽陽性率が 5%→27% に膨らみ、z が「冗長」側へ偏る**。
+    本関数はそれを概ね回復させる。``block_len`` は**記憶の時間尺度より長く**採ること
+    （短すぎると自己相関を壊してしまい従来と同じ問題が残る）。
+    """
+    n = len(cols[0])
+    samples = np.empty(n_surrogates, dtype=float)
+    for s in range(n_surrogates):
+        shuf = [block_shuffle(col, block_len, rng) for col in cols]
         samples[s] = o_information_indices(shuf, n_bins, correct)
     mu = float(np.mean(samples))
     sigma = float(np.std(samples))

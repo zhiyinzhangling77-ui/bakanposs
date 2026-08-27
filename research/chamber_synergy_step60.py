@@ -46,13 +46,23 @@ def _anomaly(s, win=5):
     return s - s.rolling(win, center=True, min_periods=max(2, win // 2)).mean()
 
 
-def omega_z(cols, bins=BINS, nsur=NSUR, seed=0):
-    """O-information Ω とシャッフルヌルからの z。Ω<0＝相乗支配, Ω>0＝冗長支配。"""
+def omega_z(cols, bins=BINS, nsur=NSUR, seed=0, block_len=None):
+    """O-information Ω とヌルからの z。Ω<0＝相乗支配, Ω>0＝冗長支配。
+
+    ``block_len`` を渡すと**自己相関を保つブロック並べ替え**のヌルを使う。
+    素の並べ替え（``block_len=None``）は**自己相関のある系列では正しくない**——
+    旗72 の監査で **偽陽性率 5%→27%・z が「冗長」側へ偏る**ことが確定している
+    （AR(1) φ=0.8・4変数・8ビン・N=500・反復60 で z の平均 +1.21）。
+    """
     from japanflux_pn import information_theory as it
     idx = [it.digitize_series(np.asarray(c, float), bins) for c in cols]
     om = it.o_information_indices(idx, bins, correct=True)
     rng = np.random.default_rng(seed)
-    st = it.surrogate_o_information_stats(idx, bins, nsur, 0.0, rng, correct=True)
+    if block_len:
+        st = it.surrogate_o_information_stats_block(
+            idx, bins, nsur, 0.0, rng, correct=True, block_len=block_len)
+    else:
+        st = it.surrogate_o_information_stats(idx, bins, nsur, 0.0, rng, correct=True)
     z = (om - st["mu"]) / st["sigma"] if st["sigma"] > 0 else np.nan
     return float(om), float(z)
 
@@ -124,12 +134,17 @@ def run_synth():
 
 
 # ---------- 実データ ---------------------------------------------------------------
-def run_real(cosore_dir, igbp, months):
+def run_real(cosore_dir, igbp, months, block_lens=(0, 5, 10, 20)):
     root = Path(cosore_dir); desc = pd.read_csv(root / "description.csv")
     print("=== 旗60 実データ：チャンバー多深度で呼吸の相乗を測る（測定量だけ）===")
     print("  変数 {Rs, T浅, T深, SM}（5日アノマリ）。Ω<0＝相乗支配、Ω>0＝冗長支配。")
-    print(f"  比較：タワー側の呼吸系 {{Rg,Ta,θ,GER}} は **相乗 19/21・mean z=−7.1**（旗14, GER依存）\n")
-    print(f"  {'dataset':<32}{'深度(浅,深,SM)':>18}{'N':>6}{'Ω':>10}{'z':>8}  判定")
+    print(f"  比較：タワー側の呼吸系 {{Rg,Ta,θ,GER}} は **相乗 19/21・mean z=−7.1**（旗14, GER依存）")
+    print("  **旗72 の修正**：素の並べ替えヌルは自己相関を壊し、偽陽性率 5%→27%・z が冗長側へ偏る。")
+    print("  → **ブロック長を変えた複数のヌルを併記**し、**結論がブロック長に依らないか**を見る。")
+    print("     ブロック長 0＝従来の素の並べ替え（**参考値・信用しない**）。\n")
+    zc = "".join(f"{('z(素)' if L == 0 else f'z(塊{L})'):>9}" for L in block_lens)
+    print(f"  {'dataset':<30}{'深度':>14}{'N':>6}{'Ω':>9}{zc}  判定(塊10)")
+    tally = {L: [0, 0, 0] for L in block_lens}       # [相乗, 冗長, 有意でない]
     n_syn = n_red = n_ns = 0
     skipped = 0
     for _, d in desc.iterrows():
@@ -146,10 +161,19 @@ def run_real(cosore_dir, igbp, months):
         if anom is None:
             skipped += 1
             continue
+        cols = [anom[c].to_numpy() for c in ("Rs", "T_sh", "T_dp", "SM")]
         try:
-            om, z = omega_z([anom[c].to_numpy() for c in ("Rs", "T_sh", "T_dp", "SM")])
+            zs = {}
+            for L in block_lens:
+                om, zz = omega_z(cols, block_len=(L or None))
+                zs[L] = zz
+                if np.isfinite(zz):
+                    tally[L][0 if zz < -2 else (1 if zz > 2 else 2)] += 1
+                else:
+                    tally[L][2] += 1
         except Exception:
             continue
+        z = zs.get(10, np.nan)          # **判定はブロック長10（呼吸の4日より長い）で行う**
         # **判定は z で行う**（Ω の生の符号ではない）。4変数・8ビン・N数百では有限標本バイアスで
         # シャッフルヌルの平均自体が負になるため、Ω を 0 と比べるのは無効。旗14 も z で報告している。
         # （旗60 第1回はここを誤り、Ω の符号で「相乗5/6」と出していた＝結論が逆転する誤り）
@@ -157,19 +181,30 @@ def run_real(cosore_dir, igbp, months):
         red = np.isfinite(z) and z > 2
         n_syn += int(syn); n_red += int(red); n_ns += int(not (syn or red))
         u = meta["used"]
-        print(f"  {ds:<32}{f'{u[0]:.0f},{u[1]:.0f},{u[2]:.0f}cm':>18}{len(anom):>6}"
-              f"{om:>10.4f}{z:>8.1f}  "
-              f"{'★相乗(z<-2)' if syn else ('·冗長(z>+2)' if red else '△有意でない')}", flush=True)
+        zstr = "".join(f"{zs[L]:>9.1f}" if np.isfinite(zs[L]) else f"{'—':>9}"
+                       for L in block_lens)
+        print(f"  {ds:<30}{f'{u[0]:.0f},{u[1]:.0f},{u[2]:.0f}':>14}{len(anom):>6}"
+              f"{om:>9.4f}{zstr}  "
+              f"{'★相乗' if syn else ('·冗長' if red else '△有意でない')}", flush=True)
     print(f"\n  === まとめ ===")
     print(f"  多深度がそろって計算できたサイト：{n_syn + n_red + n_ns}（不足で除外 {skipped}）")
     if n_syn + n_red + n_ns == 0:
         print("  → **測定量だけでは計算できない**＝旗14 は B（計算量依存）に留まる。")
         return
-    print(f"  ★相乗支配（z<−2）：{n_syn}／ ·冗長支配（z>+2）：{n_red}／ △有意でない：{n_ns}")
+    print(f"  **ヌルの作り方ごとの内訳（相乗／冗長／有意でない）**")
+    for L in block_lens:
+        t = tally[L]
+        tag = "素の並べ替え（**信用しない**）" if L == 0 else f"ブロック長 {L}"
+        print(f"    {tag:<28} {t[0]:>3} ／ {t[1]:>3} ／ {t[2]:>3}")
+    print(f"  判定に採るのは**ブロック長10**：★相乗 {n_syn}／·冗長 {n_red}／△有意でない {n_ns}")
+    print("  **ブロック長を変えて結論が変わるなら、その結論はヌルの作り方に依存している**＝そう記す。")
     print("\n  読み：相乗が多数＝**旗14 の相乗支配が測定量だけで裏取りされた**＝B から A へ移せる。")
     print("        冗長が多数／割れる＝相乗は**分割派生量に固有**の可能性＝旗14 は B に留めそう記す。")
     print("  留保：チャンバーは土壌呼吸のみ・点測定で、タワーの生態系呼吸とは対象が違う。")
     print("        変数も {Rs,T浅,T深,SM} で {Rg,Ta,θ,GER} と一対一ではない＝**同型の検定であって同一ではない**。")
+    print("        **旗72 の帰結は両刃**：素のヌルは z を冗長側へ偏らせるので、")
+    print("        **冗長は偽陽性が出やすく、相乗は逆に隠れる**。旗60 第2回の『相乗0／冗長3』は")
+    print("        **どちらの向きにも安全でなかった**＝本実行がその作り直しである。")
 
 
 def main():
