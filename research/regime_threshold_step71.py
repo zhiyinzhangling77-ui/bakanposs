@@ -62,8 +62,33 @@ from evaporation_regime_step36 import daily_energy
 
 LABELS = ["乾(下位1/3)", "中(中位1/3)", "湿(上位1/3)"]
 
+# ── 旗71 第1版の欠陥（自分の道具の欠陥・10件目）と、その修正 ──
+# 第1版のプラセボは `np.roll(th, len//2)` の**単一シフト**だった。しかし本解析は
+# **夏（7–8月）だけを連結した系列**なので、年あたりの日数のちょうど整数倍だけずらすと
+# **7月が7月に、8月が8月に写る**＝**夏の中の季節進行が壊れない**。
+# 実際 MN-Hst は 248日/6年 ≒ 62日/年 で 124 = ちょうど2年分となり、
+# **プラセボが実測とほぼ同じ反転（+0.38/−0.25 対 実測 +0.40/−0.42）を出した**。
+# ＝プラセボが機能していなかった。
+#
+# これは同時に**実質的な交絡の指摘**でもある：θ と γLE が**共通の夏内トレンド**を持てば、
+# Rg を制御しても偏相関は出る。
+#
+# 修正は二つ：
+#   (1) プラセボを**複数シフト**にし、**年境界の整数倍付近を除く**。基準線は |r| の**最大値**。
+#   (2) 偏相関の制御に**日付（夏の中の位置）を加える**＝共通の季節トレンドを直接除去する。
+N_PLACEBO = 12          # 試すシフトの本数
+DOY_GUARD = 4           # 年境界の整数倍から±この日数は使わない
 
-def strata_stats(d, thcol="th"):
+
+def _controls(sub, with_doy):
+    """偏相関の制御変数。`with_doy` なら**夏の中の位置**も制御して季節トレンドを除く。"""
+    ctrl = [sub["Rg"].to_numpy()]
+    if with_doy and isinstance(sub.index, pd.DatetimeIndex):
+        ctrl.append(sub.index.dayofyear.to_numpy().astype(float))
+    return ctrl
+
+
+def strata_stats(d, thcol="th", with_doy=False):
     """θ の**サイト内百分位**で三分位に切り、各層で偏相関を測る。"""
     th = d[thcol].to_numpy()
     ok = np.isfinite(th)
@@ -77,25 +102,47 @@ def strata_stats(d, thcol="th"):
         sub = d.loc[m]
         if len(sub) < 20 or "gLE" not in sub:
             out.append(None); continue
-        le = _boot_ci(sub["gLE"].to_numpy(), sub["th"].to_numpy(),
-                      [sub["Rg"].to_numpy()])
-        h = (_boot_ci(sub["gH"].to_numpy(), sub["th"].to_numpy(),
-                      [sub["Rg"].to_numpy()]) if "gH" in sub else (np.nan, None, 0))
-        out.append({"n": int(len(sub)), "sd": float(np.nanstd(sub["th"])),
-                    "mean": float(np.nanmean(sub["th"])), "le": le, "h": h})
+        ctrl = _controls(sub, with_doy)
+        le = _boot_ci(sub["gLE"].to_numpy(), sub[thcol].to_numpy(), ctrl)
+        h = (_boot_ci(sub["gH"].to_numpy(), sub[thcol].to_numpy(), ctrl)
+             if "gH" in sub else (np.nan, None, 0))
+        out.append({"n": int(len(sub)), "sd": float(np.nanstd(sub[thcol])),
+                    "mean": float(np.nanmean(sub[thcol])), "le": le, "h": h})
     return out
 
 
-def placebo_strata(d, seed=0):
-    """**位相シフトした θ** で同じ三分位を切る（層別そのものが作る模様の基準線）。
+def _shifts(n, nyear):
+    """使うシフト量。**年あたり日数の整数倍付近を除く**（第1版の欠陥＝夏内位相が壊れない）。"""
+    per = max(int(round(n / max(nyear, 1))), 1)
+    cand = []
+    for k in range(1, N_PLACEBO + 1):
+        s = int(round(n * k / (N_PLACEBO + 1)))
+        if s <= 0 or s >= n:
+            continue
+        if per > 1 and min(s % per, per - s % per) <= DOY_GUARD:
+            continue                                   # 年境界の整数倍付近は捨てる
+        cand.append(s)
+    return cand or [max(n // 3, 1)]
 
-    θ の分布も自己相関も保ったまま、**γLE/γH との対応だけを壊す**。
+
+def placebo_strata(d, nyear=1, thcol="th", with_doy=False):
+    """**複数の位相シフト**で同じ層別を行い、|r| が**最大**になった回を基準線として返す。
+
+    θ の分布も自己相関も保ったまま γLE/γH との対応を壊す。単一シフトだと
+    **たまたま夏内位相が保たれる**ことがあるため（旗71 第1版の欠陥）、複数試して**最悪値**を採る。
     """
-    d2 = d.copy()
-    th = d2["th"].to_numpy()
-    shift = len(th) // 2 or 1
-    d2["th"] = np.roll(th, shift)
-    return strata_stats(d2)
+    best = None
+    for sh in _shifts(len(d), nyear):
+        d2 = d.copy()
+        d2[thcol] = np.roll(d2[thcol].to_numpy(), sh)
+        rows = strata_stats(d2, thcol, with_doy)
+        if rows is None:
+            continue
+        worst = max([abs(r["le"][0]) for r in rows if r and np.isfinite(r["le"][0])],
+                    default=np.nan)
+        if best is None or (np.isfinite(worst) and worst > best[0]):
+            best = (worst, sh, rows)
+    return (best[2], best[1]) if best else (None, None)
 
 
 def _f(ci):
@@ -157,8 +204,9 @@ def main():
                           ("none", "閾値なし（全域で同じ弱い依存）")]:
             print(f"  {lab}")
             show(kind, strata_stats(make_synth(kind)))
-            print(f"    プラセボ（位相シフト θ）：")
-            show(kind, placebo_strata(make_synth(kind)))
+            rows, sh = placebo_strata(make_synth(kind), nyear=1)
+            print(f"    プラセボ（**複数シフトの最悪値**・採用シフト={sh}）：")
+            show(kind, rows)
             print()
         print("  → 期待：閾値ありは**乾の層でだけ反転**、閾値なしは**どの層も似た弱さ**。")
         print("     プラセボはどちらも反転なし＝層別そのものは模様を作らない。")
@@ -193,8 +241,14 @@ def main():
         except Exception as e:
             print(f"    降水量の取得に失敗 {type(e).__name__}: {str(e)[:80]}")
         show(s, strata_stats(d))
-        print(f"    プラセボ（位相シフト θ・同じ層別操作）：")
-        show(s, placebo_strata(d))
+        rows, sh = placebo_strata(d, nyear=nyr)
+        print(f"    プラセボ（**複数シフトの最悪値**・採用シフト={sh}日）：")
+        show(s, rows)
+        print(f"    **季節も制御**（Rg に加えて夏の中の位置＝日付も偏らせる）：")
+        show(s, strata_stats(d, with_doy=True))
+        rows2, sh2 = placebo_strata(d, nyear=nyr, with_doy=True)
+        print(f"    ↑のプラセボ（複数シフトの最悪値・採用シフト={sh2}日）：")
+        show(s, rows2)
         print()
 
     print("  === 読み方 ===")
@@ -207,6 +261,11 @@ def main():
     print("     読者がその効果を見えるようにするため。**sd が小さい層で r が小さくても、それだけでは")
     print("     『依存が無い』とは言えない**。")
     print("   ・プラセボに同じ模様が出るなら、それは層別操作そのものが作った模様である。")
+    print("   ・**旗71 第1版の欠陥（自分の道具の欠陥10件目）**：プラセボが単一シフトだったため、")
+    print("     夏だけを連結した系列で**年あたり日数の整数倍**ずれると**7月が7月に写り季節進行が")
+    print("     壊れず**、MN-Hst でプラセボが実測とほぼ同じ反転を出した。→ **複数シフトの最悪値**に")
+    print("     変更し、さらに**日付を制御した版**を併記して**共通の夏内トレンド**を直接除く。")
+    print("   ・**日付を制御した版で消える結果は、θ ではなく季節進行で説明できる**＝そう読むこと。")
     print("   ・Seneviratne et al. (2010) の soil moisture regime の枠組みと同型＝**新発見ではない**。")
     print("     本ツールが確かめるのは『自分のデータがその枠組みと整合するか』である。")
     print("   ・γH/γLE は共通 w'（旗35）・θ 深度不統一（旗33）は解消していない。")
