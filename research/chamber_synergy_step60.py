@@ -134,6 +134,49 @@ def run_synth():
 
 
 # ---------- 実データ ---------------------------------------------------------------
+def acf_check(cosore_dir, igbp, months):
+    """**アノマリ系列に自己相関がどれだけ残っているか**だけを見る（サロゲート無し＝速い）。
+
+    旗72 は「自己相関があると素の並べ替えヌルが壊れる」ことを示した。だが旗60 の実データでは
+    ヌルを変えても z がほとんど動かなかった。**5日アノマリが自己相関を落としているため**
+    という推論を、**測って確かめる**ためのもの。
+    """
+    root = Path(cosore_dir); desc = pd.read_csv(root / "description.csv")
+    print("=== 旗60 付随：5日アノマリに自己相関がどれだけ残っているか ===")
+    print("  旗72 の監査は AR(1) φ=0.8 で行った。**実データの φ 相当がそれより遥かに小さければ**、")
+    print("  ヌルを変えても z が動かなかったことの説明になる。\n")
+    print(f"  {'dataset':<30}{'変数':>6}{'N':>7}{'ACF1':>8}{'ACF2':>8}{'ACF3':>8}")
+    for _, d in desc.iterrows():
+        ds = str(d["CSR_DATASET"]); ig = str(d.get("CSR_IGBP", ""))
+        if igbp and igbp.lower() not in ig.lower():
+            continue
+        f = root / "datasets" / f"data_{ds}.csv"
+        if not f.exists():
+            continue
+        try:
+            anom, meta = load_multi(f, months)
+        except Exception:
+            continue
+        if anom is None:
+            continue
+        for c in ("Rs", "T_sh", "T_dp", "SM"):
+            x = anom[c].to_numpy(float)
+            x = x[np.isfinite(x)]
+            if len(x) < 30:
+                continue
+            x = x - x.mean()
+            den = float(np.dot(x, x))
+            acs = [float(np.dot(x[:-k], x[k:]) / den) if den > 0 else np.nan
+                   for k in (1, 2, 3)]
+            print(f"  {ds:<30}{c:>6}{len(x):>7}"
+                  + "".join(f"{a:>8.2f}" for a in acs))
+    print("\n  → **ACF1 が 0 近傍（または負）なら、旗72 の φ=0.8 はこのデータより遥かに厳しい条件**")
+    print("     ＝素のヌルでも実害が無かったことの説明になる（旗60 の結論が動かなかった理由）。")
+    print("  → **ACF1 が 0.5 を超えるなら推論は誤り**であり、別の説明を探す必要がある。")
+    print("  留保：中心移動平均を引くと**負の自己相関が誘導される**ことがある。")
+    print("        負でも『自己相関が無い』ではないが、**素のヌルが冗長側へ偏る機序とは向きが違う**。")
+
+
 def run_real(cosore_dir, igbp, months, block_lens=(0, 5, 10, 20)):
     root = Path(cosore_dir); desc = pd.read_csv(root / "description.csv")
     print("=== 旗60 実データ：チャンバー多深度で呼吸の相乗を測る（測定量だけ）===")
@@ -211,8 +254,12 @@ def main():
     p = argparse.ArgumentParser(description="チャンバー多深度で呼吸の相乗を測る")
     p.add_argument("--cosore-dir"); p.add_argument("--igbp", default=None)
     p.add_argument("--month", type=int, nargs="+", default=None)
+    p.add_argument("--acf-check", action="store_true",
+                   help="アノマリの自己相関だけを見る（旗72 の推論の確認・速い）")
     a = p.parse_args()
-    if a.cosore_dir:
+    if a.cosore_dir and a.acf_check:
+        acf_check(a.cosore_dir, a.igbp, a.month)
+    elif a.cosore_dir:
         run_real(a.cosore_dir, a.igbp, a.month)
     else:
         run_synth()
