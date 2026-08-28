@@ -113,7 +113,16 @@ def _fit_predict(X, y, rows_fit, rows_pred):
     coef = np.linalg.lstsq(X[ok], y[ok], rcond=None)[0]
     out = np.full(len(y), np.nan)
     pr = rows_pred & np.isfinite(X).all(axis=1)
-    out[pr] = X[pr] @ coef
+    pred = X[pr] @ coef
+    # **外挿の暴走を止める**（自分の道具の欠陥17件目）。
+    # 列を増やすと、学習範囲の外で予測が桁違いの値を返すことがある。
+    # 残差分散が爆発し、**記憶量（ACF1×分散）の比が発散**して
+    # 削減率が 10^15 % のような無意味な数値になっていた（旗75 の実データで発覚）。
+    # 学習した y の範囲を**その幅の半分だけ広げた区間**に予測を丸める＝
+    # 「この当てはめが語れる範囲」を超えた外挿を、**無かったことにせず、頭打ちにする**。
+    lo, hi = np.nanmin(y[ok]), np.nanmax(y[ok])
+    pad = 0.5 * (hi - lo)
+    out[pr] = np.clip(pred, lo - pad, hi + pad)
     return out
 
 
