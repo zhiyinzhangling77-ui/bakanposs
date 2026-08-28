@@ -93,6 +93,18 @@ def _iter_badm_files(data_dir: str, code: str | None = None) -> list[Path]:
             for f in sorted(root.glob(g)):
                 if f not in seen:
                     seen.append(f)
+    # **コードが指定されているなら、そのコードを含むファイルだけに絞る**
+    # （自分の道具の欠陥19件目＝旗64 とまったく同じ形の誤り）。
+    # 元の実装は `data_dir` 直下の BADM を**コードで絞らずに全部**拾い、**先頭を採用**した。
+    # 各サイトが専用フォルダを持つ JapanFLUX では問題にならなかったが、
+    # **複数サイトが1つのディレクトリを共有する**（旗79 で登録した AmeriFlux が正にそれ）と、
+    # **アルファベット順で先頭のサイトの BADM が全サイトに返る**。
+    # 実際、US-Wkg（草原）・US-Whs（低木地）・US-SRM（サバンナ）が
+    # **CA-TP3（常緑針葉樹林）の IGBP を受け取り「森林」と表示された**。
+    # 旗64 の教訓どおり、**該当が無ければ空を返す**——**他サイトの値を代わりに返さない**。
+    if code:
+        hit = [f for f in seen if code.lower() in str(f).lower()]
+        return hit
     return seen
 
 
