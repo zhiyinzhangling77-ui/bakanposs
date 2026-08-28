@@ -121,7 +121,8 @@ def main():
         print("  対象が無い"); return
     df2 = pd.DataFrame(rows)
     # 優先順位：★（外挿）→ 既存の対でない → 日数が多い
-    df2["rank"] = (df2["star"].fillna(False).astype(int) * 100
+    df2["star_i"] = df2["star"].map({True: 1, False: 0}).fillna(0).astype(int)
+    df2["rank"] = (df2["star_i"] * 100
                    + (~df2["have"]).astype(int) * 10
                    + np.clip(df2["n"] / 500.0, 0, 9))
     df2 = df2.sort_values("rank", ascending=False)
@@ -143,6 +144,20 @@ def main():
         print("  **まだ対が無い★を、探すネットワーク別に数えると**：")
         for net, k in by.items():
             print(f"    {net:<26} {k} 件")
+    # **同じ座標に複数のチャンバーがある場所**＝タワー1本で複数の対が作れる
+    un = df2[(df2["star"] == True) & (~df2["have"])].copy()
+    if len(un):
+        un["key"] = un["lat"].round(2).astype(str) + "," + un["lon"].round(2).astype(str)
+        grp = un.groupby("key").agg(n_ch=("ds", "size"), days=("n", "sum"),
+                                    reg=("reg", "first"), net=("net", "first"),
+                                    names=("ds", lambda x: " / ".join(sorted(x))))
+        grp = grp.sort_values(["n_ch", "days"], ascending=False)
+        print(f"\n  === **タワー1本で何組の対が作れるか**（★かつ未取得を座標でまとめた）===")
+        print(f"  {'座標':<18}{'チャンバー数':>7}{'合計日数':>9}  {'地域':<12}{'網':<24}")
+        for k, r in grp.iterrows():
+            print(f"  {k:<18}{r['n_ch']:>7}{r['days']:>9}  {r['reg']:<12}{r['net']:<24}")
+            print(f"    └ {r['names']}")
+
     print("\n  === 取得の順序（提案）===")
     print("  1. **★かつ記録が長く、日本以外**——A-1 の同一地点検証を、**日本に固有でない形**にできる。")
     print("     現在の4組はすべて日本＝**擬似反復の懸念がある**（旗43 が名指しした穴と同型）。")
