@@ -265,7 +265,45 @@ def run_synth():
 
 
 # ---------- 実データ -------------------------------------------------------------
-def tower_series(code):
+def _pressure_from_csv(code, data_dir):
+    """気圧を**CSV から直接読む**（旗77 第1版の欠陥＝自分の道具の欠陥16件目）。
+
+    第1版は `load_raw_all` の返り値に `PA_F` を探した。だが `load_raw_all` は
+    **変数マップに写像された列（RK_VARS）だけ**を返すので、**マップに無い `PA_F` は
+    そこで捨てられている**。「生列から直接読む」とコメントしながら、
+    **実際には捨てられた後のフレームを見ていた**＝全サイトで「気圧あり 0 日」になっていた。
+    旗76 の下調べでは `PA_F` が確かに在ると確認できていたので、**食い違いで気づけた**。
+    """
+    root = Path(data_dir)
+    csvs = sorted([p for p in root.rglob(f"*{code}*")
+                   if p.is_file() and p.suffix.lower() == ".csv"
+                   and "ALLVARS_HH" in p.name and "__MACOSX" not in p.parts],
+                  key=lambda p: p.stat().st_size, reverse=True)
+    for f in csvs[:2]:
+        try:
+            head = pd.read_csv(f, nrows=1)
+        except Exception:
+            continue
+        col = next((c for c in ("PA_F", "PA_1_1_1") if c in head.columns), None)
+        tcol = next((c for c in ("TIMESTAMP_START", "TIMESTAMP_END") if c in head.columns), None)
+        if col is None or tcol is None:
+            continue
+        try:
+            d = pd.read_csv(f, usecols=[tcol, col])
+        except Exception:
+            continue
+        v = pd.to_numeric(d[col], errors="coerce")
+        v[v <= -9000] = np.nan                      # JapanFLUX の欠測コード
+        idx = pd.to_datetime(d[tcol].astype("Int64").astype(str),
+                             format="%Y%m%d%H%M", errors="coerce")
+        ser = pd.Series(v.to_numpy(), index=idx).dropna()
+        if ser.empty:
+            continue
+        return ser.groupby(ser.index.normalize()).mean(), col
+    return None, None
+
+
+def tower_series(code, data_dir):
     from japanflux_pn.config import AnalysisConfig
     from japanflux_pn.sites import get_site
     from japanflux_pn.preprocess import load_raw_all
@@ -273,16 +311,13 @@ def tower_series(code):
     out = {}
     if "P" in raw.columns:
         out["P"] = raw["P"].groupby(raw.index.normalize()).sum()
-    # 気圧は変数マップに無いので**生列から直接読む**（PA_F を使い、無ければ PA_1_1_1）
-    for cand in ("PA_F", "PA_1_1_1"):
-        if cand in raw.columns:
-            out["PA"] = raw[cand].groupby(raw.index.normalize()).mean()
-            out["PA_col"] = cand
-            break
+    pa, col = _pressure_from_csv(code, data_dir)
+    if pa is not None:
+        out["PA"], out["PA_col"] = pa, col
     return out
 
 
-def run_real(cosore_dir):
+def run_real(cosore_dir, data_dir):
     root = Path(cosore_dir)
     print("  ── 実データ（同一地点4組）──")
     print("     基準線は旗74 の最も豊かな段階（T×W テンソルビン）。そこにタワー由来の列を足す。")
@@ -303,7 +338,7 @@ def run_real(cosore_dir):
         daily = df[cols].groupby(df.index.normalize()).mean()
         daily = daily.reindex(pd.date_range(daily.index.min(), daily.index.max(), freq="D"))
         try:
-            tw = tower_series(code)
+            tw = tower_series(code, data_dir)
         except Exception as e:
             print(f"    タワー読み込み失敗 {type(e).__name__}: {str(e)[:90]}\n"); continue
         P = tw["P"].reindex(daily.index).to_numpy() if "P" in tw else None
@@ -339,6 +374,7 @@ def run_real(cosore_dir):
 def main():
     p = argparse.ArgumentParser(description="降水と気圧でメモリは説明できるか")
     p.add_argument("--cosore-dir")
+    p.add_argument("--data-dir", default="/mnt/hdd/JAPANFLUX")
     p.add_argument("--synth", action="store_true")
     a = p.parse_args()
     print("=== 旗77：降水と気圧でメモリは説明できるか（六つ目と七つ目の対抗仮説）===")
@@ -347,7 +383,7 @@ def main():
         run_synth()
         if not a.cosore_dir:
             return
-    run_real(a.cosore_dir)
+    run_real(a.cosore_dir, a.data_dir)
 
 
 if __name__ == "__main__":
