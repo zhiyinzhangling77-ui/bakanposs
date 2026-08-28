@@ -115,7 +115,13 @@ def measure(y, T, W, kind, shift=None):
     # **記憶量＝ラグ1 の自己共分散**（旗77 で統計量の誤りに気づいて追加した）。
     # ACF1 だけでは、説明変数が効いて残差が小さくなったときに
     # **残りかすの相対的な自己相関が上がる**ため、対象概念（自己相関している分散の量）を測れない。
-    mem = a1 * v if (np.isfinite(a1) and np.isfinite(v)) else np.nan
+    # **残差が元の系列より大きく暴れたら判定不能**にする（欠陥17件目の後始末）。
+    # 頭打ちを入れてもなお分散が元系列の3倍を超える場合、比としての削減率は意味を持たない。
+    vy = float(np.nanvar(ly))
+    if not (np.isfinite(v) and np.isfinite(vy)) or (vy > 0 and v > 3.0 * vy):
+        mem = np.nan
+    else:
+        mem = a1 * v if (np.isfinite(a1) and np.isfinite(v)) else np.nan
     return {"r2": r2, "acf1": a1, "efold": _efold_gap(res), "var": v, "mem": mem,
             "n": int(np.isfinite(res).sum())}
 
