@@ -255,6 +255,11 @@ SITES: dict[str, SiteSpec] = {
         data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
         hh_glob="**/AMF_US-Whs_FLUXNET_FLUXMET_H*_*.csv",
         fmt="fluxnet",
+        # **このサイトだけ NEE が VUT で提供されていない**（旗80 で判明）。
+        # CUT（一定 u* 閾値）に切り替える。**VUT と CUT は u* 閾値の決め方が違う**ので、
+        # NEE をサイト間で比べる解析では**この1サイトだけ規約が違う**ことに注意。
+        # 旗66（GER・Ts・th しか使わない）には影響しない。
+        var_overrides={"NEE": "NEE_CUT_REF"},
         description="Walnut Gulch Lucky Hills 低木 ↔ SCOTT_WHS（乾燥）（旗79 で 0.02 km）",
     ),
     "US-SRM": SiteSpec(
