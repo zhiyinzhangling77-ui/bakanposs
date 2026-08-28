@@ -73,7 +73,10 @@ def main():
         print("       （取得ページの『Include multi-site BADM file』を入れて取り直すと可能）")
     else:
         try:
-            df = pd.read_csv(src, low_memory=False)
+            # **BIF は utf-8 でないことがある**（旗83 で UnicodeDecodeError）。
+            # 旗79 も同じ弱さを持ち、**例外を握って黙って飛ばしていた**。
+            df = pd.read_csv(src, low_memory=False,
+                             encoding="latin-1", encoding_errors="replace")
             cols = {c.upper(): c for c in df.columns}
             sid = next((cols[k] for k in ("SITE_ID", "SITEID") if k in cols), None)
             var = next((cols[k] for k in ("VARIABLE", "VARIABLE_NAME") if k in cols), None)
