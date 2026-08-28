@@ -2417,3 +2417,31 @@ v1 で「`HIRANO_PDB`（排水された熱帯泥炭）は遅れ・積算の両�
 - **留保**：ネットワークは**座標からの推定**であり、**そのサイトにタワーが在るとは限らない**。
   COSORE の座標自体も正しい保証はない（**旗64 で自分の座標抽出が壊れていた**）＝
   取得後は**必ず距離を計算して同一地点を確認**する（旗51 と同じ 10km 基準）。
+
+## 旗79：AmeriFlux FLUXNET 取得物の**下調べと座標照合**（登録の前・検定はしない）
+- 旗78 の一覧に従い、AmeriFlux **FLUXNET 版**を `/mnt/hdd/AmeriFlux_FLUXNET/` に取得。
+  **製品を FLUXNET にした理由**：BASE は「サイトチームが出したまま」で**分割済み RECO が在るとは限らない**、
+  FLUXNET 版は**分割済み・ギャップフィル済み**で**変数名が既存の JapanFLUX 用マップとほぼ同系統**、
+  そして**対象サイトが全部 FLUXNET 版のリストに入っていた**。**BADM も同梱**を選んだ（座標照合に要る）。
+- **落としたサイトと、対応するチャンバー**（コードはユーザーが提示した AmeriFlux の公式一覧で照合）：
+  | コード | サイト名 | 対応チャンバー |
+  |---|---|---|
+  | **US-SSH** | Susquehanna Shale Hills CZO | KAYE ★4本（**座標未確認**） |
+  | **CA-TP4** | Turkey Point **1939** Plantation | ARAIN **TP39**（10.6年） |
+  | **CA-TP3** | Turkey Point **1974** Plantation | ARAIN **TP74 ★** |
+  | **CA-TPD** | Turkey Point Mature Deciduous | ARAIN TPD |
+  | **US-MMS** | Morgan Monroe State Forest | ZHANG maple/oak ★2本 |
+  | **US-Ha1** | Harvard Forest EMS Tower | SAVAGE hf006 ★（168日と短い） |
+  | US-Wkg / US-Whs / US-SRM | Walnut Gulch ×2・Santa Rita Mesquite | 乾燥地（優先度低） |
+- **番号が交差する罠**：**TP39 → CA-TP4**（1939年植林）、**TP74 → CA-TP3**（1974年植林）。
+- **プエルトリコは落とした**：GUTIERREZ は **El Tallonal（Arecibo・北岸）**、AmeriFlux の
+  PR-xGU（Guánica）/PR-xLA（Lajas）は**南西で 50km 以上離れる**＝**対になるタワーが無い**。
+  **調べたから落とせた**——推定のまま取得していたら、後で距離を測って気づくことになった。
+- **本ツールがやること（3点のみ・検定はしない）**：
+  1. 何が置かれているか（**zip のままでも中を読む**）
+  2. 列名と変数マップの適合、**欠けている変数の候補列**（FLUXNET 版は `TS_F_MDS_1` のように**添字が付く**）
+  3. **BADM から座標を取り、COSORE 全チャンバーとの距離**を出す＝10km 基準（旗51）で同一地点を判定
+- **この3点が揃うまで `sites.py` に登録しない**。特に **US-SSH ↔ KAYE は未確認の推定**であり、
+  同じペンシルベニアには **US-HWB** もある。**座標が決着させる**。
+- 合成の BADM で抽出を検証済み：**存在しないコードには `(None, None)` を返す**
+  ＝旗64 の教訓（**無いときは他人の値を返さない**）を実装に落としてある。
