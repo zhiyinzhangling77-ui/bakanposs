@@ -47,6 +47,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cosore_memory_step40 import load_cosore
 from model_richness_step74 import measure, star
 from same_site_arc_step66 import PAIRS, memory_from_daily, tower_daily, chamber_daily, verdict
+from colocate_step51 import haversine
 
 # **取得の動機**でタワーを分ける（旗78 の順位に従って選んだか、付いてきたか）
 STAR_PICKED = {"US-SSH", "US-Ha1", "US-MMS", "CA-TP3"}
@@ -166,8 +167,12 @@ def main():
         s = star(m)
         if s:
             stage[kind]["⑦ ★短メモリ"] += 1
+        try:
+            la, lo = float(d["CSR_LATITUDE"]), float(d["CSR_LONGITUDE"])
+        except (TypeError, ValueError, KeyError):
+            la = lo = np.nan
         rows.append({"ds": ds, "kind": kind, "pub": pub, "star": bool(s),
-                     "acf1": m["acf1"], "r2": m["r2"]})
+                     "acf1": m["acf1"], "r2": m["r2"], "lat": la, "lon": lo})
 
     print(f"    {'段階':<24}{'森林':>7}{'非森林':>8}")
     keys = ["① description に在る", "② データファイルが在る", "③ Rs と Tsoil が在る",
@@ -198,6 +203,29 @@ def main():
             for pub, r in multi.head(8).iterrows():
                 print(f"        {int(r['size']):>2} 件（★{int(r['sum'])}）  {pub[:70]}")
         print("      → **群で数えると件数がどう変わるか**が、擬似反復の効き方そのもの。")
+
+        # **論文ではなく「場所」で括る**（これが本来の独立単位）。
+        # 論文単位は**出典が欠損すると 1 件ずつ別群になり、独立性を過大評価**する——
+        # 実際 KAYE の 8 データセットは **1 つの観測所（Susquehanna Shale Hills CZO）**である。
+        print(f"\n    **場所で括った縮約・森林**（座標の単連結。旗43 は 50km を使った）")
+        fo2 = fo.dropna(subset=["lat", "lon"])
+        for km in (1.0, 50.0):
+            lab = np.arange(len(fo2))
+            pts = fo2[["lat", "lon"]].to_numpy()
+            for i in range(len(pts)):          # 単連結（総当たりで十分な規模）
+                for j in range(i + 1, len(pts)):
+                    if haversine(*pts[i], *pts[j]) <= km:
+                        old, new = lab[j], lab[i]
+                        if old != new:
+                            lab[lab == old] = new
+            gg = fo2.assign(cl=lab).groupby("cl")["star"].agg(["size", "sum"])
+            print(f"      {km:>5.0f} km で括ると：**{len(gg)} 箇所**／"
+                  f"★を含む箇所 **{int((gg['sum'] > 0).sum())}/{len(gg)}**"
+                  f"（{int((gg['sum'] > 0).sum()) / len(gg):.0%}）")
+            big = gg[gg["size"] >= 3].sort_values("size", ascending=False)
+            if len(big):
+                print(f"        3 件以上が同じ箇所：{list(big['size'].astype(int))}")
+        print("      → **これが A-1 の本当の分母**：論文でも データセットでもなく、**場所の数**。")
 
     print("\n  === 読み方 ===")
     print("  ①の差が大きい＝**私の取得選択が結論を押し上げていた**。差が小さければ影響は軽い。")
