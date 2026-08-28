@@ -49,15 +49,24 @@ from same_site_arc_step66 import PAIRS
 ACQUIRED = {ds for _, ds, _ in PAIRS}          # 私が実際に対にしたチャンバー
 
 
-def read_all_sites(badm_dir):
-    """BADM から**全サイトの座標**を読む（長形式：SITE_ID / VARIABLE / DATAVALUE）。"""
+def read_all_sites(badm_dir, max_files=2000):
+    """BADM から**全サイトの座標**を読む。
+
+    取得の仕方で**2 通りの形**がありうる：
+      ・**multi-site BADM が 1 ファイル**（全サイトが 1 つに入っている）
+      ・**サイトごとに 1 ファイル**（837 個に分かれている）
+    **どちらでも動くよう、見つかった BADM を全部読んで統合する**
+    （第1版は「一番大きい 1 ファイル」しか読まず、**分割配布だと 1 サイトしか取れなかった**）。
+    """
     root = Path(badm_dir)
     cands = sorted([p for p in root.rglob("*")
                     if p.is_file() and p.suffix.lower() in (".csv", ".xlsx", ".xls")
-                    and ("BIF" in p.name.upper() or "BADM" in p.name.upper())],
-                   key=lambda p: p.stat().st_size, reverse=True)
-    best = None
-    for f in cands[:8]:
+                    and ("BIF" in p.name.upper() or "BADM" in p.name.upper())])
+    if not cands:
+        return 0, pd.DataFrame()
+    parts = []
+    n_read = 0
+    for f in cands[:max_files]:
         try:
             if f.suffix.lower() in (".xlsx", ".xls"):
                 df = pd.read_excel(f)
@@ -73,16 +82,23 @@ def read_all_sites(badm_dir):
         if not (sid and var and val):
             continue
         v = df[var].astype(str).str.upper()
-        lat = df[v == "LOCATION_LAT"].set_index(sid)[val]
-        lon = df[v == "LOCATION_LONG"].set_index(sid)[val]
-        igb = df[v == "IGBP"].set_index(sid)[val]
-        t = pd.DataFrame({"lat": pd.to_numeric(lat, errors="coerce"),
-                          "lon": pd.to_numeric(lon, errors="coerce")})
-        t = t[~t.index.duplicated(keep="first")].dropna()
-        t["igbp"] = igb[~igb.index.duplicated(keep="first")].reindex(t.index)
-        if best is None or len(t) > len(best[1]):
-            best = (f, t)
-    return best if best else (None, pd.DataFrame())
+        keep = df[v.isin(["LOCATION_LAT", "LOCATION_LONG", "IGBP"])]
+        if keep.empty:
+            continue
+        parts.append(pd.DataFrame({"site": keep[sid].astype(str),
+                                   "var": v[keep.index], "val": keep[val]}))
+        n_read += 1
+    if not parts:
+        return n_read, pd.DataFrame()
+    allp = pd.concat(parts, ignore_index=True)
+    # **同じサイトが複数ファイルに出ることがある**（版違い等）＝最初の値を採る
+    piv = (allp.drop_duplicates(subset=["site", "var"], keep="first")
+              .pivot(index="site", columns="var", values="val"))
+    out = pd.DataFrame(index=piv.index)
+    out["lat"] = pd.to_numeric(piv.get("LOCATION_LAT"), errors="coerce")
+    out["lon"] = pd.to_numeric(piv.get("LOCATION_LONG"), errors="coerce")
+    out["igbp"] = piv.get("IGBP")
+    return n_read, out.dropna(subset=["lat", "lon"])
 
 
 def main():
@@ -97,10 +113,14 @@ def main():
     print("  ＝**一致率 ≒ チャンバーが★である確率**")
     print("  ＝**対を作れた全組のチャンバー★率が、偏りのない一致率の推定**になる。\n")
 
-    src, sites = read_all_sites(a.badm_dir)
+    n_files, sites = read_all_sites(a.badm_dir)
     if sites.empty:
-        print(f"  {a.badm_dir} に座標を含む BADM が無い"); return
-    print(f"  AmeriFlux サイト：**{len(sites)} 件**（{src.name}）\n")
+        print(f"  {a.badm_dir} に座標を含む BADM が無い（読めたファイル {n_files} 件）"); return
+    print(f"  BADM ファイル {n_files} 件を統合 → **AmeriFlux サイト {len(sites)} 件**")
+    if len(sites) < 100:
+        print(f"  ※**100 サイト未満**＝分割配布の一部しか読めていない可能性がある。")
+        print(f"    置き場所（--badm-dir）に全ファイルが在るか確認すること。")
+    print()
 
     desc = pd.read_csv(Path(a.cosore_dir) / "description.csv")
     root = Path(a.cosore_dir)
