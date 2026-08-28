@@ -47,6 +47,8 @@ from cosore_memory_step40 import load_cosore, _acf_gap, _efold_gap
 from model_richness_step74 import design, residuals, star
 
 SETS = ("同時刻のみ", "＋遅れ1-3日", "＋積算7/30日", "＋両方")
+BEAT = 0.20     # プラセボの削減率をこれだけ上回ること
+FLOOR = 0.20    # **かつ、実データ自身が最低これだけ減らしていること**
 SHIFTS = (100, 180, 260, 500)          # プラセボの位相ずらし（日）
 LAGS = (1, 2, 3)
 WINS = (7, 30)
@@ -197,7 +199,11 @@ def show(rows):
         if m is None or not np.isfinite(m["acf1"]):
             print(f"    {kind:<16}{'—':>8}{'—':>8}{'—':>10}{'—':>8}{'—':>8}  測れず"); continue
         d = _d(base, m); dp = _d(base, pl)
-        v = ("**過去の気象が説明**" if np.isfinite(dp) and d > dp + 0.20 else
+        # **絶対的な下限が要る**（判定規則の欠陥＝18件目）。
+        # 「プラセボより良い」だけでは足りない——**プラセボが記憶を大きく増やした場合**、
+        # 実データは**何も減らさなくても自動的に勝つ**。それは説明した証拠ではない。
+        # → **実データ自身が実質的に減らしている（20%以上）**ことを併せて要求する。
+        v = ("**過去の気象が説明**" if (np.isfinite(dp) and d > dp + BEAT and d > FLOOR) else
              "プラセボと同程度＝説明せず" if np.isfinite(dp) else "プラセボ無し＝判定保留")
         print(f"    {kind:<16}{m['acf1']:>8.2f}{d:>+8.0%}"
               f"{(f'{dp:+.0%}' if np.isfinite(dp) else '—'):>10}{m['r2']:>8.2f}  {v}")
@@ -225,7 +231,7 @@ def run_real(cosore_dir, igbp, months):
     print("     プラセボは**同じ次元で時間の対応だけ壊した列**（4 通りの位相ずらしのうち"
           "**最も下げた回**を採る）。\n")
     hdr = "".join(f"{k:>12}" for k in SETS)
-    print(f"  {'dataset':<30}{hdr}   プラセボ最良")
+    print(f"  {'dataset':<30}{hdr}   **実データの削減率** / プラセボ最良")
     tally = {k: [] for k in SETS[1:]}
     npl = {k: [] for k in SETS[1:]}
     beat = {k: 0 for k in SETS[1:]}
@@ -254,7 +260,7 @@ def run_real(cosore_dir, igbp, months):
         nsite += 1
         base = r["同時刻のみ"][0]
         cells = f"{base['acf1']:>12.2f}"
-        pls = []
+        pls, reals = [], []
         for kind in SETS[1:]:
             m, pl = r[kind]
             cells += (f"{m['acf1']:>12.2f}" if m and np.isfinite(m["acf1"]) else f"{'—':>12}")
@@ -263,13 +269,14 @@ def run_real(cosore_dir, igbp, months):
                 tally[kind].append(dd)
             if np.isfinite(dp):
                 npl[kind].append(dp)
-            if np.isfinite(dd) and np.isfinite(dp) and dd > dp + 0.20:
+            if np.isfinite(dd) and np.isfinite(dp) and dd > dp + BEAT and dd > FLOOR:
                 beat[kind] += 1
             pls.append(f"{dp:+.0%}" if np.isfinite(dp) else "—")
-        print(f"  {ds:<30}{cells}   {' '.join(pls)}")
+            reals.append(f"{dd:+.0%}" if np.isfinite(dd) else "—")
+        print(f"  {ds:<30}{cells}   実 {' '.join(reals)}  偽 {' '.join(pls)}")
     print(f"\n  === まとめ（{nsite} サイト）===")
     print(f"  {'足した列':<16}{'実データの削減率':>18}{'プラセボの削減率':>18}"
-          f"{'プラセボを20pt超えた数':>24}")
+          f"{'説明する と判定':>18}")
     for kind in SETS[1:]:
         a = np.asarray(tally[kind], float); b = np.asarray(npl[kind], float)
         if len(a) == 0:
