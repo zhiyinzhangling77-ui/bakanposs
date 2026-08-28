@@ -110,27 +110,33 @@ def measure(y, T, W, kind, shift=None):
         return None
     ss = np.nansum((ly - np.nanmean(ly)) ** 2)
     r2 = float(1 - np.nansum(res ** 2) / ss) if ss > 0 else np.nan
-    return {"r2": r2, "acf1": _acf_gap(res, 1), "efold": _efold_gap(res),
+    a1 = _acf_gap(res, 1)
+    v = float(np.nanvar(res))
+    # **記憶量＝ラグ1 の自己共分散**（旗77 で統計量の誤りに気づいて追加した）。
+    # ACF1 だけでは、説明変数が効いて残差が小さくなったときに
+    # **残りかすの相対的な自己相関が上がる**ため、対象概念（自己相関している分散の量）を測れない。
+    mem = a1 * v if (np.isfinite(a1) and np.isfinite(v)) else np.nan
+    return {"r2": r2, "acf1": a1, "efold": _efold_gap(res), "var": v, "mem": mem,
             "n": int(np.isfinite(res).sum())}
 
 
 def placebo_best(y, T, W, kind):
-    """複数の位相ずらしを試し、**最も ACF1 を下げた回**（プラセボに有利な側）を返す。"""
+    """複数の位相ずらしを試し、**最も記憶量を下げた回**（プラセボに有利な側）を返す。"""
     best = None
     for sh in SHIFTS:
         if sh >= len(T):
             continue
         m = measure(y, T, W, kind, shift=sh)
-        if m is None or not np.isfinite(m["acf1"]):
+        if m is None or not np.isfinite(m.get("mem", np.nan)):
             continue
-        if best is None or m["acf1"] < best["acf1"]:
+        if best is None or m["mem"] < best["mem"]:
             best = m
     return best
 
 
 def analyze(y, T, W):
     base = measure(y, T, W, "同時刻のみ")
-    if base is None or not np.isfinite(base["acf1"]):
+    if base is None or not np.isfinite(base.get("mem", np.nan)):
         return None
     rows = {"同時刻のみ": (base, None)}
     for kind in SETS[1:]:
@@ -139,9 +145,12 @@ def analyze(y, T, W):
 
 
 def _d(base, m):
-    if m is None or not np.isfinite(m["acf1"]):
+    """**記憶量の削減率**（1.0＝完全に消えた・0＝変わらない・負＝増えた）。"""
+    if m is None or not np.isfinite(m.get("mem", np.nan)) or not np.isfinite(base["mem"]):
         return np.nan
-    return base["acf1"] - m["acf1"]
+    if base["mem"] <= 0:
+        return np.nan
+    return 1.0 - m["mem"] / base["mem"]
 
 
 # ---------- 合成 -----------------------------------------------------------------
@@ -174,18 +183,18 @@ def make_synth(kind, n=900, seed=0):
 
 def show(rows):
     base = rows["同時刻のみ"][0]
-    print(f"    {'足した列':<16}{'ACF1':>8}{'低下':>8}{'プラセボ':>10}{'低下':>8}{'R²':>8}  判定")
-    print(f"    {'同時刻のみ（基準）':<16}{base['acf1']:>8.2f}{'—':>8}{'—':>10}{'—':>8}"
+    print(f"    {'足した列':<16}{'ACF1':>8}{'**削減率**':>10}{'プラセボ':>10}{'R²':>8}  判定")
+    print(f"    {'同時刻のみ（基準）':<16}{base['acf1']:>8.2f}{'—':>10}{'—':>10}"
           f"{base['r2']:>8.2f}")
     for kind in SETS[1:]:
         m, pl = rows[kind]
         if m is None or not np.isfinite(m["acf1"]):
             print(f"    {kind:<16}{'—':>8}{'—':>8}{'—':>10}{'—':>8}{'—':>8}  測れず"); continue
         d = _d(base, m); dp = _d(base, pl)
-        v = ("**過去の気象が説明**" if np.isfinite(dp) and d > dp + 0.10 else
+        v = ("**過去の気象が説明**" if np.isfinite(dp) and d > dp + 0.20 else
              "プラセボと同程度＝説明せず" if np.isfinite(dp) else "プラセボ無し＝判定保留")
-        print(f"    {kind:<16}{m['acf1']:>8.2f}{d:>+8.2f}"
-              f"{(pl['acf1'] if pl else np.nan):>10.2f}{dp:>+8.2f}{m['r2']:>8.2f}  {v}")
+        print(f"    {kind:<16}{m['acf1']:>8.2f}{d:>+8.0%}"
+              f"{(f'{dp:+.0%}' if np.isfinite(dp) else '—'):>10}{m['r2']:>8.2f}  {v}")
 
 
 def run_synth():
@@ -248,19 +257,19 @@ def run_real(cosore_dir, igbp, months):
                 tally[kind].append(dd)
             if np.isfinite(dp):
                 npl[kind].append(dp)
-            if np.isfinite(dd) and np.isfinite(dp) and dd > dp + 0.10:
+            if np.isfinite(dd) and np.isfinite(dp) and dd > dp + 0.20:
                 beat[kind] += 1
-            pls.append(f"{dp:+.2f}" if np.isfinite(dp) else "—")
+            pls.append(f"{dp:+.0%}" if np.isfinite(dp) else "—")
         print(f"  {ds:<30}{cells}   {' '.join(pls)}")
     print(f"\n  === まとめ（{nsite} サイト）===")
-    print(f"  {'足した列':<16}{'実データの低下':>16}{'プラセボの低下':>16}"
-          f"{'プラセボを 0.10 超えた数':>24}")
+    print(f"  {'足した列':<16}{'実データの削減率':>18}{'プラセボの削減率':>18}"
+          f"{'プラセボを20pt超えた数':>24}")
     for kind in SETS[1:]:
         a = np.asarray(tally[kind], float); b = np.asarray(npl[kind], float)
         if len(a) == 0:
             print(f"  {kind:<16}{'—':>16}{'—':>16}{'—':>24}"); continue
-        print(f"  {kind:<16}{np.median(a):>+15.3f}"
-              f"{(np.median(b) if len(b) else np.nan):>+15.3f}"
+        print(f"  {kind:<16}{np.median(a):>+17.0%}"
+              f"{(np.median(b) if len(b) else np.nan):>+17.0%}"
               f"{beat[kind]:>20}/{nsite}")
     print("\n  読み方：")
     print("   ・**実データの低下がプラセボと同程度なら、どんな形の過去の気象でも説明できない**")
