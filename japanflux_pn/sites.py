@@ -96,11 +96,38 @@ DEFAULT_VAR_MAP_CHINAFLUX: dict[str, str] = {
     "GEP": "GPP_DT",     # 総一次生産 (昼分割; GPP_dt も許容)
 }
 
+# --- 旗79 拡張: AmeriFlux FLUXNET (ONEFlux) 形式 -------------------------------
+# AmeriFlux の "FLUXNET" 製品（ONEFlux 処理）。JapanFlux2024 と**ほぼ同名**だが 2 点違う:
+#   1. 土壌系に**層インデックスが付く** (TS_F_MDS_1 / SWC_F_MDS_1)。**_1 が最浅**という
+#      慣例に従うが、**深度そのものは列名から分からない**——旗33 が指摘した
+#      「θ 深度不統一」がここでも残る。**チャンバー側の深度と一致する保証はない**。
+#   2. 可変 u* 閾値の基準値が `_VUT_REF`（JapanFlux は `_vUT`）。
+# 欠測センチネル (-9999) と TIMESTAMP_START (YYYYMMDDHHMM) は JapanFlux と同じ。
+# QC 列は値列+"_QC" で解決できる（RECO/GPP は自前 QC が無く NEE の QC を代理に使う既定に乗る）。
+#
+# **分割法は DT（昼分割）に揃える**：日本のサイトが `RECO_DT_vUT` を使っているため、
+# NT を混ぜると旗29/30/37/39 が扱った「分割法による違い」がサイト間比較に紛れ込む。
+DEFAULT_VAR_MAP_FLUXNET: dict[str, str] = {
+    "Rg":  "SW_IN_F",
+    "Ta":  "TA_F",
+    "VPD": "VPD_F",
+    "Ts":  "TS_F_MDS_1",
+    "P":   "P_F",
+    "th":  "SWC_F_MDS_1",
+    "gH":  "H_F_MDS",
+    "gLE": "LE_F_MDS",
+    "GER": "RECO_DT_VUT_REF",
+    "NEE": "NEE_VUT_REF",
+    "GEP": "GPP_DT_VUT_REF",
+}
+
+
 # 形式名 → 既定 var_map。SiteSpec.fmt で選択する。
 _FORMAT_MAPS: dict[str, dict[str, str]] = {
     "japanflux": DEFAULT_VAR_MAP,
     "base": DEFAULT_VAR_MAP_BASE,
     "chinaflux": DEFAULT_VAR_MAP_CHINAFLUX,
+    "fluxnet": DEFAULT_VAR_MAP_FLUXNET,
 }
 
 # データソース名 → HH ファイル glob。SiteSpec.source で選択する。
@@ -170,6 +197,72 @@ SITES: dict[str, SiteSpec] = {
         code="JP-Mse",
         data_dir="/mnt/hdd/JAPANFLUX/JP-Mse",
         description="Mase paddy (rice)",
+    ),
+    # --- 旗79：AmeriFlux FLUXNET（同一地点の対を 4→15 組に増やす）-------------
+    # **すべて旗79 で BADM 座標を照合し、10km 以内にデータのある COSORE チャンバーが
+    # あることを確認した上で登録**（US-HB1 は最近傍 358km だったので登録しない）。
+    "US-SSH": SiteSpec(
+        code="US-SSH",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-SSH_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Susquehanna Shale Hills CZO ↔ KAYE 6本（旗79 で 0.05–0.12 km）",
+    ),
+    "US-Ha1": SiteSpec(
+        code="US-Ha1",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-Ha1_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Harvard Forest EMS ↔ VARNER・SAVAGE hf006-03/05（旗79 で 0.27 km）",
+    ),
+    "US-MMS": SiteSpec(
+        code="US-MMS",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-MMS_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Morgan Monroe State Forest ↔ ZHANG maple/oak（旗79 で 0.00 km）",
+    ),
+    "CA-TP4": SiteSpec(
+        code="CA-TP4",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_CA-TP4_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Turkey Point 1939 植林 ↔ ARAIN TP39（旗79 で 0.00 km）",
+    ),
+    "CA-TP3": SiteSpec(
+        code="CA-TP3",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_CA-TP3_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Turkey Point 1974 植林 ↔ ARAIN TP74（旗79 で 0.00 km）",
+    ),
+    "CA-TPD": SiteSpec(
+        code="CA-TPD",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_CA-TPD_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Turkey Point 成熟落葉 ↔ ARAIN TPD（旗79 で 0.00 km）",
+    ),
+    "US-Wkg": SiteSpec(
+        code="US-Wkg",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-Wkg_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Walnut Gulch Kendall 草原 ↔ SCOTT_WKG（乾燥）（旗79 で 0.01 km）",
+    ),
+    "US-Whs": SiteSpec(
+        code="US-Whs",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-Whs_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Walnut Gulch Lucky Hills 低木 ↔ SCOTT_WHS（乾燥）（旗79 で 0.02 km）",
+    ),
+    "US-SRM": SiteSpec(
+        code="US-SRM",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-SRM_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Santa Rita Mesquite ↔ SCOTT_SRM（乾燥）（旗79 で 3.60 km）",
     ),
     # --- A3 (日中韓) 拡張テンプレート ---------------------------------------
     # AmeriFlux/ICOS/KoFlux BASE 形式 (30 分値, `_1_1_1` 位置修飾子)。
