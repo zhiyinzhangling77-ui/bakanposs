@@ -105,7 +105,8 @@ def badm_coords(paths, code):
             if p.suffix.lower() in (".xlsx", ".xls"):
                 df = pd.read_excel(p)
             else:
-                df = pd.read_csv(p)
+                df = pd.read_csv(p, encoding="latin-1",
+                                 encoding_errors="replace")
         except Exception:
             continue
         cols = {c.upper(): c for c in df.columns}
