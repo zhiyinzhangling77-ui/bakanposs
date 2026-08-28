@@ -129,7 +129,13 @@ def main():
     rows = []
     for _, d in desc.iterrows():
         ds = str(d["CSR_DATASET"]); ig = str(d.get("CSR_IGBP", ""))
-        pub = str(d.get("CSR_PRIMARY_PUB", "")).strip() or "（無し）"
+        # **欠損を1つの群に潰さない**（自分の道具の欠陥20件目）。
+        # `str(NaN)` は "nan" という**中身のある文字列**になるため、
+        # `or` のフォールバックが効かず、**出典不明の 12 件が1群に潰れていた**
+        # ＝**研究群の数を過小評価**していた（＝擬似反復を実際より軽く見せる方向）。
+        # 出典が無いものは**それぞれ別群**として扱う（**同じ研究の可能性は残る**＝そう明記）。
+        _pub = str(d.get("CSR_PRIMARY_PUB", "")).strip()
+        pub = _pub if _pub and _pub.lower() != "nan" else f"（出典不明:{ds}）"
         kind = "森林" if "forest" in ig.lower() or "plantation" in ig.lower() else "非森林"
         stage[kind]["① description に在る"] += 1
         f = root / "datasets" / f"data_{ds}.csv"
@@ -177,7 +183,14 @@ def main():
         print(f"\n    **研究者単位（CSR_PRIMARY_PUB）の縮約・森林**")
         g = fo.groupby("pub")["star"].agg(["size", "sum"])
         print(f"      データセット {len(fo)} 件／**研究群 {len(g)} 群**")
-        print(f"      ★を1つ以上含む群：**{int((g['sum'] > 0).sum())}/{len(g)}**")
+        n_unknown = int(fo["pub"].str.startswith("（出典不明").sum())
+        print(f"      ★を1つ以上含む群：**{int((g['sum'] > 0).sum())}/{len(g)}**"
+              f"（うち**出典不明で1件ずつ別群にした分 {n_unknown} 件**）")
+        known = fo[~fo["pub"].str.startswith("（出典不明")]
+        if len(known):
+            gk = known.groupby("pub")["star"].agg(["size", "sum"])
+            print(f"      **出典が分かる分だけ**：{len(known)} 件／{len(gk)} 群／"
+                  f"★を含む群 {int((gk['sum'] > 0).sum())}/{len(gk)}")
         print(f"      （データセット単位では ★ {int(fo['star'].sum())}/{len(fo)}）")
         multi = g[g["size"] >= 3].sort_values("size", ascending=False)
         if len(multi):
