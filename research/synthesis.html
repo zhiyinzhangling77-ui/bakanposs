@@ -147,7 +147,7 @@ footer .files{margin-top:10px}
   <div class="meta">
     <span><b>データ</b> 渦相関・熱帯〜亜寒帯・7–8月・5日アノマリ/日次</span>
     <span><b>手法</b> 情報理論 × 因果探索 × 派生量監査</span>
-    <span><b>旗</b> 13–95</span>
+    <span><b>旗</b> 13–96</span>
   </div>
 </header>
 <hr>
@@ -313,8 +313,29 @@ footer .files{margin-top:10px}
         <strong>枯れた日は一度も有意にならない</strong>。蒸発側は緑の年数が 4 年で CI が広く届かない。
         <br><br>＝<strong>「フェノロジーは棄却された」とは書かない。「この観測構成では、
         フェノロジーで説明されるとは言えなかった」まで</strong>である。<strong>同時に「説明される」とも書かない。</strong>
-        <strong>θ（水）・Rg（エネルギー）・Ts（熱）・GCC（緑度）の四つを試して説明できず、
-        観測データの層別による説明はここで打ち切った。</strong>残るのは<strong>新規観測</strong>か<strong>別の枠組み</strong>である。</div>
+        <strong>θ（水）・Rg（エネルギー）・Ts（熱）・GCC（緑度）の四つを試して説明できなかった。</strong></div>
+      <div class="callout" style="border-left-color:var(--crit)"><span class="k" style="color:var(--crit)">五つ目——打ち切りは早かった（旗96）</span>
+        「四つを試して打ち切る」と書いた直後に、<strong>測定量がもう一つ残っていた</strong>と気づいた——
+        <strong><code>VPD</code>（飽差）は、旗36・89・90・95 のどこにも現れていなかった</strong>。
+        <strong>Bowen 比にとって最も直接的な量</strong>（気孔を閉じさせるのは飽差）なのに、である。
+        <br><br><strong>今回は旗95 の反省を規則にした</strong>——<strong>「帯の中で秋（対照）が反転しなければ、
+        そのサイトは判定しない」という門</strong>を先に置いた。
+        <strong>北米 3 サイトすべてで門を通過し</strong>（秋 +0.51/+0.50/+0.65 ✓）、
+        <strong>「春が反転しない」ことに意味がある状態で測れた</strong>——旗95 では測れなかったことである。
+        <strong>モンゴル MN-Hst は門で落ちた</strong>。<strong>門が無ければ結果として数えていた。</strong>
+        <br><br><strong>結果は ▲——VPD でも説明されない。</strong>
+        そして<strong>私の前提そのものが事実として誤っていた</strong>：
+        「春は高 VPD・秋は低 VPD」と考えて予測したが、<strong>θ高×Rg高 では秋の方が VPD が高い</strong>
+        （春 15.2/15.4/15.6 対 秋 18.3/17.8/19.0）。
+        ＝<strong>「高 VPD が反転を抑える」では、春が反転しない理由にならない</strong>。
+        <strong>予測が外れただけでなく、予測の前提にした事実が違っていた。</strong>
+        <br><br>副検定（春の中だけで VPD を高低に分ける）では <strong>US-Whs だけ「低 VPD の春だけ反転」</strong>
+        ——<strong>主検定と食い違うので両方を書き、断定しない</strong>。
+        <em>US-Whs は旗95 でも唯一、春側の信号を出したサイトだった（緑の日だけ θ→γH が有意）。低木地である。
+        n=1 かつ後付けなので、説明にはしない。</em>
+        <br><br>＝<strong>θ・Rg・Ts・GCC・VPD の五つを使い切った。</strong>
+        <strong>今回の ▲ は対照が働いた状態なので、旗95 の ▲ より強い。</strong>
+        残るのは<strong>新規観測</strong>（`NEW_OBSERVATION_DESIGN.md`）<strong>か別の枠組み</strong>である。</div>
     </div>
 
     <div class="card" style="--rail:var(--amber)">
@@ -617,8 +638,12 @@ footer .files{margin-top:10px}
     <b>区別できる設計（4月のみ×年の上下1/4）には実データの検出力が無い</b>と判明。
     <b>下限を緩めずに、実行そのものを取りやめた。</b>
     <br><br><em>いずれも実データに触れる前に追補を書き、元の事前登録は書き換えずに残した。
-    合成検証が進路を変えたのは 4 度（旗89・91・93×2）——
-    <b>実データで先に走らせていたら、4 回とも誤った結論を出していた。</b></em></div>
+    合成検証が進路を変えたのは <b>5 度</b>（旗89・91・93×2・<b>96</b>）——
+    <b>実データで先に走らせていたら、5 回とも誤った結論を出していた。</b>
+    <br><b>旗96 の型は新しかった</b>——<b>道具が壊れていたのではなく、
+    「検定が答えている問いが、私の問いより広かった」</b>。
+    合成 <code>wet_overlap</code>（θ が真因・VPD は無関係）でも「VPD で説明された」を返してしまうと分かり、
+    <b>春の中だけで VPD を分ける副検定</b>を実データ前に足した。</em></div>
   <div class="callout" style="border-left-color:var(--crit)"><span class="k" style="color:var(--crit)">対照の失敗を規則の門にしていなかった（旗95・31 件目）</span>
     旗95 では<b>秋を「参考」としか位置づけ</b>、<b>「対照が同じ帯で反転しなければ、そのサイトは判定しない」
     という門を規則に書いていなかった</b>。そのため<b>規則は「判定できたサイト 2 つ以上」で発火してしまう</b>——
@@ -711,6 +736,18 @@ footer .files{margin-top:10px}
       <b>緑と水を区別できる設計には検出力が無く、検出力のある設計は区別できない</b>と分かった（旗93）。
       <b>下限を緩めれば数字は出るが、それは「湿った春で反転した」と同じ絵</b>で、旗89 が既に否定した筋である。
       <em>派生量に踏み込む必要は無かった——NEE は独立測定の 8 つの一つで、派生量は GPP/GER の方だった。</em></div></div>
+    <div class="row"><div class="verdict"><span class="chip crit">前提が誤り</span></div>
+      <div class="what"><b>「春は高 VPD だから反転しない」という私の見立ては、前提から誤っていた</b>（旗96）。
+      <b>θ高×Rg高 では秋の方が VPD が高い</b>（春 15.2–15.6 対 秋 17.8–19.0）。
+      <b>予測が外れただけでなく、予測の根拠にした事実が違っていた。</b>
+      <em>事前予測の通算は <b>5 回中 1 勝</b>（旗88・89・95・96 外れ／旗91 当たり）
+      ——<b>機構の見立てには低い重みを置く</b>と自分に課している。</em></div></div>
+    <div class="row"><div class="verdict"><span class="chip good">門が働いた</span></div>
+      <div class="what"><b>旗95 の失敗を規則にしたら、実際に効いた</b>（旗96）。
+      「<b>帯の中で対照（秋）が反転しなければ、そのサイトは判定しない</b>」という門を先に置いたところ、
+      <b>北米 3 サイトは通過し、モンゴル MN-Hst は落ちた</b>——
+      <b>門が無ければ、対照ごと落ちた結果を数えていた</b>。
+      ＝<b>旗96 の ▲ は、旗95 の ▲ より強い</b>。</div></div>
     <div class="row"><div class="verdict"><span class="chip warn">言えなかった</span></div>
       <div class="what"><b>PhenoCam の日次緑度でも、春と秋の差は説明できなかった</b>（旗95）。
       <b>ただし「棄却された」とは書かない</b>——<b>US-Wkg は対照（秋）まで反転せず情報を持たず、実質 n=1</b>。
@@ -814,14 +851,14 @@ footer .files{margin-top:10px}
 
 <hr>
 <footer class="wrap">
-  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–95）。文献は書誌と要約までの確認で、<b>一次PDFは未読</b>。
+  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–96）。文献は書誌と要約までの確認で、<b>一次PDFは未読</b>。
   旗92 で<b>この環境では構造的に読めない</b>と確認した（出版社・学術API・大学の PDF 直リンクまで egress で遮断）。
   <b>論文化の前に、文献を根拠に自分の主張を下げた 2 件（新規性の撤回・水分依存 Q10 の「再発見」評価）を必ず一次で確認する。</b></div>
   <div class="files"><b>記録</b> · research/FLAGS_LOG.md（各旗の詳細）· research/MEASURED_ONLY_SPINE.md（測定量だけの骨格）·
   research/SESSION_STATE.md（現在地と次の一手）· research/LITERATURE_VERIFICATION_TODO.md（<b>一次確認の作業指示</b>）· research/VALIDITY_SYNTHESIS.md（妥当性検証）·
   research/LIMITATIONS.md（穴と対処）· research/PREMISE_AUDIT.md（前提の監査）·
-  research/PREREGISTRATION_step55・57・58・59・61・62・70・82・88・89・90・91・93・95.md（<b>事前登録 14 件</b>、うち
-  step89・91 は<b>実データ実行前に追補</b>して設計を差し替え）· research/PHENOCAM_ACQUISITION.md（取得指示）· research/LITERATURE_NOTES.md（先行研究）·
+  research/PREREGISTRATION_step55・57・58・59・61・62・70・82・88・89・90・91・93・95・96.md（<b>事前登録 15 件</b>、うち
+  step89・91・96 は<b>実データ実行前に追補</b>して設計を直した）· research/NEW_OBSERVATION_DESIGN.md（次に何を測るか）· research/PHENOCAM_ACQUISITION.md（取得指示）· research/LITERATURE_NOTES.md（先行研究）·
   japanflux_pn/DATA_QUALITY.md（品質基準）</div>
   <div class="files"><b>データ利用</b> · チャンバー呼吸は COSORE（Bond-Lamberty et al. 2020, GCB）— 公表時は各データセット提供者への
   クレジットと同論文の引用が要る。TROPOMI SIF は Caltech（Köhler / Frankenberg）— 公表時は要連絡。
