@@ -328,7 +328,14 @@ SITES: dict[str, SiteSpec] = {
         data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
         hh_glob="**/AMF_US-NC4_FLUXNET_FLUXMET_H*_*.csv",
         fmt="fluxnet",
-        description="North Carolina 沿岸湿地林 ↔ MIAO（0.00 km）",
+        # **このサイトは可変 u* 閾値（VUT）の製品が一切無く、CUT しか無い**（旗80）。
+        # さらに **DT（昼分割）も空で、NT（夜分割）しか中身が無い**——
+        # `RECO_NT_CUT_REF` に 238,734 件（`RECO_DT_*` は 0）。
+        # ＝**このサイトだけ分割法が NT**。旗39（NT の記憶は 8 中 7 で DT より長い）が効くので、
+        # **サイト間の比較には使わず、同一地点内のタワー対チャンバーに限って読む**。
+        var_overrides={"GER": "RECO_NT_CUT_REF", "NEE": "NEE_CUT_REF",
+                       "GEP": "GPP_NT_CUT_REF"},
+        description="North Carolina 沿岸湿地林 ↔ MIAO（0.00 km）**NT/CUT のみ**",
     ),
     "US-SRS": SiteSpec(
         code="US-SRS",
@@ -360,7 +367,12 @@ SITES: dict[str, SiteSpec] = {
         data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
         hh_glob="**/AMF_US-Uaf_FLUXNET_FLUXMET_H*_*.csv",
         fmt="fluxnet",
-        description="Fairbanks 黒トウヒ永久凍土林 ↔ UEYAMA_FAIRBANKS（0.00 km）**高緯度**",
+        # **VUT の製品が無く CUT のみ**（旗80）。ただし **DT は在る**——
+        # `RECO_DT_CUT_REF` に 387,946 件。＝**分割法は DT のまま、u* 閾値の規約だけが違う**。
+        # これは旗39 が扱った「分割法の違い」より**軽い差**である。
+        var_overrides={"GER": "RECO_DT_CUT_REF", "NEE": "NEE_CUT_REF",
+                       "GEP": "GPP_DT_CUT_REF"},
+        description="Fairbanks 黒トウヒ永久凍土林 ↔ UEYAMA_FAIRBANKS（0.00 km）**高緯度・CUT**",
     ),
     "US-Var": SiteSpec(
         code="US-Var",
@@ -392,14 +404,14 @@ SITES: dict[str, SiteSpec] = {
         data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
         hh_glob="**/AMF_US-Ho1_FLUXNET_FULLSET_H*_*.csv",
         fmt="fluxnet",
-        description="Howland Forest 主塔（旧 FULLSET 版）↔ DAVIDSON ほか・座標を再確認中",
+        description="Howland Forest 主塔（旧 FULLSET 版）↔ SIHI H1/H2/H2wetland（0.01 km）",
     ),
     "US-UMB": SiteSpec(
         code="US-UMB",
         data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
         hh_glob="**/AMF_US-UMB_FLUXNET_FULLSET_H*_*.csv",
         fmt="fluxnet",
-        description="Univ. of Michigan Biological Station（旧 FULLSET 版）・座標を再確認中",
+        description="UMBS（旧 FULLSET 版）↔ MATHES ×2（0.00 km・同一著者＝縮約で1件）",
     ),
     # --- A3 (日中韓) 拡張テンプレート ---------------------------------------
     # AmeriFlux/ICOS/KoFlux BASE 形式 (30 分値, `_1_1_1` 位置修飾子)。

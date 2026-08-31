@@ -98,7 +98,13 @@ def main():
                 sub = pd.read_csv(files[0], usecols=lambda c: c in set(alt))
                 sub = sub.replace(AnalysisConfig().na_sentinel, np.nan)
                 cnt = sub.notna().sum().sort_values(ascending=False)
-                top = ", ".join(f"{k}={int(n):,}" for k, n in cnt.head(6).items())
+                # **基準列（_REF / _USTAR50）を必ず先に見せる**。
+                # 有効数で並べると分位（_05.._95）が上位を占め、**採るべき `_REF` が
+                # 6 件の表示から漏れていた**（US-Whs で実際にそうなった）。
+                ref = [k for k in cnt.index if k.upper().endswith(("_REF", "_USTAR50"))]
+                other = [k for k in cnt.index if k not in ref]
+                order = ref + other
+                top = ", ".join(f"{k}={int(cnt[k]):,}" for k in order[:6])
             except Exception as e:
                 print(f"    ※{v} の代替列を読めない（{type(e).__name__}）"); continue
             print(f"    ※**{v}（{vm[v]}）は列が在るのに有効値 {n_ok.get(v, 0)}**"

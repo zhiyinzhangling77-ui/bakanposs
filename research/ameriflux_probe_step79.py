@@ -109,10 +109,24 @@ def build_badm_index(paths):
     ＝**旗64/旗82（欠陥19）と同じ「ファイル名で当てにいく」型の失敗**である。
 
     索引にしておけば、**個別 BADM が無くても multi-site から引ける**。
-    同じサイトが複数ファイルに出たら**最初に読めた方**を採る（版違いの座標差は
-    通常 0.0001 度未満だが、**一致を確かめてはいない**＝そう明記する）。
+
+    **道具の欠陥23件目**：第1版は「最初に読めた方」を採った。ところが候補は名前順で、
+    `AMF_AA-Flx_BIF_LEGACY_….xlsx` が先頭に来る＝**全サイトが LEGACY 版で埋まった**。
+    そして **LEGACY と個別 BIF は一致しない**——US-NC4 で **1.11 km**、US-Me6 で 0.27 km、
+    US-WCr で 0.03 km ずれる。**どれを採るかがファイル名の並び順で決まっていた**
+    ＝**欠陥19/21 と同じ「並び順に任せる」型で3度目**である。
+
+    → **データ製品に同梱されている個別 BIF を優先**し、**multi-site は補完にだけ使う**。
+    両方にあるサイトは**距離を測って食い違いを報告する**（**黙ってどちらかを採らない**）。
+    どちらが正しいかは**私には決められない**——**差の大きさを出して人が判断する**。
     """
+    # **個別 BIF を先に、multi-site を後に**（並び順に結論を決めさせない）
+    def _is_multi(p):
+        return "AA-FLX" in p.name.upper() or "AA-NET" in p.name.upper()
+    paths = [p for p in paths if not _is_multi(p)] + [p for p in paths if _is_multi(p)]
+
     idx: dict[str, tuple[float, float, str]] = {}
+    disagree: list[tuple[str, float, str, str]] = []
     for p in paths:
         try:
             if p.suffix.lower() in (".xlsx", ".xls"):
@@ -140,12 +154,18 @@ def build_badm_index(paths):
             sub = sub.dropna(subset=["val"])
             g = sub.groupby(["site", "var"])["val"].median().unstack("var")
             for s, r in g.iterrows():
-                if s in idx:
-                    continue
                 la, lo = r.get("LOCATION_LAT"), r.get("LOCATION_LONG")
-                if la is not None and lo is not None and np.isfinite(la) and np.isfinite(lo):
-                    idx[s] = (float(la), float(lo), p.name)
-    return idx
+                if la is None or lo is None or not (np.isfinite(la) and np.isfinite(lo)):
+                    continue
+                if s in idx:
+                    # **既に在る＝食い違いを測る**（先に入っている個別 BIF を優先して残す）
+                    la0, lo0, src0 = idx[s]
+                    d = haversine(la0, lo0, float(la), float(lo))
+                    if d > 0.01:            # 10 m 以上ずれたら記録する
+                        disagree.append((s, d, src0, p.name))
+                    continue
+                idx[s] = (float(la), float(lo), p.name)
+    return idx, disagree
 
 
 def main():
@@ -179,9 +199,19 @@ def main():
     # **BADM は一度だけ全部読んで索引にする**（欠陥21：multi-site BADM を
     # 「AA-Flx というサイトのもの」として脇に置いていた）。
     all_badm = sorted({p_ for d in per.values() for p_ in d["badm"]})
-    badm = build_badm_index(all_badm)
+    badm, disagree = build_badm_index(all_badm)
     print(f"  BADM {len(all_badm)} ファイル → **座標を引けるサイト {len(badm)} 件**"
-          f"（multi-site BADM を含めて索引化）\n")
+          f"（**個別 BIF を優先**し、multi-site で補完）")
+    if disagree:
+        here = [d for d in disagree if d[0] in {c.upper() for c in per}]
+        print(f"  ※**座標が食い違う組み合わせ {len(disagree)} 件**"
+              f"（うち手元のサイト {len(here)} 件）＝**どちらが正しいかは決めていない**：")
+        for s, d, src0, src1 in sorted(here, key=lambda x: -x[1])[:12]:
+            print(f"     {s:<8}{d:>8.2f} km  採用={src0}  ／  別版={src1}")
+        print(f"     → **採用したのは個別 BIF**（データ製品に同梱されている方）。")
+        print(f"       **10km の判定を跨ぐ差は今のところ無い**が、跨ぐ組が出たら")
+        print(f"       **その組は『判定できない』として扱うこと**。")
+    print()
 
     from japanflux_pn.sites import (DEFAULT_VAR_MAP, DEFAULT_VAR_MAP_BASE,
                                     DEFAULT_VAR_MAP_FLUXNET)
