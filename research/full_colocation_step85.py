@@ -67,27 +67,42 @@ def read_all_sites(badm_dir, max_files=2000):
     parts = []
     n_read = 0
     for f in cands[:max_files]:
+        # **xlsx は複数シートのことがある**（AmeriFlux の multi-site BIF）＝**全シートを見る**
+        frames = []
         try:
             if f.suffix.lower() in (".xlsx", ".xls"):
-                df = pd.read_excel(f)
+                sheets = pd.read_excel(f, sheet_name=None)
+                frames = list(sheets.values())
             else:
-                df = pd.read_csv(f, low_memory=False, encoding="latin-1",
-                                 encoding_errors="replace")
-        except Exception:
+                frames = [pd.read_csv(f, low_memory=False, encoding="latin-1",
+                                      encoding_errors="replace")]
+        except ImportError as e:
+            # **依存が無いときに黙って飛ばさない**——この研究が繰り返し踏んできた
+            # 「沈黙する失敗」そのものなので、**はっきり止めて理由を言う**。
+            print(f"  **{f.name} を開けない**：{e}")
+            print(f"  → `.xlsx` を読むには **openpyxl** が要る：`pip install openpyxl`")
+            print(f"     （または AmeriFlux の csv 形式を使う）")
+            raise SystemExit(1)
+        except Exception as e:
+            print(f"  ※{f.name} を飛ばした（{type(e).__name__}: {str(e)[:60]}）")
             continue
-        cols = {c.upper(): c for c in df.columns}
-        sid = next((cols[k] for k in ("SITE_ID", "SITEID") if k in cols), None)
-        var = next((cols[k] for k in ("VARIABLE", "VARIABLE_NAME") if k in cols), None)
-        val = next((cols[k] for k in ("DATAVALUE", "VALUE") if k in cols), None)
-        if not (sid and var and val):
-            continue
-        v = df[var].astype(str).str.upper()
-        keep = df[v.isin(["LOCATION_LAT", "LOCATION_LONG", "IGBP"])]
-        if keep.empty:
-            continue
-        parts.append(pd.DataFrame({"site": keep[sid].astype(str),
-                                   "var": v[keep.index], "val": keep[val]}))
-        n_read += 1
+        used = False
+        for df in frames:
+            cols = {str(c).upper(): c for c in df.columns}
+            sid = next((cols[k] for k in ("SITE_ID", "SITEID") if k in cols), None)
+            var = next((cols[k] for k in ("VARIABLE", "VARIABLE_NAME") if k in cols), None)
+            val = next((cols[k] for k in ("DATAVALUE", "VALUE") if k in cols), None)
+            if not (sid and var and val):
+                continue
+            v = df[var].astype(str).str.upper()
+            keep = df[v.isin(["LOCATION_LAT", "LOCATION_LONG", "IGBP"])]
+            if keep.empty:
+                continue
+            parts.append(pd.DataFrame({"site": keep[sid].astype(str),
+                                       "var": v[keep.index], "val": keep[val]}))
+            used = True
+        if used:
+            n_read += 1
     if not parts:
         return n_read, pd.DataFrame()
     allp = pd.concat(parts, ignore_index=True)
