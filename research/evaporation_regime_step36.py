@@ -28,8 +28,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from moisture_control_atlas_step31 import partial_spearman, _boot_ci, DEFAULT_SITES
 
 
-def daily_energy(site, months, qc_max):
-    """健全年の夏を日平均に集約（th,Rg,gLE,gH,Ta）。"""
+def daily_energy(site, months, qc_max, extra=()):
+    """健全年の夏を日平均に集約（th,Rg,gLE,gH,Ta）。
+
+    ``extra`` に列名を渡すと追加で集約する（旗90 が `Ts` を要るため）。
+    **既定は空**——`daily.dropna()` が全列に効くので、**列を増やすと落ちる日が変わり、
+    旗36/旗89 の結果が動いてしまう**。**既存の呼び出しは一切変えないこと。**
+    """
     import pandas as pd
     from japanflux_pn.config import AnalysisConfig
     from japanflux_pn.sites import get_site
@@ -40,7 +45,9 @@ def daily_energy(site, months, qc_max):
     ms = sorted(months or mo)
     raw = load_raw_all(get_site(site), cfg)
     raw = raw[raw.index.month.isin(ms)]
-    keep = [c for c in ["th", "Rg", "gLE", "gH", "Ta"] if c in raw.columns]
+    want = ["th", "Rg", "gLE", "gH", "Ta"] + [c for c in extra if c not in
+                                              ("th", "Rg", "gLE", "gH", "Ta")]
+    keep = [c for c in want if c in raw.columns]
     daily = raw[keep].groupby(raw.index.normalize()).mean()
     return daily.dropna(), len(years)
 
