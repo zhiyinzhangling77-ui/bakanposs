@@ -230,3 +230,19 @@ TROPOMI SIF＝Caltech へ公表時連絡／**AmeriFlux Legacy＝各サイト DOI
 **次に効く新規取得**：**US-Wkg・US-Whs・US-SRM の日次の衛星緑度（NDVI/LAI/SIF）**。
 **日ごとに使えて、タワーの γLE の原因ではない**＝**NEE と違いコライダーにならない**。
 ただし**衛星の緑度も雨に応答する**ので、**θ の重なり帯は引き続き必要**。
+
+
+## 【旗94】次の一手：**PhenoCam の日次緑度（GCC）を取る**
+旗93 が落ちた理由は**検出力**（年ラベルの対比が足りない）。**日次 GCC なら解ける**——
+US-Wkg の θ高×Rg高 の春 596 日を日次で 2 分すれば**各群 240 日前後＝下限 60 の 4 倍**。
+
+**GCC を選ぶ理由**：**タワーの γLE の原因でも結果でもない**＝**日次で層別しても関係を歪めない**。
+NEE は同じ気孔を通るので日次では使えなかった。GPP/LAI は分割派生量なので使わない。
+
+**取得の指示**：`research/PHENOCAM_ACQUISITION.md`（**1-day 要約・ROI 全部・`/mnt/hdd/PhenoCam/`**）。
+**確認済み**：`kendall`（US-Wkg）・`luckyhills`（US-Whs）のサイトページは存在（検索水準）。
+**未確認**：**US-SRM（Santa Rita）に PhenoCam があるか**——**無ければ独立クラスタは 1 つ**。
+
+**取得後**：`python research/phenocam_probe_step94.py --phenocam-dir /mnt/hdd/PhenoCam`
+→ **帯が作れて両群 60 日以上のサイトが 2 つ以上なら旗95 を事前登録**、
+**1 つ以下なら検定しない**、**どこでも帯が作れないなら「緑と水は切り離せない」と確定して打ち切る**。
