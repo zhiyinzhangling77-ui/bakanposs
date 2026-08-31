@@ -139,6 +139,72 @@ def main():
     if len(tops) > 20:
         print(f"    …ほか {len(tops)-20} 件")
 
+    # ── 第2段：ancillary.csv に土壌温度が在るか ──
+    # **第1段で「7 組とも本当に温度列が無い」と出た**＝名前の問題ではなかった。
+    # 残るのは可能性(3)＝**別ファイル**。`ancillary.csv` は 87MB あり、**一番大きい**。
+    anc = root / "ancillary.csv"
+    print(f"\n  ── 第2段：`ancillary.csv` に土壌温度が在るか ──")
+    if not anc.exists():
+        print("    **ancillary.csv が無い**＝可能性(3) も潰れた＝**救えない**")
+    else:
+        # 小さい説明ファイルを先に見る（**87MB を読む前に、何が入っているかを知る**）
+        for meta in ("columns.csv", "CSR_COLUMN_UNITS.csv"):
+            f = root / meta
+            if not f.exists():
+                continue
+            try:
+                m = pd.read_csv(f)
+            except Exception as e:
+                print(f"    {meta} を読めない（{type(e).__name__}）"); continue
+            txt = m.astype(str).apply(lambda c: c.str.upper())
+            hit = m[txt.apply(lambda c: c.str.contains("TEMP|TSOIL|SOIL T", na=False)).any(axis=1)]
+            print(f"    {meta}：{len(m)} 行／**温度に触れる行 {len(hit)}**")
+            for _, r in hit.head(8).iterrows():
+                print(f"       {dict(list(r.items())[:4])}")
+        try:
+            head = pd.read_csv(anc, nrows=5, low_memory=False)
+        except Exception as e:
+            print(f"    ancillary.csv を読めない（{type(e).__name__}: {str(e)[:80]}）")
+            head = None
+        if head is not None:
+            print(f"    ancillary.csv の列（{len(head.columns)}）：{list(head.columns)}")
+            key = next((c for c in head.columns
+                        if str(c).upper() in ("CSR_DATASET", "DATASET")), None)
+            tcols = [c for c in head.columns if TEMP_LIKE.search(str(c))]
+            print(f"    データセット列：{key or '**無し**'}"
+                  f"／温度らしい列：{tcols if tcols else '**無し**'}")
+            if key is None:
+                print("    → **データセットを特定する列が無い**＝**対応付けられない**")
+            elif not tcols:
+                print("    → **温度らしい列が無い**＝**ここにも土壌温度は無い**")
+            else:
+                # **7 組の行が在るか、在るなら中身が在るか**を分割読みで数える
+                want = set(NO_TSOIL)
+                use = [key] + tcols
+                n_row = {d: 0 for d in want}
+                n_ok = {d: {c: 0 for c in tcols} for d in want}
+                try:
+                    for ch in pd.read_csv(anc, usecols=lambda c: c in set(use),
+                                          chunksize=200_000, low_memory=False):
+                        sub = ch[ch[key].astype(str).isin(want)]
+                        if sub.empty:
+                            continue
+                        for d, g in sub.groupby(sub[key].astype(str)):
+                            n_row[d] += len(g)
+                            for c in tcols:
+                                n_ok[d][c] += int(pd.to_numeric(g[c], errors="coerce")
+                                                  .notna().sum())
+                except Exception as e:
+                    print(f"    分割読みに失敗（{type(e).__name__}: {str(e)[:80]}）")
+                else:
+                    print(f"    {'chamber':<32}{'行数':>9}  温度列の有効数")
+                    for d in NO_TSOIL:
+                        got = ", ".join(f"{c}={n_ok[d][c]:,}" for c in tcols
+                                        if n_ok[d][c] > 0) or "**すべて 0**"
+                        print(f"    {d:<32}{n_row[d]:>9,}  {got}")
+                    print("    → **行が在り温度に中身が在る組だけ**が救える見込み。")
+                    print("      **時刻列が無ければ時系列にできない**ので、列名も上で確かめること。")
+
     print("\n  === 次の判断 ===")
     print("  ・**温度らしい列が在るのに拾われていなかった** → **抽出規則の欠陥**。")
     print("    直せば **★で選ばない群の n が 8 → 最大 15** になる＝**旗86 の 1/8 が偶然か決まる**。")
