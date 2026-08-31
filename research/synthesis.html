@@ -147,7 +147,7 @@ footer .files{margin-top:10px}
   <div class="meta">
     <span><b>データ</b> 渦相関・熱帯〜亜寒帯・7–8月・5日アノマリ/日次</span>
     <span><b>手法</b> 情報理論 × 因果探索 × 派生量監査</span>
-    <span><b>旗</b> 13–91</span>
+    <span><b>旗</b> 13–92</span>
   </div>
 </header>
 <hr>
@@ -706,8 +706,24 @@ footer .files{margin-top:10px}
     逆に、<strong>旗44 の前提は文献に支持された</strong>：<strong>Lloyd &amp; Taylor (1994)</strong> が「実効活性化エネルギーは
     温度と逆方向に変化する（＝低温ほど見かけ Q10 が大きい）」を示しており、我々が温度曲率を吸収してから
     水分の効果を測った処置は、この文献に沿った正しい方向だった。<br><br>
-    <em>確認の水準：出版社サイトはこの環境から遮断されており、書誌情報と要約までの確認で一次PDFは未読。
-    論文化の際は必ず一次で確認する。</em></div>
+    <em>確認の水準：<strong>一次PDFは未読</strong>。旗92 で確かめたところ、遮断は<strong>環境のネットワーク方針</strong>で、
+    出版社サイト（IOPscience）だけでなく OpenAlex・Semantic Scholar・Europe PMC・大学が置く PDF 直リンクまで
+    <strong>すべて egress で塞がれている</strong>——<strong>粘れば届く類ではない</strong>。
+    検索エンジンの要約までが上限である。</em></div>
+  <div class="callout" style="border-left-color:var(--crit)"><span class="k" style="color:var(--crit)">撤回が広すぎた可能性がある（旗92）</span>
+    一次に依存しない形で自分で確かめた主張は、文献が外れても倒れない——
+    <strong>「低温ほど見かけ Q10 が大きい」は合成データで独立に再現済み</strong>（旗44）。
+    <strong>倒れうるのは、文献の内容そのものを根拠に自分の主張を下げた 2 件</strong>である。
+    <br><br><strong>①新規性の撤回</strong>は補強された：検索要約によれば Eldhose &amp; Ghosh の NEE は
+    <strong>FLUXCOM アンサンブル 0.5°</strong>・VPD は ERA5 0.25°・PAR は月平均 1° で、
+    <strong>我々の半時間・サイト単位の渦相関との差分は実在する</strong>。撤回は妥当で、かつ「同じことをした」でもない。
+    <br><br><strong>②「水分依存 Q10 は再発見」は、下げすぎだった可能性がある</strong>——
+    DAMM（Davidson et al. 2012, GCB 18:371–384）は<strong>基質と酸素の拡散で水分効果を再現する過程ベースのモデル</strong>であり、
+    <strong>多サイトで見かけ Q10 と水分の関係を実証した論文だとは（検索要約の範囲では）書かれていない</strong>。
+    もしそうなら、<strong>分割を通さないチャンバーで多サイト検証し温度交絡を分離した</strong>部分は、
+    機構の提案とは<strong>別種の寄与</strong>になる。
+    <br><br><strong>だがこれは検索要約から推した話であり、一次で確かめていない。だから今ここで撤回を撤回はしない。</strong>
+    <em>一次を読んだとき、この段落を見て確かめること。＝「文献を根拠に自分を削った箇所」こそ、一次確認が要る。</em></div>
   <p>＝残る独自性は「発見」ではなく<strong>方法論の監査一式</strong>——何が測定で何が計算か（旗32/35）、分割窓の分離（旗39）、
   多サイト族補正（旗43）、温度交絡の分離（旗44）、ギャップフィルの影響（旗46）、因果十分性の限界の実証（旗47）、
   後付けを検出する out-of-sample（旗48）——と、<strong>フラックス・衛星・チャンバーの3観測系を突き合わせた消去法の設計</strong>。
@@ -756,8 +772,9 @@ footer .files{margin-top:10px}
 
 <hr>
 <footer class="wrap">
-  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–91）。文献は Perplexity 検索で所在を確認した段階で、
-  旗49 で書誌を確認したが、出版社サイトが遮断されており<b>一次PDFは未読</b>＝論文化の際は必ず一次で確認する。</div>
+  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–92）。文献は書誌と要約までの確認で、<b>一次PDFは未読</b>。
+  旗92 で<b>この環境では構造的に読めない</b>と確認した（出版社・学術API・大学の PDF 直リンクまで egress で遮断）。
+  <b>論文化の前に、文献を根拠に自分の主張を下げた 2 件（新規性の撤回・水分依存 Q10 の「再発見」評価）を必ず一次で確認する。</b></div>
   <div class="files"><b>記録</b> · research/FLAGS_LOG.md（各旗の詳細）· research/MEASURED_ONLY_SPINE.md（測定量だけの骨格）·
   research/SESSION_STATE.md（現在地と次の一手）· research/VALIDITY_SYNTHESIS.md（妥当性検証）·
   research/LIMITATIONS.md（穴と対処）· research/PREMISE_AUDIT.md（前提の監査）·
