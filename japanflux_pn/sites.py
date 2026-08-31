@@ -255,12 +255,13 @@ SITES: dict[str, SiteSpec] = {
         data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
         hh_glob="**/AMF_US-Whs_FLUXNET_FLUXMET_H*_*.csv",
         fmt="fluxnet",
-        # **このサイトだけ NEE が VUT で提供されていない**（旗80 で判明）。
-        # CUT（一定 u* 閾値）に切り替える。**VUT と CUT は u* 閾値の決め方が違う**ので、
-        # NEE をサイト間で比べる解析では**この1サイトだけ規約が違う**ことに注意。
-        # 旗66（GER・Ts・th しか使わない）には影響しない。
-        var_overrides={"NEE": "NEE_CUT_REF"},
-        description="Walnut Gulch Lucky Hills 低木 ↔ SCOTT_WHS（乾燥）（旗79 で 0.02 km）",
+        # **VUT の製品が一切無く CUT のみ**（旗80）。第1版は NEE の欠けにしか気づかず、
+        # **GER も VUT では空だった**——`RECO_DT_VUT_REF` は列が在るのに有効値 0、
+        # `RECO_DT_CUT_REF` に 325,317 件（`RECO_NT_VUT_REF` も 0）。
+        # **分割法は DT のまま、u* 閾値の規約だけが違う**＝旗39 の「分割法の違い」より軽い。
+        var_overrides={"GER": "RECO_DT_CUT_REF", "NEE": "NEE_CUT_REF",
+                       "GEP": "GPP_DT_CUT_REF"},
+        description="Walnut Gulch Lucky Hills 低木 ↔ SCOTT_WHS（0.02 km）**CUT のみ**",
     ),
     "US-SRM": SiteSpec(
         code="US-SRM",
@@ -386,7 +387,11 @@ SITES: dict[str, SiteSpec] = {
         data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
         hh_glob="**/AMF_US-WCr_FLUXNET_FLUXMET_H*_*.csv",
         fmt="fluxnet",
-        description="Willow Creek 落葉広葉樹林 ↔ DESAI（0.00 km）",
+        # **VUT の製品が無く CUT のみ**（旗80）。`RECO_DT_CUT_REF` に 369,490 件
+        # （`RECO_NT_VUT_REF` は 0）。**分割法は DT のまま**。
+        var_overrides={"GER": "RECO_DT_CUT_REF", "NEE": "NEE_CUT_REF",
+                       "GEP": "GPP_DT_CUT_REF"},
+        description="Willow Creek 落葉広葉樹林 ↔ DESAI（0.00 km）**CUT のみ**",
     ),
     "US-xSE": SiteSpec(
         code="US-xSE",
