@@ -98,35 +98,54 @@ def find_hh(d):
     return None, None, None
 
 
-def badm_coords(paths, code):
-    """BADM（BIF）から LOCATION_LAT / LOCATION_LONG を取る。**そのコードの行だけ**を見る。"""
+def build_badm_index(paths):
+    """**見つかった BADM を全部読んで**、SITE_ID → (lat, lon, 出典) の索引を作る。
+
+    **道具の欠陥21件目**：第1版は ``scan()`` が**ファイル名にサイトコードを含む BADM**
+    だけをそのサイトに割り当てていた。ところが AmeriFlux は
+    **multi-site BADM（`AMF_AA-Flx_BIF_…`）** も配る——これは**全サイトの座標を持つのに、
+    ファイル名が `AA-Flx` なので「AA-Flx というサイトの BADM」として脇に置かれ、
+    個別 BADM の無いサイト（US-Ho1・US-UMB）が「座標を取れない」と誤って報告された**。
+    ＝**旗64/旗82（欠陥19）と同じ「ファイル名で当てにいく」型の失敗**である。
+
+    索引にしておけば、**個別 BADM が無くても multi-site から引ける**。
+    同じサイトが複数ファイルに出たら**最初に読めた方**を採る（版違いの座標差は
+    通常 0.0001 度未満だが、**一致を確かめてはいない**＝そう明記する）。
+    """
+    idx: dict[str, tuple[float, float, str]] = {}
     for p in paths:
         try:
             if p.suffix.lower() in (".xlsx", ".xls"):
-                df = pd.read_excel(p)
+                frames = list(pd.read_excel(p, sheet_name=None).values())
             else:
-                df = pd.read_csv(p, encoding="latin-1",
-                                 encoding_errors="replace")
-        except Exception:
+                frames = [pd.read_csv(p, low_memory=False, encoding="latin-1",
+                                      encoding_errors="replace")]
+        except Exception as e:
+            print(f"  ※BADM {p.name} を読めない（{type(e).__name__}: {str(e)[:60]}）")
             continue
-        cols = {c.upper(): c for c in df.columns}
-        sid = next((cols[k] for k in ("SITE_ID", "SITEID") if k in cols), None)
-        var = next((cols[k] for k in ("VARIABLE", "VARIABLE_NAME") if k in cols), None)
-        val = next((cols[k] for k in ("DATAVALUE", "VALUE") if k in cols), None)
-        if not (sid and var and val):
-            continue
-        sub = df[df[sid].astype(str).str.upper() == code.upper()]
-        if sub.empty:
-            continue
-        def get(name):
-            r = sub[sub[var].astype(str).str.upper() == name]
-            if r.empty:
-                return np.nan
-            return pd.to_numeric(r[val], errors="coerce").dropna().astype(float).median()
-        lat, lon = get("LOCATION_LAT"), get("LOCATION_LONG")
-        if np.isfinite(lat) and np.isfinite(lon):
-            return float(lat), float(lon), p.name
-    return None, None, None
+        for df in frames:
+            cols = {str(c).upper(): c for c in df.columns}
+            sid = next((cols[k] for k in ("SITE_ID", "SITEID") if k in cols), None)
+            var = next((cols[k] for k in ("VARIABLE", "VARIABLE_NAME") if k in cols), None)
+            val = next((cols[k] for k in ("DATAVALUE", "VALUE") if k in cols), None)
+            if not (sid and var and val):
+                continue
+            v = df[var].astype(str).str.upper()
+            keep = df[v.isin(["LOCATION_LAT", "LOCATION_LONG"])]
+            if keep.empty:
+                continue
+            sub = pd.DataFrame({"site": keep[sid].astype(str).str.upper(),
+                                "var": v[keep.index],
+                                "val": pd.to_numeric(keep[val], errors="coerce")})
+            sub = sub.dropna(subset=["val"])
+            g = sub.groupby(["site", "var"])["val"].median().unstack("var")
+            for s, r in g.iterrows():
+                if s in idx:
+                    continue
+                la, lo = r.get("LOCATION_LAT"), r.get("LOCATION_LONG")
+                if la is not None and lo is not None and np.isfinite(la) and np.isfinite(lo):
+                    idx[s] = (float(la), float(lo), p.name)
+    return idx
 
 
 def main():
@@ -157,7 +176,15 @@ def main():
             f = Path(a.cosore_dir) / "datasets" / f"data_{d['CSR_DATASET']}.csv"
             ch.append((str(d["CSR_DATASET"]), clat, clon, f.exists()))
 
-    from japanflux_pn.sites import DEFAULT_VAR_MAP, DEFAULT_VAR_MAP_BASE
+    # **BADM は一度だけ全部読んで索引にする**（欠陥21：multi-site BADM を
+    # 「AA-Flx というサイトのもの」として脇に置いていた）。
+    all_badm = sorted({p_ for d in per.values() for p_ in d["badm"]})
+    badm = build_badm_index(all_badm)
+    print(f"  BADM {len(all_badm)} ファイル → **座標を引けるサイト {len(badm)} 件**"
+          f"（multi-site BADM を含めて索引化）\n")
+
+    from japanflux_pn.sites import (DEFAULT_VAR_MAP, DEFAULT_VAR_MAP_BASE,
+                                    DEFAULT_VAR_MAP_FLUXNET)
     for code in sorted(per):
         d = per[code]
         print(f"  ━━ {code} ━━")
@@ -171,7 +198,9 @@ def main():
         print(f"    HH：{where}（{len(cols)} 列）")
         # ② 変数マップの適合
         best = None
-        for name, vm in (("japanflux", DEFAULT_VAR_MAP), ("base", DEFAULT_VAR_MAP_BASE)):
+        for name, vm in (("fluxnet", DEFAULT_VAR_MAP_FLUXNET),
+                         ("japanflux", DEFAULT_VAR_MAP),
+                         ("base", DEFAULT_VAR_MAP_BASE)):
             hit = [k for k, v in vm.items() if v in cols]
             miss = [k for k in vm if vm[k] not in cols]
             print(f"    マップ '{name}'：{len(hit)}/{len(vm)} 一致"
@@ -181,13 +210,22 @@ def main():
         if best and best[2]:
             print(f"    → **欠けている変数の候補列**（FLUXNET 版は添字が付くことがある）：")
             for k in best[2]:
-                cand = [c for c in cols if any(t in c.upper() for t in TOKENS.get(k, (k.upper(),)))]
-                print(f"       {k:<4}: {cand[:8] if cand else '**候補なし**'}")
+                cand = [c for c in cols
+                        if any(t in c.upper() for t in TOKENS.get(k, (k.upper(),)))]
+                # **道具の欠陥22件目**：第1版は `cand[:8]` で切っていた。
+                # FLUXNET の列順は NEE→RECO_NT→GPP_NT→RECO_DT→GPP_DT なので、
+                # **8 件で切ると DT が必ず隠れる**＝「DT が無い」と誤読しかねなかった。
+                # **基準列（_REF、QC/不確実性でないもの）だけを、切らずに出す**。
+                ref = [c for c in cand if c.upper().endswith("_REF")]
+                show = ref if ref else [c for c in cand if not c.upper().endswith("_QC")]
+                print(f"       {k:<4}: {show if show else '**候補なし**'}"
+                      f"{f'（同系 {len(cand)} 列中）' if cand else ''}")
         # ③ 座標照合
-        lat, lon, src = badm_coords(d["badm"], code)
-        if lat is None:
+        got = badm.get(code.upper())
+        if got is None:
             print("    **BADM から座標を取れない**＝同一地点かどうか判定できない")
         else:
+            lat, lon, src = got
             print(f"    座標：{lat:.5f}, {lon:.5f}（{src}）")
             near = sorted(((haversine(lat, lon, cl, cn), ds, ok) for ds, cl, cn, ok in ch))
             print(f"    **最も近い COSORE チャンバー**（{a.km:.0f}km 以内）：")

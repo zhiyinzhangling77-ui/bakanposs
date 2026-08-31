@@ -269,6 +269,138 @@ SITES: dict[str, SiteSpec] = {
         fmt="fluxnet",
         description="Santa Rita Mesquite ↔ SCOTT_SRM（乾燥）（旗79 で 3.60 km）",
     ),
+    # --- 旗86：★で選ばずに取得した 17 本（旗85 の総当たりが名指しした未取得の対）------
+    # **これが本命**：旗78 の★順で選んだ 9 本と違い、**旗85 が「10km 以内にタワーがある」
+    # という座標だけの条件で挙げた組**を取りに行った＝**私の選択バイアスが入っていない**。
+    # 全て旗79（欠陥21/22 を直した版）で BADM 座標を照合済み。
+    # **US-HB1 も配布物にあったが登録しない**——最近傍チャンバーが 358km で対を作れない。
+    "BR-Sa3": SiteSpec(
+        code="BR-Sa3",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_BR-Sa3_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Santarem km83 伐採前後の熱帯林 ↔ GOULDEN（0.14 km）**熱帯・南半球**",
+    ),
+    "CA-Ca1": SiteSpec(
+        code="CA-Ca1",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_CA-Ca1_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="British Columbia 1949 年生ダグラスファー ↔ JASSAL（0.55 km）",
+    ),
+    "CL-SDF": SiteSpec(
+        code="CL-SDF",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_CL-SDF_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Chile 南部落葉林 ↔ PEREZ-QUEZADA（0.00 km）**南半球**",
+    ),
+    "US-Bi1": SiteSpec(
+        code="US-Bi1",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-Bi1_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Bouldin Island アルファルファ ↔ SZUTU_BOULDINA（0.01 km）",
+    ),
+    "US-Bi2": SiteSpec(
+        code="US-Bi2",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-Bi2_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Bouldin Island トウモロコシ ↔ SZUTU_BOULDINC（0.01 km）",
+    ),
+    "US-Me6": SiteSpec(
+        code="US-Me6",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-Me6_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Metolius 若齢ポンデローサ松 ↔ RUEHR（0.00 km）",
+    ),
+    "US-NC2": SiteSpec(
+        code="US-NC2",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-NC2_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="North Carolina テーダマツ植林 ↔ GAVAZZI（0.00 km）",
+    ),
+    "US-NC4": SiteSpec(
+        code="US-NC4",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-NC4_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="North Carolina 沿岸湿地林 ↔ MIAO（0.00 km）",
+    ),
+    "US-SRS": SiteSpec(
+        code="US-SRS",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-SRS_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        # **SCOTT_SRM に対しては US-SRM(3.60km) より US-SRS(2.20km) の方が近い**。
+        # だがチャンバー名 "SRM" は Santa Rita **Mesquite** を指し、US-SRS は別の植生。
+        # ＝**距離と名前が食い違う**（旗51 の「近さは必要条件であって十分条件でない」）。
+        # 本命は名前に従って US-SRM、**US-SRS は感度確認**として並べる。
+        description="Santa Rita（US-SRM の 1.4km 隣）↔ SCOTT_SRM（2.20 km）感度確認用",
+    ),
+    "US-Ton": SiteSpec(
+        code="US-Ton",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-Ton_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Tonzi Ranch オークサバンナ ↔ SZUTU_TONZI・BALDOCCHI（0.00/0.08 km）",
+    ),
+    "US-Tw3": SiteSpec(
+        code="US-Tw3",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-Tw3_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Twitchell アルファルファ ↔ SZUTU_TWITCHELL（0.08 km）",
+    ),
+    "US-Uaf": SiteSpec(
+        code="US-Uaf",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-Uaf_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Fairbanks 黒トウヒ永久凍土林 ↔ UEYAMA_FAIRBANKS（0.00 km）**高緯度**",
+    ),
+    "US-Var": SiteSpec(
+        code="US-Var",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-Var_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Vaira Ranch 一年生草原 ↔ SZUTU_VAIRA（0.01 km）",
+    ),
+    "US-WCr": SiteSpec(
+        code="US-WCr",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-WCr_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="Willow Creek 落葉広葉樹林 ↔ DESAI（0.00 km）",
+    ),
+    "US-xSE": SiteSpec(
+        code="US-xSE",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-xSE_FLUXNET_FLUXMET_H*_*.csv",
+        fmt="fluxnet",
+        description="NEON Smithsonian SERC 落葉林 ↔ PENNINGTON（1.82 km）",
+    ),
+    # **この 2 本だけ配布形式が違う**：`FLUXNET_FULLSET_..._3-x`（旧版）で、
+    # **個別 BADM が付いてこない**。旗79 第1版はそれを「座標を取れない」と報告したが、
+    # **原因は multi-site BADM を索引していなかったこと**（欠陥21）。
+    # 修正版の旗79 で座標を確認してから対に加える＝**それまで PAIRS には入れない**。
+    "US-Ho1": SiteSpec(
+        code="US-Ho1",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-Ho1_FLUXNET_FULLSET_H*_*.csv",
+        fmt="fluxnet",
+        description="Howland Forest 主塔（旧 FULLSET 版）↔ DAVIDSON ほか・座標を再確認中",
+    ),
+    "US-UMB": SiteSpec(
+        code="US-UMB",
+        data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
+        hh_glob="**/AMF_US-UMB_FLUXNET_FULLSET_H*_*.csv",
+        fmt="fluxnet",
+        description="Univ. of Michigan Biological Station（旧 FULLSET 版）・座標を再確認中",
+    ),
     # --- A3 (日中韓) 拡張テンプレート ---------------------------------------
     # AmeriFlux/ICOS/KoFlux BASE 形式 (30 分値, `_1_1_1` 位置修飾子)。
     # 使い方: data_dir を実データのルートに、hh_glob を実ファイル名に

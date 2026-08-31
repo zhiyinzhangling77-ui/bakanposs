@@ -46,13 +46,21 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cosore_memory_step40 import load_cosore
 from model_richness_step74 import measure, star
-from same_site_arc_step66 import PAIRS, memory_from_daily, tower_daily, chamber_daily, verdict
+from same_site_arc_step66 import (PAIRS, SENSITIVITY_ONLY, memory_from_daily,
+                                  tower_daily, chamber_daily, verdict)
 from colocate_step51 import haversine
 
 # **取得の動機**でタワーを分ける（旗78 の順位に従って選んだか、付いてきたか）
 STAR_PICKED = {"US-SSH", "US-Ha1", "US-MMS", "CA-TP3"}
 CAME_ALONG = {"CA-TP4", "CA-TPD", "US-Wkg", "US-Whs", "US-SRM"}
 BEFORE_STAR = {"JP-Fhk", "JP-Tef", "JP-Yms"}      # 旗64/67 の座標探索で見つけた
+# **旗86：★を一切見ずに、座標だけで挙がった組**を取りに行った 17 本。
+# ＝**この群の一致率が、私の選択バイアスを含まない推定**である。
+# 旗85 は「取得しなかった組のチャンバー★率」からこれを間接推定していた。
+# **ここでは同じ量を、タワーの流束データを実際に読んで直接測る**。
+UNBIASED = {"BR-Sa3", "CA-Ca1", "CL-SDF", "US-Bi1", "US-Bi2", "US-Me6",
+            "US-NC2", "US-NC4", "US-SRS", "US-Ton", "US-Tw3", "US-Uaf",
+            "US-Var", "US-WCr", "US-xSE", "US-Ho1", "US-UMB"}
 
 
 def pair_agreement(cosore_dir):
@@ -60,6 +68,8 @@ def pair_agreement(cosore_dir):
     root = Path(cosore_dir)
     out = []
     for site, ds, km in PAIRS:
+        if (site, ds) in SENSITIVITY_ONLY:
+            continue        # 同じチャンバーを二度数えない（US-SRS↔SCOTT_SRM）
         f = root / "datasets" / f"data_{ds}.csv"
         if not f.exists():
             continue
@@ -79,7 +89,8 @@ def pair_agreement(cosore_dir):
         vc = verdict(mc); vt = verdict(mt) if mt is not None else "判定不能"
         grp = ("★で選んだ" if site in STAR_PICKED else
                "付いてきた" if site in CAME_ALONG else
-               "★以前に発見" if site in BEFORE_STAR else "その他")
+               "★以前に発見" if site in BEFORE_STAR else
+               "★で選ばず" if site in UNBIASED else "その他")
         judged = ("判定不能" not in vc and "判定不能" not in vt
                   and "推定不能" not in vc and "推定不能" not in vt)
         agree = judged and (("★" in vc) == ("★" in vt))
