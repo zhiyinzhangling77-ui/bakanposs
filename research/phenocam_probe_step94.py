@@ -35,14 +35,25 @@ from soiltemp_match_step90 import band, SPRING, PLO, PHI
 # PhenoCam のサイト名 → 対応する AmeriFlux タワー。**推測を混ぜない**——
 # 対応は**座標で確かめるべき**だが、PhenoCam 側の座標が要約ファイルに在るとは限らない。
 # **在れば確かめ、無ければ「名前で対応させた・未確認」と明記する**（旗51/79 と同じ注意）。
-NAME_MAP = {"kendall": "US-Wkg", "luckyhills": "US-Whs", "santarita": "US-SRM"}
+# **道具の欠陥29件目（「名前で当てにいく」型・5 度目）**：`santarita` を待っていたが、
+# 実際の配布は **`srm_…`**（`data_record_N/` の下）だった。**サイトが 1 つ丸ごと
+# 「不明」に落ちていた**。＝**旗64/82/86 と同じ型**。**別名を並べる**。
+NAME_MAP = {"kendall": "US-Wkg", "luckyhills": "US-Whs",
+            "santarita": "US-SRM", "srm": "US-SRM"}
 # GCC らしき列（PhenoCam の要約ファイルは版で列名が変わりうる）
 GCC_PAT = re.compile(r"^(gcc|smooth_gcc|midday_gcc)", re.IGNORECASE)
 DATE_PAT = re.compile(r"^(date|midday_date)$", re.IGNORECASE)
 
 
 def read_summary(path):
-    """PhenoCam 要約 csv を読む。**`#` で始まるコメント行を飛ばす**。"""
+    """PhenoCam 要約 csv を読む。**`#` で始まるコメント行を飛ばす**。
+
+    **道具の欠陥30件目**：`*_roistats.csv` は**画像 1 枚ごと（30 分値）**で、
+    **1 日に何行もある**。第1版はこれを日次として扱い、タワーの日次と `join` したため
+    **行数が水増しされ**（US-Wkg で 462 日のはずが 13,453）、
+    **「検定できる見込み」という誤った判定を出していた**。
+    ＝**重複日付があれば日平均に集約する**。**そう表示する。**
+    """
     try:
         df = pd.read_csv(path, comment="#", low_memory=False)
     except Exception as e:
@@ -56,7 +67,12 @@ def read_summary(path):
     out = pd.DataFrame(index=pd.to_datetime(df[dcol], errors="coerce"))
     for c in gcols:
         out[c] = pd.to_numeric(df[c], errors="coerce").to_numpy()
-    return out[out.index.notna()].sort_index(), None
+    out = out[out.index.notna()].sort_index()
+    n_raw = len(out)
+    if out.index.has_duplicates:                      # **日内複数行＝日平均に集約**
+        out = out.groupby(out.index).mean()
+        out.attrs["subdaily"] = (n_raw, len(out))
+    return out, None
 
 
 def scan(root):
@@ -98,7 +114,9 @@ def main():
                 print(f"    ※{f.name}：**読めない**（{err}）"); continue
             best = max(g.columns, key=lambda c: g[c].notna().sum())
             n_ok = int(g[best].notna().sum())
-            print(f"    {f.name}")
+            sd = g.attrs.get("subdaily")
+            print(f"    {f.name}"
+                  + (f"  ※**日内複数行（{sd[0]:,} 行）→ 日平均に集約（{sd[1]:,} 日）**" if sd else ""))
             print(f"       列 {list(g.columns)}／採る列 **{best}**（有効 {n_ok:,}）"
                   f"／期間 {g.index.min():%Y-%m-%d}〜{g.index.max():%Y-%m-%d}"
                   f"／年数 {g.index.year.nunique()}")
@@ -149,6 +167,43 @@ def main():
             print(f"       **θ の重なり帯 [{lo:.3f}, {hi:.3f}]**（幅 {hi-lo:.3f}）"
                   f"／帯の中：緑 {len(gb)} 日・枯 {len(bb)} 日")
             print(f"       → {'**検定できる見込み**（両群とも下限 ' + str(MIN_DAYS) + ' 日以上）' if ok else '**帯に絞ると下限を割る＝検定できない**'}")
+
+        # ── 参考：**ROI が時期で分かれているとき、束ねられるか** ──
+        # US-Whs は **カメラ交換ごとに SH_1000→2000→3000→4000** と ROI が変わり、
+        # **単独ではどれも下限を割る**。束ねれば足りるが、**カメラが違えば GCC の水準が違う**
+        # ので、**期ごとの中央値で緑/枯を決めてから束ねる**（**段差を群分けに持ち込まない**）。
+        day1 = {n: v for n, v in rois.items()
+                if n.endswith("_1day.csv") and "ndvi" not in n and "simplified" not in n}
+        if len(day1) > 1:
+            parts = []
+            for n, (g, col) in sorted(day1.items()):
+                s2 = g[col].dropna()
+                jj = sp.join(s2.rename("gcc"), how="inner").dropna(subset=["gcc"])
+                if len(jj) < 10:
+                    continue
+                jj = jj.copy()
+                jj["green"] = jj["gcc"] >= jj["gcc"].median()   # **期の中で**割る
+                jj["roi"] = n
+                parts.append(jj)
+            if len(parts) > 1:
+                pool = pd.concat(parts)
+                pool = pool[~pool.index.duplicated(keep="first")]
+                gpool, bpool = pool[pool["green"]], pool[~pool["green"]]
+                print(f"    ── 参考：**1day の ROI を期ごとに束ねる**（{len(parts)} 期）──")
+                print(f"       束ねた日数 {len(pool)}（緑 {len(gpool)}・枯 {len(bpool)}）"
+                      f"／年 {pool.index.year.nunique()}"
+                      f"（{pool.index.year.min()}–{pool.index.year.max()}）")
+                if len(gpool) >= 10 and len(bpool) >= 10:
+                    lo2, hi2 = band(gpool["th"].to_numpy(), bpool["th"].to_numpy())
+                    if hi2 <= lo2:
+                        print(f"       → **θ の重なり帯が作れない**（[{lo2:.3f}, {hi2:.3f}]）")
+                    else:
+                        g2 = gpool[(gpool["th"] >= lo2) & (gpool["th"] <= hi2)]
+                        b2 = bpool[(bpool["th"] >= lo2) & (bpool["th"] <= hi2)]
+                        ok2 = len(g2) >= MIN_DAYS and len(b2) >= MIN_DAYS
+                        print(f"       **帯 [{lo2:.3f}, {hi2:.3f}]**／帯の中：緑 {len(g2)}・枯 {len(b2)}")
+                        print(f"       → {'**束ねれば検定できる見込み**' if ok2 else '**束ねても下限を割る**'}")
+                        print(f"       ※**束ねるかどうかは人が決める**——**カメラが違えば視野も露出も違う**。")
         print()
 
     print("  === 次の判断 ===")
@@ -160,6 +215,10 @@ def main():
     print("     **要約ファイルに座標が在れば確かめること。**")
     print("   ・**カメラの視野とフラックスのフェッチは同じではない**（旗81 と同型の問題）。")
     print("   ・**GCC は色であって光合成ではない。**")
+    print("   ・**GCC は濡れにも応答する**——**雨の日は土も林冠も暗くなり、緑の割合が変わる**。")
+    print("     ＝**『緑の日』が『湿った日』を拾っている恐れは、帯で θ を揃えても完全には消えない**。")
+    print("     実際に **kendall の SH_1000 では『緑の日の方が乾いている』**（θ 9.54 対 11.18）と出た")
+    print("     ——**GR（草）とは逆向き**であり、**ROI によって GCC が拾っているものが違う**。")
     print("   ・**ROI が複数あるとき、どれを使うかは人が決める**——**この道具は選ばない**。")
 
 
