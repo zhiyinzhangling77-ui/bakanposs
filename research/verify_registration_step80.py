@@ -81,6 +81,30 @@ def main():
         n_ok = {v: int(raw[v].notna().sum()) for v in ("GER", "Ts", "th") if v in raw}
         print(f"    読み込み成功：{len(raw):,} 行／{raw.index.min():%Y-%m}〜{raw.index.max():%Y-%m}")
         print(f"    変数 {len(have)}/{len(RK_VARS)}／有効数 {n_ok}")
+        # **列が在ることと中身が在ることは別**——US-Whs は `RECO_DT_VUT_REF` が
+        # **列としては在るのに有効値ゼロ**だった（乾燥地で昼分割が成立しなかった公算）。
+        # 第1版は「無い列」しか代案を出さず、**空の列には何も言わなかった**。
+        # ＝**同じ族の他の列に中身が在るか**まで見て、初めて「使えない」と言える。
+        for v in ("GER", "Ts", "th"):
+            if n_ok.get(v, 0) > 1000:
+                continue
+            fam = vm[v].split("_")[0]          # RECO / TS / SWC
+            alt = [c for c in head.columns
+                   if c.split("_")[0] == fam and c != vm[v]
+                   and not c.upper().endswith(("_QC", "_SE", "_RANDUNC", "_JOINTUNC"))]
+            if not alt:
+                print(f"    ※{v}（{vm[v]}）が空で、**同族の代替列も無い**"); continue
+            try:
+                sub = pd.read_csv(files[0], usecols=lambda c: c in set(alt))
+                sub = sub.replace(AnalysisConfig().na_sentinel, np.nan)
+                cnt = sub.notna().sum().sort_values(ascending=False)
+                top = ", ".join(f"{k}={int(n):,}" for k, n in cnt.head(6).items())
+            except Exception as e:
+                print(f"    ※{v} の代替列を読めない（{type(e).__name__}）"); continue
+            print(f"    ※**{v}（{vm[v]}）は列が在るのに有効値 {n_ok.get(v, 0)}**"
+                  f"＝**代替列の有効数**：{top}")
+            print(f"       → **人が選ぶ**。`var_overrides` で指定するまで、"
+                  f"このサイトは旗66 に入れない。")
         if all(n_ok.get(v, 0) > 1000 for v in ("GER", "Ts", "th")):
             ok_sites.append(code)
             print(f"    → **旗66 に進める**")
