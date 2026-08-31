@@ -1,2 +1,6 @@
 __pycache__/
 *.pyc
+
+# **個人情報を含むため版管理しない**（AmeriFlux の提供者連絡先＝約400名のメールアドレス）
+*team_contacts*
+*Team_Contacts*
