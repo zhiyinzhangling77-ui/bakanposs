@@ -329,14 +329,15 @@ SITES: dict[str, SiteSpec] = {
         data_dir="/mnt/hdd/AmeriFlux_FLUXNET",
         hh_glob="**/AMF_US-NC4_FLUXNET_FLUXMET_H*_*.csv",
         fmt="fluxnet",
-        # **このサイトは可変 u* 閾値（VUT）の製品が一切無く、CUT しか無い**（旗80）。
-        # さらに **DT（昼分割）も空で、NT（夜分割）しか中身が無い**——
-        # `RECO_NT_CUT_REF` に 238,734 件（`RECO_DT_*` は 0）。
-        # ＝**このサイトだけ分割法が NT**。旗39（NT の記憶は 8 中 7 で DT より長い）が効くので、
-        # **サイト間の比較には使わず、同一地点内のタワー対チャンバーに限って読む**。
-        var_overrides={"GER": "RECO_NT_CUT_REF", "NEE": "NEE_CUT_REF",
-                       "GEP": "GPP_NT_CUT_REF"},
-        description="North Carolina 沿岸湿地林 ↔ MIAO（0.00 km）**NT/CUT のみ**",
+        # **VUT の製品が無く CUT のみ**（旗80）。
+        # **一度 NT を選んだが誤りだった**——根拠は「有効数で並べた上位 6 件がすべて NT」
+        # だけで、**DT の不在を確かめていなかった**。実際は `RECO_DT_CUT_REF` に 231,132 件
+        # 在る（NT は 238,734 件）。**わずかに少ないという理由で分割法を変えるのは、
+        # 旗39 が示した系統差をこのサイトにだけ持ち込むことになる**ので、**DT に揃える**。
+        # ＝**上書きの根拠を毎回出す監査（欠陥25）が、その場で自分の誤りを捕まえた**。
+        var_overrides={"GER": "RECO_DT_CUT_REF", "NEE": "NEE_CUT_REF",
+                       "GEP": "GPP_DT_CUT_REF"},
+        description="North Carolina 沿岸湿地林 ↔ MIAO（0.00 km）**CUT のみ**",
     ),
     "US-SRS": SiteSpec(
         code="US-SRS",
