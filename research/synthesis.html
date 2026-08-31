@@ -147,7 +147,7 @@ footer .files{margin-top:10px}
   <div class="meta">
     <span><b>データ</b> 渦相関・熱帯〜亜寒帯・7–8月・5日アノマリ/日次</span>
     <span><b>手法</b> 情報理論 × 因果探索 × 派生量監査</span>
-    <span><b>旗</b> 13–92</span>
+    <span><b>旗</b> 13–95</span>
   </div>
 </header>
 <hr>
@@ -295,6 +295,26 @@ footer .files{margin-top:10px}
         残る道はフェノロジー（分割派生量に踏み込む）か新規観測である。
         <br><br><em>旗89 は強い——反転した秋の方が、反転しなかった春より日数が少ない＝検出力では説明できない。
         旗90 は弱い——晩春と晩秋しか比べられず、モンゴルは 1 件も判定できなかった。</em></div>
+      <div class="callout" style="border-left-color:var(--crit)"><span class="k" style="color:var(--crit)">四つ目も外れ、観測データの層別は打ち切った（旗93・95）</span>
+        残る候補は<strong>植生の活性（フェノロジー）</strong>だった。
+        <strong>GPP や LAI は分割派生量</strong>なので使わず、まず <code>NEE</code>（独立測定の 8 つの一つ）で
+        代理しようとしたが——<strong>合成検証で「緑と水を区別できる設計には検出力が無く、
+        検出力のある設計は区別できない」と分かり、実データに触れずに取りやめた</strong>（旗93）。
+        <br><br>そこで<strong>観測を足した</strong>：<strong>PhenoCam の日次 GCC</strong>（タワーに付けたカメラの緑度）。
+        <strong>これは γLE の原因でも結果でもない</strong>ので、<strong>日ごとに層別しても測る関係を歪めない</strong>
+        ——NEE との決定的な違いである。3 サイトで取得し、<strong>θ の重なり帯で水を揃えたうえ</strong>で
+        緑の日と枯れた日を比べた（旗95）。
+        <br><br><strong>規則は「フェノロジーでも説明されない」を返した。だが土台は薄い</strong>——
+        <strong>US-Wkg では対照（秋）まで反転しなくなっていた</strong>（+0.01 対 旗89 の +0.53）。
+        <strong>θ の帯が最も湿った日を落とし、そこに秋の反転が載っていた</strong>からで、
+        <strong>そのサイトの結果はフェノロジーについて何も語らない</strong>。実質 n=1 である。
+        <br><br>唯一対照が働いた <strong>US-Whs には、方向の合った部分信号がある</strong>——
+        <strong>三つの指標すべてで、緑の日だけ θ→γH が有意に負</strong>（−0.32／−0.33／−0.37）、
+        <strong>枯れた日は一度も有意にならない</strong>。蒸発側は緑の年数が 4 年で CI が広く届かない。
+        <br><br>＝<strong>「フェノロジーは棄却された」とは書かない。「この観測構成では、
+        フェノロジーで説明されるとは言えなかった」まで</strong>である。<strong>同時に「説明される」とも書かない。</strong>
+        <strong>θ（水）・Rg（エネルギー）・Ts（熱）・GCC（緑度）の四つを試して説明できず、
+        観測データの層別による説明はここで打ち切った。</strong>残るのは<strong>新規観測</strong>か<strong>別の枠組み</strong>である。</div>
     </div>
 
     <div class="card" style="--rail:var(--amber)">
@@ -574,7 +594,7 @@ footer .files{margin-top:10px}
     ＝<strong>この研究の中心的な発見は、自分の道具を疑い切ったあとに残ったもの</strong>である。</div>
   <p><em>この過程で自分の実装の欠陥も三度見つけた：帰無条件に土壌温度を入れ忘れ、判別統計に使えない量
   （e-fold）を選び、対照（プラセボ）が作れなかったサイトに星を付けていた。いずれも出力の数値から気づいて直した。</em></p>
-  <p><em>その後も同じやり方で見つけ続け、<strong>数え上げた自分の道具の欠陥は 28 件</strong>になった——
+  <p><em>その後も同じやり方で見つけ続け、<strong>数え上げた自分の道具の欠陥は 31 件</strong>になった——
   Ω の生符号で判定していた（z で見ると逆）、当てはめ崩壊を結果に計上していた、
   プラセボが帰無になっていなかった、年ブロック・ブートを渡し忘れていた、交差検証のブロック間の段差が判定を潰していた——
   <strong>すべて自分で見つけて直し、影響範囲まで確かめた</strong>。</em></p>
@@ -593,7 +613,19 @@ footer .files{margin-top:10px}
     <br><br><b>旗91</b>：事前登録した間引き検定が<b>「ほぼ必ず通る」＝落ちない検定</b>だと判明
     （効果が大きく、日数を半分にしても p=100%）。実データなら p=98–100% を見て
     <b>「結論は強い」と過大に述べていた</b>。<b>差を直接ブートストラップする検定に差し替えた</b>。
-    <br><br><em>どちらも実データに触れる前に追補を書き、元の事前登録は書き換えずに残した。</em></div>
+    <br><br><b>旗93</b>：<b>年でラベルすると緑と水を区別できず</b>、
+    <b>区別できる設計（4月のみ×年の上下1/4）には実データの検出力が無い</b>と判明。
+    <b>下限を緩めずに、実行そのものを取りやめた。</b>
+    <br><br><em>いずれも実データに触れる前に追補を書き、元の事前登録は書き換えずに残した。
+    合成検証が進路を変えたのは 4 度（旗89・91・93×2）——
+    <b>実データで先に走らせていたら、4 回とも誤った結論を出していた。</b></em></div>
+  <div class="callout" style="border-left-color:var(--crit)"><span class="k" style="color:var(--crit)">対照の失敗を規則の門にしていなかった（旗95・31 件目）</span>
+    旗95 では<b>秋を「参考」としか位置づけ</b>、<b>「対照が同じ帯で反転しなければ、そのサイトは判定しない」
+    という門を規則に書いていなかった</b>。そのため<b>規則は「判定できたサイト 2 つ以上」で発火してしまう</b>——
+    実際には<b>US-Wkg は対照ごと落ちており、情報を持たない</b>。
+    <br><br><b>規則の判定は覆さない</b>（後から門を足して結論を変えない）。
+    <b>割引として明記した</b>——<b>この向きは結論を弱める側なので、記すことは保守的である</b>。
+    <b>今後は事前登録に門を書く。</b></div>
 </section>
 
 <hr>
@@ -674,6 +706,16 @@ footer .files{margin-top:10px}
       θ と Rg で層別しても春だけ反転せず（6/6、旗89）、土壌温度 Ts を揃えても同じ（北米 3/3、旗90）、
       その差は日数の違いでもない（旗91）。<b>水・エネルギー・熱の三つを試して打ち切った</b>。
       <em>私の機構の見立ては旗88・旗89 と 2 連続で外れた（3 回中 1 勝）＝機構の見立てには低い重みを置く。</em></div></div>
+    <div class="row"><div class="verdict"><span class="chip warn">実行しない</span></div>
+      <div class="what"><b>フェノロジー検定（NEE 版）は実行を取りやめた</b>：合成で
+      <b>緑と水を区別できる設計には検出力が無く、検出力のある設計は区別できない</b>と分かった（旗93）。
+      <b>下限を緩めれば数字は出るが、それは「湿った春で反転した」と同じ絵</b>で、旗89 が既に否定した筋である。
+      <em>派生量に踏み込む必要は無かった——NEE は独立測定の 8 つの一つで、派生量は GPP/GER の方だった。</em></div></div>
+    <div class="row"><div class="verdict"><span class="chip warn">言えなかった</span></div>
+      <div class="what"><b>PhenoCam の日次緑度でも、春と秋の差は説明できなかった</b>（旗95）。
+      <b>ただし「棄却された」とは書かない</b>——<b>US-Wkg は対照（秋）まで反転せず情報を持たず、実質 n=1</b>。
+      唯一対照が働いた US-Whs には<b>方向の合った部分信号</b>（三指標とも緑の日だけ θ→γH が有意に負）がある。
+      <b>θ・Rg・Ts・GCC の四つを試して説明できず、観測データの層別はここで打ち切る。</b></div></div>
     <div class="row"><div class="verdict"><span class="chip warn">救えないと確定</span></div>
       <div class="what"><b>カリフォルニアの 6 組は判定できない</b>：データセット csv にも、別名にも、
       87MB の <code>ancillary.csv</code> にも<b>温度列が無い</b>（旗87）。提供者がフラックスと一緒に温度を提出しなかった。
@@ -772,19 +814,20 @@ footer .files{margin-top:10px}
 
 <hr>
 <footer class="wrap">
-  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–92）。文献は書誌と要約までの確認で、<b>一次PDFは未読</b>。
+  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–95）。文献は書誌と要約までの確認で、<b>一次PDFは未読</b>。
   旗92 で<b>この環境では構造的に読めない</b>と確認した（出版社・学術API・大学の PDF 直リンクまで egress で遮断）。
   <b>論文化の前に、文献を根拠に自分の主張を下げた 2 件（新規性の撤回・水分依存 Q10 の「再発見」評価）を必ず一次で確認する。</b></div>
   <div class="files"><b>記録</b> · research/FLAGS_LOG.md（各旗の詳細）· research/MEASURED_ONLY_SPINE.md（測定量だけの骨格）·
   research/SESSION_STATE.md（現在地と次の一手）· research/VALIDITY_SYNTHESIS.md（妥当性検証）·
   research/LIMITATIONS.md（穴と対処）· research/PREMISE_AUDIT.md（前提の監査）·
-  research/PREREGISTRATION_step55・57・58・59・61・62・70・82・88・89・90・91.md（<b>事前登録 12 件</b>、うち
-  step89・91 は<b>実データ実行前に追補</b>して設計を差し替え）· research/LITERATURE_NOTES.md（先行研究）·
+  research/PREREGISTRATION_step55・57・58・59・61・62・70・82・88・89・90・91・93・95.md（<b>事前登録 14 件</b>、うち
+  step89・91 は<b>実データ実行前に追補</b>して設計を差し替え）· research/PHENOCAM_ACQUISITION.md（取得指示）· research/LITERATURE_NOTES.md（先行研究）·
   japanflux_pn/DATA_QUALITY.md（品質基準）</div>
   <div class="files"><b>データ利用</b> · チャンバー呼吸は COSORE（Bond-Lamberty et al. 2020, GCB）— 公表時は各データセット提供者への
   クレジットと同論文の引用が要る。TROPOMI SIF は Caltech（Köhler / Frankenberg）— 公表時は要連絡。
   AmeriFlux（CC-BY-4.0）— 公表時は各サイト DOI・推奨論文の引用、サイト資金源と AmeriFlux ポータル（US DOE Office of Science）への
-  謝辞、および<b>提供者への事前連絡</b>が要る。</div>
+  謝辞、および<b>提供者への事前連絡</b>が要る。PhenoCam — <b>fair use policy に従う</b>（登録が要る）。
+  <b>引用の具体はダウンロード時のページで確認する</b>——未確認のものをここに書き写さない。</div>
   <div class="files"><b>主要文献</b> · Ruddell &amp; Kumar 2009 · Krich 2020/2021 · Goodwell 2018 · Migliavacca 2011 ·
   Stoy 2007 · Rosas 2019 · Lasslop 2010 · Reichstein 2005 · Pastorello 2020 · Wang 2025 · Bond-Lamberty 2020 · Lloyd &amp; Taylor 1994 · Davidson 2012（DAMM）· Cable 2013 · Eldhose &amp; Ghosh 2025 · Gerhardus &amp; Runge 2020（LPCMCI）</div>
 </footer>
