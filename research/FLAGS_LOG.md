@@ -2759,3 +2759,12 @@ MN-Kbu +0.53/−0.66。＝**検出器は壊れていない**。
 - **COSORE**：Bond-Lamberty et al. 2020 GCB の引用＋**各データセット提供者へのクレジット**
 - **TROPOMI SIF**：Caltech（Köhler / Frankenberg）——**公表時は要連絡**
 - **旗79 で取得した AmeriFlux FLUXNET 版（10 サイト）**：同じ AmeriFlux の方針が適用される
+
+### AmeriFlux BADM の取得（旗85 用）と、**取り扱いの注意**
+- **`AA-Net_BIF`（全サイトの BADM）1 ファイル**で足りた——**837 個を個別に落とす必要はなかった**
+  （取得ページ上部の「Multi-site Metadata (BADM)」にある）。
+  `AA-Flx_BIF` は「**AmeriFlux BASE のあるサイトだけ**」なので、**総当たりには `AA-Net_BIF`**。
+- **`Citations_for_Site_Data`** は**保管する**（公表時に各サイトの引用が要る・後から再生成できない）。
+- **`Team_Contacts_for_Site_Data` は約 400 名の個人メールアドレスである。**
+  **リポジトリに入れない**——**push すると個人情報の公開になる**。**`/mnt/hdd` 等のリポジトリ外に置く。**
+  公表が視野に入った時点で提供者へ連絡する義務があるので**捨てはしない**が、**版管理には載せない**。
