@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -225,10 +226,21 @@ def read_corevars_raw(
                 ),
                 index=df.index,
             )
+        elif col not in df.columns:
+            # 写像した列が**このファイルに存在しない**。第1版は KeyError で落ち、
+            # **サイト全体が読めなくなっていた**——たとえば NEE が VUT で提供されない
+            # AmeriFlux サイトは、GER・Ts・th しか使わない解析にも使えなかった。
+            # **全 NaN の列にして続ける。ただし黙って埋めない**——
+            # 「沈黙する失敗」はこの研究が繰り返し踏んだ穴なので、**必ず名指しで告げる**。
+            warnings.warn(
+                f"{site.code}: 変数 {v} の写像先 {col!r} が {Path(path).name} に無い"
+                f"＝**この変数は全 NaN**（他の変数は読める）",
+                RuntimeWarning, stacklevel=2)
+            s = pd.Series(np.nan, index=df.index, dtype=float)
         else:
             s = df[col]
         qc = qcmap[v]
-        if config.qc_max is not None and qc is not None:
+        if config.qc_max is not None and qc is not None and qc in df.columns:
             s = s.where(df[qc] <= config.qc_max)   # QC>閾値 (or QC欠測) → NaN
         out[v] = s
     return out[RK_VARS]

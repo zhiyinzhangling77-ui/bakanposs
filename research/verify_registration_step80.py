@@ -27,7 +27,13 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 NEW = ["US-SSH", "US-Ha1", "US-MMS", "CA-TP4", "CA-TP3", "CA-TPD",
-       "US-Wkg", "US-Whs", "US-SRM"]
+       "US-Wkg", "US-Whs", "US-SRM",
+       # --- 旗86：★で選ばずに取得した 17 本 ---------------------------------
+       "BR-Sa3", "CA-Ca1", "CL-SDF", "US-Bi1", "US-Bi2", "US-Me6",
+       "US-NC2", "US-NC4", "US-SRS", "US-Ton", "US-Tw3", "US-Uaf",
+       "US-Var", "US-WCr", "US-xSE",
+       # 旧 FULLSET 配布（個別 BADM 無し）＝座標は旗79 修正版で確認する
+       "US-Ho1", "US-UMB"]
 
 
 def main():
