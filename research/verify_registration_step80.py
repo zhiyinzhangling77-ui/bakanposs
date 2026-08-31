@@ -111,6 +111,33 @@ def main():
                   f"＝**代替列の有効数**：{top}")
             print(f"       → **人が選ぶ**。`var_overrides` で指定するまで、"
                   f"このサイトは旗66 に入れない。")
+        # **上書きした選択は、毎回その根拠を出す**。
+        # US-NC4 を NT にした根拠は「有効数で並べた 6 件がすべて NT だった」ことだけで、
+        # **`RECO_DT_CUT_REF` が本当に無いのかを確かめていなかった**。
+        # ＝**一度きりの目視で決めた選択が、以後は誰にも見えなくなる**——
+        # この研究が繰り返し踏んだ「沈黙する失敗」と同じ形なので、**常時可視にする**。
+        if "GER" in sp.var_overrides:
+            fam = [f"RECO_{p}_{u}_REF" for p in ("DT", "NT") for u in ("VUT", "CUT")]
+            fam = [c for c in fam if c in head.columns]
+            try:
+                sub = pd.read_csv(files[0], usecols=lambda c: c in set(fam))
+                sub = sub.replace(AnalysisConfig().na_sentinel, np.nan)
+                shown = ", ".join(f"{c}={int(sub[c].notna().sum()):,}"
+                                  for c in fam if c in sub)
+                absent = [c for c in ("RECO_DT_VUT_REF", "RECO_DT_CUT_REF",
+                                      "RECO_NT_VUT_REF", "RECO_NT_CUT_REF")
+                          if c not in head.columns]
+                print(f"    ◆**GER を {sp.var_overrides['GER']} に上書きしている**"
+                      f"／同系の基準列：{shown}")
+                if absent:
+                    print(f"       **列そのものが無い**：{', '.join(absent)}")
+                if sp.var_overrides["GER"].startswith("RECO_NT") and \
+                        any(c.startswith("RECO_DT") and int(sub[c].notna().sum()) > 1000
+                            for c in fam if c in sub):
+                    print(f"       → **DT に中身が在るのに NT を選んでいる＝見直すこと**"
+                          f"（旗39：NT の記憶は 8 中 7 で DT より長い）")
+            except Exception as e:
+                print(f"    ◆GER 上書きの根拠を確かめられない（{type(e).__name__}）")
         if all(n_ok.get(v, 0) > 1000 for v in ("GER", "Ts", "th")):
             ok_sites.append(code)
             print(f"    → **旗66 に進める**")
