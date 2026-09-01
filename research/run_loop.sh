@@ -18,6 +18,7 @@
 set -uo pipefail
 
 BRANCH="claude/new-branch-creation-heq0i1"
+ANY_BRANCH=0
 MAX_FLAGS=20
 TIMEOUT_SEC=3600
 MODEL="opus"
@@ -39,6 +40,8 @@ Options:
   -n, --max-flags N    最大何周回すか (default 20)
   -t, --timeout SEC    1 周あたりの上限秒 (default 3600)
   -m, --model NAME     opus / sonnet / fable など (default opus)
+  -b, --branch NAME    回してよいブランチ (default claude/new-branch-creation-heq0i1)
+      --any-branch     今いるブランチが何であれ回す（push もそのブランチへ）
       --yolo           全権限を素通し (--dangerously-skip-permissions)。
                        無人放置向けだが、実データのあるマシンでは中身を理解してから使うこと
       --no-push        push しない（ローカルで試すとき）
@@ -52,6 +55,8 @@ while [[ $# -gt 0 ]]; do
     -n|--max-flags) MAX_FLAGS="$2"; shift 2 ;;
     -t|--timeout)   TIMEOUT_SEC="$2"; shift 2 ;;
     -m|--model)     MODEL="$2"; shift 2 ;;
+    -b|--branch)    BRANCH="$2"; shift 2 ;;
+    --any-branch)   ANY_BRANCH=1; shift ;;
     --yolo)         PERM_MODE="__yolo__"; shift ;;
     --no-push)      DO_PUSH=0; shift ;;
     --dry-run)      DRY_RUN=1; shift ;;
@@ -92,9 +97,17 @@ fi
 CUR_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 [[ "$CUR_BRANCH" == "main" || "$CUR_BRANCH" == "master" ]] && \
   die "main では回さない（LOOP_PROTOCOL の禁止事項）。git checkout $BRANCH"
-if [[ "$CUR_BRANCH" != "$BRANCH" ]]; then
-  log "⚠ 想定ブランチ ($BRANCH) と違う: $CUR_BRANCH。このまま続ける"
+if [[ "$CUR_BRANCH" != "$BRANCH" && $ANY_BRANCH -eq 0 ]]; then
+  die "想定ブランチと違う。
+     いる:   $CUR_BRANCH
+     想定:   $BRANCH
+     Claude は今いるブランチへ push する。意図しないブランチに研究の記録が積まれるので、
+     ここでは進めない。どれかを選ぶこと:
+       git checkout $BRANCH          # 想定ブランチへ移る
+       research/run_loop.sh -b $CUR_BRANCH   # このブランチで回してよいと明示する
+       research/run_loop.sh --any-branch     # ブランチを問わない"
 fi
+log "ブランチ: $CUR_BRANCH"
 
 if [[ -f "$STOP_FILE" ]]; then
   echo "──────────────────────────────────────────"

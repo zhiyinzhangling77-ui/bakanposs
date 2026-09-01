@@ -64,6 +64,8 @@ tail -f loop.log
 - `claude` / `git` が PATH にあるか
 - `SESSION_STATE.md` / `HUMAN_GATES.md` / `LOOP_PROTOCOL.md` が揃っているか
 - **`main` にいないか**（`LOOP_PROTOCOL.md` の禁止事項）
+- **想定ブランチにいるか**（`-b` / `--any-branch` で変えられる）。
+  Claude は**今いるブランチ**へ push するので、ここを緩めると記録が散らばる
 - **作業ツリーがクリーンか**（汚れていれば前の周の中断の痕跡なので、人が見るまで進まない）
 - **`.loop_stop` が残っていないか**（人間待ちのまま回すのを防ぐ）
 
@@ -73,6 +75,8 @@ tail -f loop.log
 -n, --max-flags N    最大何周 (default 20)
 -t, --timeout SEC    1 周の上限秒 (default 3600)。超えたら打ち切り
 -m, --model NAME     opus / sonnet / fable (default opus)
+-b, --branch NAME    回してよいブランチ (default claude/new-branch-creation-heq0i1)
+    --any-branch     今いるブランチが何であれ回す
     --yolo           --dangerously-skip-permissions。無人放置向け
     --no-push        push しない
     --dry-run        プロンプトと起動コマンドを見るだけ
@@ -98,7 +102,8 @@ tail -f loop.log
 | `loop.log` の中身 | 意味 | 直し方 |
 |---|---|---|
 | `claude が PATH にない` | venv や nvm の関係で見えていない | `which claude` で確認。無ければ PATH を通す |
-| `main では回さない` | ブランチが違う | `git checkout claude/new-branch-creation-heq0i1` |
+| `main では回さない` | main にいる | `git checkout claude/new-branch-creation-heq0i1` |
+| `想定ブランチと違う` | 別ブランチにいる。**Claude は今いるブランチへ push する**ので、意図しない所に研究の記録が積まれる | `git checkout` で移るか、`-b <今のブランチ>` / `--any-branch` で明示的に許可 |
 | `未コミットの変更がある` | 前の周の中断の痕跡かもしれない | `git status` / `git diff` で確認し、完結させるか捨てる |
 | `前回のループが人間待ちで止まっている` | `.loop_stop` が残っている | 内容に対応して `rm research/.loop_stop` |
 | `<file> が無い` | 状態ファイルが揃っていない | `git pull` |

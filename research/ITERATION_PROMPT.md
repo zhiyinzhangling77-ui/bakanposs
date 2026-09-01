@@ -42,11 +42,11 @@ ls /mnt/hdd/ 2>/dev/null && echo "LOCAL: 実データあり" || echo "CONTAINER:
 1. `research/FLAGS_LOG.md` に旗を追記（または今周の記録を該当文書へ）
 2. **`research/SESSION_STATE.md` を更新**（これをせずに周を終えない）
 3. 失敗した試行・道具の欠陥（番号を継ぐ）・予測の勝敗も記録する
-4. コミットして push:
+4. コミットして push（**push 先は今いるブランチ。ブランチ名をベタ書きしない**）:
    ```bash
    git add -A
    git commit -m "旗NN <一行>"
-   git push -u origin claude/new-branch-creation-heq0i1
+   git push -u origin "$(git rev-parse --abbrev-ref HEAD)"
    ```
 5. **`research/.loop_stop` は作らない。** 何も言わずに終了してよい
 
