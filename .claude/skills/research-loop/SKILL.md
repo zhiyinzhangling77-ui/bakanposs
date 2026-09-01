@@ -41,3 +41,15 @@ git status --short
 7. **コンテキスト残量が尽きる前に引き継ぎ書き出し**をして、`research/COLD_START.md` で再開できる状態にする
 
 台帳を洗い直すときは `research/GATE_AUDIT_PROMPT.md` を使う。
+
+## 無人で回したいと言われたら
+
+`research/run_loop.sh` がドライバ。**1 周ごとに claude を別プロセスで起動するので文脈が枯渇しない。**
+
+```bash
+nohup research/run_loop.sh -n 30 > loop.log 2>&1 &
+tail -f loop.log
+```
+
+使い方・止まる条件・`--yolo` の注意は `research/RUN_LOOP.md`。
+**実データのあるマシンで回せば HUMAN_GATES の D 分類は外れる**と伝えること。

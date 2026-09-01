@@ -4,3 +4,7 @@ __pycache__/
 # **個人情報を含むため版管理しない**（AmeriFlux の提供者連絡先＝約400名のメールアドレス）
 *team_contacts*
 *Team_Contacts*
+
+# 自走ループの生ログ（1 周ごとの stream-json。大きく再現不要）
+research/loop_runs/
+loop.log
