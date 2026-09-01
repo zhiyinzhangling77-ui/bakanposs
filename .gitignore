@@ -7,4 +7,14 @@ __pycache__/
 
 # 自走ループの生ログ（1 周ごとの stream-json。大きく再現不要）
 research/loop_runs/
-loop.log
+
+# 解析の生成物（再生成可・巨大）。tracked な japanflux_pn/slides/*.png は対象外
+outputs*/
+*.log
+nohup.out
+.vscode/
+
+# 取得データ（版管理しない）
+GOSIF/
+TROPOMI_grid/
+sif_month/

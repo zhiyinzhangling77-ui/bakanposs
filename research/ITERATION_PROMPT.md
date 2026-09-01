@@ -42,12 +42,17 @@ ls /mnt/hdd/ 2>/dev/null && echo "LOCAL: 実データあり" || echo "CONTAINER:
 1. `research/FLAGS_LOG.md` に旗を追記（または今周の記録を該当文書へ）
 2. **`research/SESSION_STATE.md` を更新**（これをせずに周を終えない）
 3. 失敗した試行・道具の欠陥（番号を継ぐ）・予測の勝敗も記録する
-4. コミットして push（**push 先は今いるブランチ。ブランチ名をベタ書きしない**）:
+4. コミットして push:
    ```bash
-   git add -A
+   git add <自分で書いたファイルを明示>      # ★ git add -A は使わない
+   git status --short --untracked-files=no   # 意図したものだけか確認してから
    git commit -m "旗NN <一行>"
    git push -u origin "$(git rev-parse --abbrev-ref HEAD)"
    ```
+   **`git add -A` / `git add .` を使わないこと。** このリポジトリには解析の生成物
+   （`outputs_*/`・`*.log`・図・CSV・`GOSIF/`・`TROPOMI_grid/`）が未追跡で大量に置かれており、
+   **一括 add すると巨大な生成物を巻き込む**。**自分がこの周で書いたファイルだけを明示的に add する。**
+   **push 先はブランチ名をベタ書きせず、今いるブランチにする。**
 5. **`research/.loop_stop` は作らない。** 何も言わずに終了してよい
 
 ### (b) 残りが**全部** BLOCKED だった場合（＝人間の手が要る）

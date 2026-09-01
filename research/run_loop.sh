@@ -117,9 +117,18 @@ if [[ -f "$STOP_FILE" ]]; then
      対応してから rm $STOP_FILE で再開すること。"
 fi
 
-if [[ -n "$(git status --porcelain)" ]]; then
-  die "未コミットの変更がある。前の周が中断された痕跡かもしれない。
+# 見たいのは「中断された編集の痕跡」＝**追跡下のファイルの変更**。
+# 解析の生成物（outputs_*/・*.log・図）は untracked で常にそこにあるので、門にしない。
+if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+  echo "── 追跡下の未コミット変更 ──"
+  git status --short --untracked-files=no
+  die "追跡下に未コミットの変更がある。前の周が中断された痕跡かもしれない。
      git diff で中身を確認し、完結させるか捨ててから回すこと。"
+fi
+
+untracked_n="$(git ls-files --others --exclude-standard | wc -l | tr -d ' ')"
+if [[ "$untracked_n" -gt 0 ]]; then
+  log "未追跡ファイル $untracked_n 件（解析の生成物とみなして無視する）"
 fi
 
 # timeout（macOS は coreutils の gtimeout）
