@@ -38,6 +38,7 @@ LAGS = (0, 1, 2, 3, 4, 5)                 # タワー気象のラグ（事前登
 WVARS = ("Rg", "Ta", "VPD", "P")          # タワーが測る気象（事前登録で固定）
 N_PLACEBO = 5                             # 年ごと入れ替えの通し数
 FLOOR = 0.20                              # 絶対的な下限（旗75）
+BIDIR = False                             # プラセボを前後に振る（**感度分析専用**・既定は前だけ）
 
 
 def lag1_cov(x):
@@ -122,7 +123,12 @@ def run_pair(site, ds, ch_daily, tw, verbose=True):
     r_obs = reduction(res0, w)
     # ── プラセボ：**タワーの気象を年ごと入れ替える** ──
     pls = []
-    for k in range(1, N_PLACEBO + 1):
+    # **既定は事前登録どおり「前へ 5 通り」**（＝過去の年の気象を当てる）。
+    # **`--sensitivity-bidir` は前後 5 通り**（旗100 の欠陥 #32：片側だけだと、
+    # **チャンバー期間がタワー記録の先頭にある地点でプラセボを作れず、組が落ちる**）。
+    # **主判定は既定のまま**——**結果を見た後に規則を変えない**（旗95 の作法）。
+    ks = ([1, -1, 2, -2, 3] if BIDIR else list(range(1, N_PLACEBO + 1)))
+    for k in ks:
         ws = tw.copy()
         ws.index = ws.index + pd.Timedelta(days=365 * k)
         wk = ws.reindex(common)
@@ -203,9 +209,16 @@ def main():
     ap = argparse.ArgumentParser(description="旗100：タワーの気象を駆動に足す")
     ap.add_argument("--real", action="store_true")
     ap.add_argument("--cosore-dir", default="/mnt/hdd/cosore-0.7.0")
+    ap.add_argument("--sensitivity-bidir", action="store_true",
+                    help="**感度分析**：プラセボを前後に振る（主判定ではない）")
     a = ap.parse_args()
+    global BIDIR
+    BIDIR = a.sensitivity_bidir
 
     print("=== 旗100：~4 日メモリは、我々が駆動に入れていなかった気象か ===")
+    if BIDIR:
+        print("  ！！**感度分析（プラセボ前後）**——**主判定ではない**。"
+              "**主判定は既定の実行（プラセボ前だけ）である。**")
     print("  **旗45 が当てたのはチャンバー自身のセンサから作った量**——")
     print("  **同じ場所のタワーが測る気象を駆動に入れたことは一度も無い。**")
     print(f"  **統計量はラグ1の自己共分散**（旗61）／"
