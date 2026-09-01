@@ -95,17 +95,17 @@ if [[ "$CUR_BRANCH" != "$BRANCH" ]]; then
   log "⚠ 想定ブランチ ($BRANCH) と違う: $CUR_BRANCH。このまま続ける"
 fi
 
-if [[ -n "$(git status --porcelain)" ]]; then
-  die "未コミットの変更がある。前の周が中断された痕跡かもしれない。
-     git diff で中身を確認し、完結させるか捨ててから回すこと。"
-fi
-
 if [[ -f "$STOP_FILE" ]]; then
   echo "──────────────────────────────────────────"
   cat "$STOP_FILE"
   echo "──────────────────────────────────────────"
   die "前回のループが人間待ちで止まっている（上記）。
      対応してから rm $STOP_FILE で再開すること。"
+fi
+
+if [[ -n "$(git status --porcelain)" ]]; then
+  die "未コミットの変更がある。前の周が中断された痕跡かもしれない。
+     git diff で中身を確認し、完結させるか捨ててから回すこと。"
 fi
 
 # timeout（macOS は coreutils の gtimeout）
