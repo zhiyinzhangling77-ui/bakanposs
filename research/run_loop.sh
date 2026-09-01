@@ -9,7 +9,8 @@
 #   （GATE-01〜04, 06）はゲートでなくなり、Claude が自分で実行できる。
 #   コンテナで回す場合は合成検証・道具作り・文章だけが進む。
 #
-#   nohup research/run_loop.sh -n 30 > loop.log 2>&1 &
+#   : > loop.log
+#   nohup research/run_loop.sh -n 30 >> loop.log 2>&1 &
 #   tail -f loop.log
 #
 # 止め方: Ctrl-C か、`touch research/.loop_stop`（次の周の前に止まる）
@@ -31,7 +32,7 @@ PROMPT_FILE="$REPO/research/ITERATION_PROMPT.md"
 LOGDIR="$REPO/research/loop_runs"
 
 usage() {
-  sed -n '2,15p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
+  sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'
   cat <<'USAGE'
 
 Options:
