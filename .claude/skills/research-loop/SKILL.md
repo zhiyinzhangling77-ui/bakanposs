@@ -47,7 +47,8 @@ git status --short
 `research/run_loop.sh` がドライバ。**1 周ごとに claude を別プロセスで起動するので文脈が枯渇しない。**
 
 ```bash
-nohup research/run_loop.sh -n 30 > loop.log 2>&1 &
+: > loop.log                                      # 先に作る（tail の競争負けを防ぐ）
+nohup research/run_loop.sh -n 30 >> loop.log 2>&1 &
 tail -f loop.log
 ```
 

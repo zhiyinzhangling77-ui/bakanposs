@@ -6,7 +6,8 @@
 # 手元（実データのあるマシン）で
 cd ~/bakanposs
 git pull origin claude/new-branch-creation-heq0i1
-nohup research/run_loop.sh -n 30 > loop.log 2>&1 &
+: > loop.log                                      # 先に作る（tail の競争負けを防ぐ）
+nohup research/run_loop.sh -n 30 >> loop.log 2>&1 &
 tail -f loop.log
 ```
 
@@ -82,6 +83,39 @@ tail -f loop.log
 `ITERATION_PROMPT.md` の禁止事項（過去の記録を書き換えない・main に push しない・PR を作らない）は
 守らせていますが、**まず `--yolo` なしで数周見てから**判断してください。
 既定は `--permission-mode acceptEdits`（ファイル編集は通す、コマンドは確認）です。
+
+## うまく動かないとき
+
+### `tail: cannot open 'loop.log'` と出る
+`[1] <PID>` が出ていれば**ジョブは起動している**。親シェルが PID を表示した時点では、
+子プロセスがまだ `loop.log` を開いていないことがある（競争負け）。
+上の起動コマンドのように **`: > loop.log` で先にファイルを作ってから** `nohup` すれば起きない。
+既に起きてしまったら `ls -la loop.log && tail -f loop.log` でよい。
+
+### すぐ終わってしまう
+事前チェックの門に引っかかっている。**理由は `loop.log` の先頭 1〜2 行に出ている。**
+
+| `loop.log` の中身 | 意味 | 直し方 |
+|---|---|---|
+| `claude が PATH にない` | venv や nvm の関係で見えていない | `which claude` で確認。無ければ PATH を通す |
+| `main では回さない` | ブランチが違う | `git checkout claude/new-branch-creation-heq0i1` |
+| `未コミットの変更がある` | 前の周の中断の痕跡かもしれない | `git status` / `git diff` で確認し、完結させるか捨てる |
+| `前回のループが人間待ちで止まっている` | `.loop_stop` が残っている | 内容に対応して `rm research/.loop_stop` |
+| `<file> が無い` | 状態ファイルが揃っていない | `git pull` |
+| `Permission denied` | 実行ビットが落ちている | `chmod +x research/run_loop.sh` |
+
+### 動いているか確かめる
+```bash
+jobs                      # このシェルから起動した場合
+pgrep -af run_loop.sh     # シェルを閉じた後でも
+tail -f loop.log
+```
+
+### 止める
+```bash
+touch research/.loop_stop   # 次の周の前に、きれいに止まる（推奨）
+pkill -f run_loop.sh        # 今すぐ止める（周の途中なら未コミットの変更が残りうる）
+```
 
 ## ログ
 
