@@ -59,8 +59,12 @@ def classify(col):
 
 def verdict(daily):
     """★かどうか（**旗74 と同一の物差し・窓は全期間**）。"""
-    if "Tsoil" not in daily or len(daily) < MIN_DAYS:
-        return None, "土壌温度が無い"
+    # **道具の欠陥 #34（旗102 の実行で判明）**：第1版はこの二つを同じ文言で報告していた。
+    # **「駆動列が無い」と「日数が足りない」は別の理由である。** 分けて書く。
+    if "Tsoil" not in daily:
+        return None, "土壌温度の列が無い"
+    if len(daily) < MIN_DAYS:
+        return None, f"{len(daily)} 日（下限未満）"
     if daily.index.year.nunique() < MIN_YEARS:
         return None, f"{daily.index.year.nunique()} 暦年（下限未満）"
     y = daily["Rs"].to_numpy()
