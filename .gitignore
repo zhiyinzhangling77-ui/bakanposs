@@ -18,3 +18,11 @@ nohup.out
 GOSIF/
 TROPOMI_grid/
 sif_month/
+
+# 仮想環境・依存（未追跡が数万件になる主因）
+.venv/
+venv/
+env/
+node_modules/
+*.egg-info/
+.ipynb_checkpoints/

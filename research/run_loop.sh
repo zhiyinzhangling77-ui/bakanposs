@@ -184,11 +184,21 @@ for (( i=1; i<=MAX_FLAGS; i++ )); do
     log "⚠ claude が rc=$rc で終了（ログ: $raw）"
   fi
 
+  # 認証切れは何周回しても直らない。空回りさせずにここで止める
+  if grep -qiE 'OAuth session expired|Failed to authenticate|Invalid API key|authentication_error' "$raw" 2>/dev/null; then
+    stop_reason="claude の認証が切れている。対話で一度 claude を起動してログインし直すこと"
+    log "✗ $stop_reason"
+    break
+  fi
+
   after="$(git rev-parse HEAD)"
 
-  # 打ち切り・異常終了で中途半端な変更が残っていたら、そこで止める（勝手に捨てない）
-  if [[ -n "$(git status --porcelain)" ]]; then
-    stop_reason="未コミットの変更が残った（周 $i・rc=$rc）。git diff を確認すること"
+  # 打ち切り・異常終了で中途半端な変更が残っていたら、そこで止める（勝手に捨てない）。
+  # preflight と同じく **追跡下のファイルだけ**を見る（生成物は未追跡で常にある）。
+  if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
+    echo "── 追跡下の未コミット変更 ──"
+    git status --short --untracked-files=no
+    stop_reason="追跡下に未コミットの変更が残った（周 $i・rc=$rc）。git diff を確認すること"
     log "✗ $stop_reason"
     break
   fi

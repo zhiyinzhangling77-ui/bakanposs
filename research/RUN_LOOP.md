@@ -109,6 +109,15 @@ tail -f loop.log
 | `<file> が無い` | 状態ファイルが揃っていない | `git pull` |
 | `Permission denied` | 実行ビットが落ちている | `chmod +x research/run_loop.sh` |
 
+### 周 1 で `claude の認証が切れている` と出る
+`Failed to authenticate: OAuth session expired` は**何周回しても直らない**ので、ドライバは即座に止まる。
+**対話で一度 `claude` を起動してログインし直す**こと。そのあと同じコマンドで再開できる。
+
+### `追跡下に未コミットの変更が残った`
+周の途中で打ち切られたか、claude が中途半端に書いて終わった。**勝手に捨てない設計**なので、
+`git status --short --untracked-files=no` と `git diff` で中身を見て、完結させるか捨てるか決めること。
+**未追跡ファイル（解析の生成物）はこの判定に入らない。**
+
 ### 動いているか確かめる
 ```bash
 jobs                      # このシェルから起動した場合
