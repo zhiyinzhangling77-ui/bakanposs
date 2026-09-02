@@ -25,6 +25,7 @@ MODEL="opus"
 PERM_MODE="acceptEdits"
 DO_PUSH=1
 DRY_RUN=0
+CHECK_ONLY=0
 STALL_LIMIT=2
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -60,6 +61,7 @@ while [[ $# -gt 0 ]]; do
     --yolo)         PERM_MODE="__yolo__"; shift ;;
     --no-push)      DO_PUSH=0; shift ;;
     --dry-run)      DRY_RUN=1; shift ;;
+    --check)        CHECK_ONLY=1; shift ;;
     -h|--help)      usage; exit 0 ;;
     *) echo "不明な引数: $1" >&2; usage; exit 2 ;;
   esac
@@ -144,7 +146,34 @@ else
   log "環境: CONTAINER（/mnt/hdd なし）→ 合成検証・道具作り・文章のみ進む"
 fi
 
+# 認証の門。ここを通さないと 30 周ぶん空回りして朝を迎える
+auth_json="$(claude auth status --json 2>&1)"
+if ! grep -q '"loggedIn": *true' <<<"$auth_json"; then
+  echo "$auth_json"
+  die "claude にログインしていない。次を実行してから回すこと:
+       claude auth login"
+fi
+log "認証: ログイン済（$(sed -n 's/.*"authMethod": *"\([^"]*\)".*/\1/p' <<<"$auth_json")）"
+
 mkdir -p "$LOGDIR"
+
+if [[ "$CHECK_ONLY" -eq 1 ]]; then
+  log "認証の実疎通を確認中（1 往復だけ叩く）…"
+  probe="$LOGDIR/authcheck-$(date '+%Y%m%d-%H%M%S').jsonl"
+  if [[ -n "$TIMEOUT_BIN" ]]; then
+    "$TIMEOUT_BIN" 120 claude "${CLAUDE_ARGS[@]}" "Reply with exactly: OK" > "$probe" 2>&1
+  else
+    claude "${CLAUDE_ARGS[@]}" "Reply with exactly: OK" > "$probe" 2>&1
+  fi
+  if grep -qiE 'OAuth session expired|Failed to authenticate|Invalid API key|authentication_error' "$probe"; then
+    grep -oiE '[^"]*(OAuth session expired|Failed to authenticate)[^"]*' "$probe" | head -1
+    die "認証が実際には通っていない（auth status は通ったが API が拒否した）。
+     claude auth login をやり直すこと。このまま回すと朝まで空回りする。"
+  fi
+  log "✓ 疎通 OK。この状態なら安心して nohup で仕掛けてよい"
+  exit 0
+fi
+
 
 # ---------- ループ ----------
 
@@ -239,6 +268,14 @@ echo
 log "━━━━━━━━━━ 終了 ━━━━━━━━━━"
 log "停止理由: $stop_reason"
 log "進んだ周: $done_flags"
+if [[ $done_flags -eq 0 ]]; then
+  echo
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+  echo "!! 1 周も進んでいない。上の停止理由を先に片付けること。"
+  echo "!! 直したら research/run_loop.sh --check で疎通を確かめてから"
+  echo "!! 仕掛け直すと、朝まで空回りする事故を防げる。"
+  echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
+fi
 if [[ "$(git rev-parse HEAD)" != "$START_HEAD" ]]; then
   echo
   echo "このループで積んだコミット:"
