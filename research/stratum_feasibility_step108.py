@@ -20,7 +20,9 @@ Walnut Gulch は「雨で説明できる」側、Santa Rita は「季節差が�
 **旗107 で分かったとおり、`直後` 層が `rain_only` と `both` を区別する唯一の軸**なので、
 **4 群すべてが下限（60 日・3 暦年）を満たすサイト**を探す。
 
-    python research/stratum_feasibility_step108.py --cosore-dir /mnt/hdd/cosore-0.7.0
+    python research/stratum_feasibility_step108.py --only CN-Du2
+    # **全部走らせるときは記録を残す**（ターミナルは遡れない）：
+    python research/stratum_feasibility_step108.py 2>&1 | tee research/logs/step108_all.txt
 """
 from __future__ import annotations
 
@@ -102,6 +104,8 @@ def main():
     ap = argparse.ArgumentParser(description="旗108：層別が他のサイトでもできるか")
     ap.add_argument("--qc-max", type=int, default=None)
     ap.add_argument("--cosore-dir", default=None, help="使わない（引数の互換のため）")
+    ap.add_argument("--only", default=None,
+                    help="サイトを絞る（カンマ区切り）。**下調べなので絞っても作法上の問題は無い**")
     a = ap.parse_args()
 
     print("=== 旗108：手C の層別が、他のサイトでもできるか（下調べ・検定はしない）===")
@@ -112,6 +116,12 @@ def main():
     print("  **旗107 で `直後` 層が唯一の識別軸**と分かったので、**4 群すべて**を要求する。\n")
 
     sites = [s for s in all_sites() if s not in TEMPLATES]
+    if a.only:
+        want = {x.strip() for x in a.only.split(",") if x.strip()}
+        missing = want - set(sites)
+        sites = [s for s in sites if s in want]
+        if missing:
+            print(f"  **登録簿に無いサイト**：{sorted(missing)}")
     print(f"  登録サイト：{len(sites)} 件"
           f"（**手登録＋JapanFlux／ChinaFlux／KoFlux の自動発見をすべて合わせた**）"
           f"／雛形を除いた：{sorted(TEMPLATES)}")
