@@ -64,6 +64,13 @@ def profile(site, qc_max):
         seas[nm] = s / tot if tot > 0 else np.nan
     lab, tmed, rmed = cell_of(d)
     th = d["th"].to_numpy()
+    # **道具の欠陥 #41（旗110 の実行で判明）**：**θ の単位が登録簿で食い違う**。
+    # ChinaFlux は**分数**（0.09〜0.27）、JapanFlux/AmeriFlux は**％**（2.58〜35.60）。
+    # **第1版は両者を同じ列に並べ、比べられるかのように印字した。**
+    # **`cell_of` も偏 Spearman も単位に依らない**ので**過去の結果は無事**だが、
+    # **表示は判断を誤らせる。** **1 未満なら分数とみなして％に直す。**
+    if np.isfinite(np.nanmedian(th)) and np.nanmedian(th) < 1.0:
+        th = th * 100.0
     from japanflux_pn.sites import get_site
     desc = getattr(get_site(site), "description", "") or ""
     return {"ann": ann, "yrs": yrs, "seas": seas, "tmed": tmed,
@@ -80,6 +87,7 @@ def main():
     print("=== 旗110：4 群が揃った 9 サイトは、乾燥地か（下調べ・検定はしない）===")
     print("  **サイト名から推測しない。** **年降水量と θ をデータから出して比べる。**")
     print("  **既知の乾燥地 3 件を物差しとして並べる**（絶対値ではなく相対で見る）。")
+    print("  **θ は％に揃えて出す**——**ChinaFlux は分数で入っている**（道具の欠陥 #41）。")
     print("  **相関も Δ も計算しない**——**それは検定の答えである。**\n")
 
     rows = {}
@@ -94,7 +102,7 @@ def main():
         rows[s] = p
 
     print(f"\n  {'サイト':<10}{'年降水':>9}{'年数':>5}   "
-          f"{'θ 中央 [25–75%]':<24}{'春':>6}{'夏':>6}{'秋':>6}{'冬':>6}  セル")
+          f"{'θ中央% [25–75%]':<24}{'春':>6}{'夏':>6}{'秋':>6}{'冬':>6}  セル")
     for s in list(REF) + list(NEW):
         if s not in rows:
             continue
