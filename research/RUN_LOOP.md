@@ -6,10 +6,16 @@
 # 手元（実データのあるマシン）で
 cd ~/bakanposs
 git pull origin claude/new-branch-creation-heq0i1
+
+research/run_loop.sh --check     # ★ まずこれ。7 秒。認証まで実際に叩いて確かめる
+
 : > loop.log                                      # 先に作る（tail の競争負けを防ぐ）
 nohup research/run_loop.sh -n 30 >> loop.log 2>&1 &
 tail -f loop.log
 ```
+
+**夜に仕掛けるなら `--check` を先に通すこと。** 認証切れに気づかず朝を迎えるのが
+このループで一番もったいない失敗で、実際に一晩失った。`--check` はそれを 7 秒で防ぐ。
 
 **人手が要る作業だけを残して止まります。** 止まったら `loop.log` の末尾か
 `research/.loop_stop` に「あなたに何を頼みたいか」がバッチにまとまって出ています。
@@ -80,6 +86,7 @@ tail -f loop.log
     --yolo           --dangerously-skip-permissions。無人放置向け
     --no-push        push しない
     --dry-run        プロンプトと起動コマンドを見るだけ
+    --check          事前チェック＋認証の実疎通だけ確認して終了（数秒）
 ```
 
 **`--yolo` について正直に**: 無人で放置するには権限の確認を素通しする必要がありますが、
@@ -109,9 +116,16 @@ tail -f loop.log
 | `<file> が無い` | 状態ファイルが揃っていない | `git pull` |
 | `Permission denied` | 実行ビットが落ちている | `chmod +x research/run_loop.sh` |
 
-### 周 1 で `claude の認証が切れている` と出る
-`Failed to authenticate: OAuth session expired` は**何周回しても直らない**ので、ドライバは即座に止まる。
-**対話で一度 `claude` を起動してログインし直す**こと。そのあと同じコマンドで再開できる。
+### `claude にログインしていない` / `claude の認証が切れている`
+**何周回しても直らない**ので、ドライバは即座に止まる。直し方:
+
+```bash
+claude auth login
+research/run_loop.sh --check     # 実際に叩いて通ることを確かめる
+```
+
+`claude auth status` が `loggedIn: true` でも、**トークンが期限切れなら API 側で拒否される**。
+`--check` は 1 往復だけ実際に叩くので、この区別がつく。**夜に仕掛ける前に必ず通すこと。**
 
 ### `追跡下に未コミットの変更が残った`
 周の途中で打ち切られたか、claude が中途半端に書いて終わった。**勝手に捨てない設計**なので、
