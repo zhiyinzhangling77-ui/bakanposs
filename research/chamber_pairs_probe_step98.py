@@ -43,6 +43,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cosore_memory_step40 import load_cosore
 from colocate_step51 import haversine
+from runlog import tee_stdout      # **出力を最初からファイルに残す**（旗110 の反省）
 
 MIN_DAYS, MIN_YEARS = 60, 3        # 本研究の下限（旗58 以来）
 
@@ -66,6 +67,7 @@ def main():
     ap.add_argument("--km", type=float, default=1.0)
     a = ap.parse_args()
 
+    tee_stdout("step98")
     print("=== 旗98：同一地点に複数チャンバーがある組を数える（下調べ・検定はしない）===")
     print("  **相関は計算しない**——**それは検定の答えであり、事前登録の前に見てはいけない**。")
     print(f"  **{a.km:.1f} km 以内を同一地点**とする。下限は**重なり {MIN_DAYS} 日・{MIN_YEARS} 年**。\n")

@@ -34,6 +34,7 @@ from downsample_autumn_step91 import diff_boot
 from rain_history_probe_step103 import (rain_history, daily_precip,
                                         PRIMARY_THR, RECENT_MAX, REMOTE_MIN)
 from evaporation_regime_step36 import daily_energy
+from runlog import tee_stdout      # **出力を最初からファイルに残す**（旗110 の反省）
 
 CLUSTERS = {"Walnut Gulch": ("US-Wkg", "US-Whs"), "Santa Rita": ("US-SRM",)}
 
@@ -150,6 +151,7 @@ def main():
     ap.add_argument("--qc-max", type=int, default=None)
     a = ap.parse_args()
 
+    tee_stdout("step107")
     print("=== 旗107：層を揃えても、季節差は残るか（手C はどこまで説明したか）===")
     print("  **`遠い` 層の中で春と秋を比べる**——**`遠い` が理由のすべてなら、差は消えるはず。**")
     print("  **測るのは差そのもの Δ = r_秋 − r_春**（旗91 の年ブロック・ブート）。")

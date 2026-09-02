@@ -42,6 +42,7 @@ from stratified_bowen_step89 import cell_of
 from soiltemp_match_step90 import SPRING, AUTUMN
 from rain_history_probe_step103 import daily_precip
 from evaporation_regime_step36 import daily_energy
+from runlog import tee_stdout      # **出力を最初からファイルに残す**（旗110 の反省）
 
 # 旗108（直した版）で 4 群すべてが揃った 9 件
 NEW = ("CN-Aro", "CN-Du2", "CN-Ha2", "CN-HbC", "CN-Xsh",
@@ -84,6 +85,7 @@ def main():
     ap.add_argument("--qc-max", type=int, default=None)
     a = ap.parse_args()
 
+    tee_stdout("step110")
     print("=== 旗110：4 群が揃った 9 サイトは、乾燥地か（下調べ・検定はしない）===")
     print("  **サイト名から推測しない。** **年降水量と θ をデータから出して比べる。**")
     print("  **既知の乾燥地 3 件を物差しとして並べる**（絶対値ではなく相対で見る）。")

@@ -40,6 +40,7 @@ from soiltemp_match_step90 import SPRING, AUTUMN
 from rain_history_probe_step103 import (rain_history, daily_precip,
                                         PRIMARY_THR, RECENT_MAX, REMOTE_MIN)
 from evaporation_regime_step36 import daily_energy
+from runlog import tee_stdout      # **出力を最初からファイルに残す**（旗110 の反省）
 
 # **旗79/80 で登録した全サイト**（`sites.py` から機械的に拾う。手で並べない）
 DONE = {"US-Wkg", "US-Whs", "US-SRM"}      # 旗106/107 で既に測った＝3 クラスタ目の候補から除く
@@ -108,6 +109,7 @@ def main():
                     help="サイトを絞る（カンマ区切り）。**下調べなので絞っても作法上の問題は無い**")
     a = ap.parse_args()
 
+    tee_stdout("step108")
     print("=== 旗108：手C の層別が、他のサイトでもできるか（下調べ・検定はしない）===")
     print("  **相関も Δ も計算しない**——**それは検定の答えであり、事前登録の前に見てはいけない。**")
     print(f"  数えるのは **4 群**（春×`直後`／春×`遠い`／秋×`直後`／秋×`遠い`）。")

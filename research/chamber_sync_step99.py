@@ -38,6 +38,7 @@ from cosore_memory_step40 import load_cosore
 from colocate_step51 import haversine
 from model_richness_step74 import design, residuals
 from vpd_match_step96 import spearman
+from runlog import tee_stdout      # **出力を最初からファイルに残す**（旗110 の反省）
 
 MIN_DAYS, MIN_YEARS = 60, 3
 SHIFTS = (-90, -60, -30, 30, 60, 90)      # プラセボ（事前登録で固定）
@@ -256,6 +257,7 @@ def main():
     ap.add_argument("--cosore-dir", default="/mnt/hdd/cosore-0.7.0")
     a = ap.parse_args()
 
+    tee_stdout("step99")
     print("=== 旗99：~4 日メモリは、どの空間スケールの現象か ===")
     print("  **残差は旗74 のテンソルビン＋外挿**（誤特定の共通残りを最大限つぶす）。")
     print(f"  **プラセボは ±30/60/90 日の多重シフト**——**6 通りの最大値を上回る**を「揃う」とする。")

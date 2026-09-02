@@ -36,6 +36,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cosore_memory_step40 import load_cosore
 from model_richness_step74 import measure, star
+from runlog import tee_stdout      # **出力を最初からファイルに残す**（旗110 の反省）
 
 MIN_DAYS, MIN_YEARS = 60, 3
 SHALLOW_CM = 5.0          # 軸B の境（**≤5 cm を浅いとする**・事前登録で固定）
@@ -146,6 +147,7 @@ def main():
     ap.add_argument("--cosore-dir", default="/mnt/hdd/cosore-0.7.0")
     a = ap.parse_args()
 
+    tee_stdout("step102")
     print("=== 旗102：★という判定は、駆動センサの正体に依存していないか ===")
     print("  **新しい仮説ではない。A-1（約 1/3 に多日記憶）の頑健性検査である。**")
     print("  **当初の見立て（気温で引くと★が増える）は合成で否定された**（追補）——")

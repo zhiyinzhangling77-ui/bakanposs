@@ -32,6 +32,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from cosore_memory_step40 import load_cosore
 from model_richness_step74 import design, residuals, measure, star
 from same_site_arc_step66 import PAIRS, SENSITIVITY_ONLY
+from runlog import tee_stdout      # **出力を最初からファイルに残す**（旗110 の反省）
 
 MIN_DAYS, MIN_YEARS = 60, 3
 LAGS = (0, 1, 2, 3, 4, 5)                 # タワー気象のラグ（事前登録で固定）
@@ -212,6 +213,7 @@ def main():
     ap.add_argument("--sensitivity-bidir", action="store_true",
                     help="**感度分析**：プラセボを前後に振る（主判定ではない）")
     a = ap.parse_args()
+    tee_stdout("step100")
     global BIDIR
     BIDIR = a.sensitivity_bidir
 

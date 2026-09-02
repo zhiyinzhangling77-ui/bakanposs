@@ -34,6 +34,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from same_site_arc_step66 import PAIRS, SENSITIVITY_ONLY
+from runlog import tee_stdout      # **出力を最初からファイルに残す**（旗110 の反省）
 
 MIN_DAYS, MIN_YEARS = 60, 3
 
@@ -75,6 +76,7 @@ def main():
                     help="旗86 の 44 組だけでなく全データセットを見る")
     a = ap.parse_args()
 
+    tee_stdout("step101")
     print("=== 旗101：COSORE に何層の土壌温度・水分があるか（下調べ・検定はしない）===")
     print("  **本研究は 40 旗にわたって、5 cm に最も近い 1 層しか使っていない。**")
     print("  **旗97 で FLUXNET の多深度水分を見落としていたのと同じことが、")

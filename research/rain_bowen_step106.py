@@ -39,6 +39,7 @@ from soiltemp_match_step90 import SPRING, AUTUMN
 from rain_history_probe_step103 import (rain_history, daily_precip,
                                         PRIMARY_THR, RECENT_MAX, REMOTE_MIN)
 from evaporation_regime_step36 import daily_energy
+from runlog import tee_stdout      # **出力を最初からファイルに残す**（旗110 の反省）
 
 SITES = ("US-Wkg", "US-Whs", "US-SRM")     # 旗82/89/96/105 と同一（**独立クラスタは 2**）
 
@@ -208,6 +209,7 @@ def main():
                     help="旗103/105 と同じ既定（None＝設定ファイルのまま）")
     a = ap.parse_args()
 
+    tee_stdout("step106")
     print("=== 旗106：Bowen 反転は「雨からの日数」で説明できるか（手C）===")
     print("  **秋の中だけで決着する**——**春は `直後` が下限未満で主検定にできない**（旗105）。")
     print("  **秋の `遠い` 層でも反転が残るなら、春が反転しない理由は雨からの日数ではない。**")

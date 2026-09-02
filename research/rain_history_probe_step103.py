@@ -54,6 +54,7 @@ from stratified_bowen_step89 import cell_of, MIN_DAYS, MIN_YEARS
 from soiltemp_match_step90 import band, SPRING, AUTUMN
 from vpd_match_step96 import spearman
 from precip_pressure_test_step77 import dryspell, _cum
+from runlog import tee_stdout      # **出力を最初からファイルに残す**（旗110 の反省）
 
 EVENT_THR = (5.0, 10.0)          # イベントの閾値候補 [mm/日]（**下調べなので併記する**）
 PRIMARY_THR = 5.0                # 日数を数えるときの主閾値（**事前登録ではまだ固定しない**）
@@ -324,6 +325,7 @@ def main():
     ap.add_argument("--qc-max", type=int, default=None)
     a = ap.parse_args()
 
+    tee_stdout("step103")
     print("=== 旗103：手C（降雨イベントからの経過）の**前提の下調べ** ===")
     print("  **検定はしない**——θ→γLE・θ→γH は一行も計算しない（旗94/98/101 と同じ作法）。")
     print("  **出すのは分布と日数だけ**：**春と秋で雨の入り方が違うか**と、")

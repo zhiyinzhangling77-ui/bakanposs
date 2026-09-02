@@ -42,6 +42,7 @@ from rain_history_probe_step103 import (rain_history, daily_precip,
                                         PRIMARY_THR, RECENT_MAX, REMOTE_MIN)
 from evaporation_regime_step36 import daily_energy
 from colocate_step51 import haversine
+from runlog import tee_stdout      # **出力を最初からファイルに残す**（旗110 の反省）
 
 SITES = ("US-Ho1", "US-NC2", "US-WCr")     # 旗108 で 4 群すべてが下限を満たした新しい 3 件
 CLUSTER_KM = 50.0                          # 旗82/107 と同じ（**手で断定せず道具が確かめる**）
@@ -179,6 +180,7 @@ def main():
     ap.add_argument("--qc-max", type=int, default=None)
     a = ap.parse_args()
 
+    tee_stdout("step109")
     print("=== 旗109：湿潤な森林でも、同じ型が出るか（**別の母集団への外挿**）===")
     print("  **母集団が違う**——**A-3 は乾燥地の主張**で、本検定の 3 サイトは**湿潤な森林**。")
     print("  **どんな結果でも『再現した』とは書かない。**")
