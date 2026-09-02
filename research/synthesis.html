@@ -147,7 +147,7 @@ footer .files{margin-top:10px}
   <div class="meta">
     <span><b>データ</b> 渦相関・熱帯〜亜寒帯・7–8月・5日アノマリ/日次</span>
     <span><b>手法</b> 情報理論 × 因果探索 × 派生量監査</span>
-    <span><b>旗</b> 13–96</span>
+    <span><b>旗</b> 13–102</span>
   </div>
 </header>
 <hr>
@@ -352,6 +352,11 @@ footer .files{margin-top:10px}
       観測された土壌水の履歴でも、非線形 Birch 効果でも、熱慣性でもない。
       ＝正体は<strong>チャンバー＋土壌センサの観測の外側</strong>（基質の遅い転流・微生物動態・根の動態）。
       この研究の題名そのものに、機構レベルで到達した。次節がその弧。</p>
+      <p><strong>そして空間スケールが決まった（旗99）</strong>——同一地点の 8 本のチャンバーで残差が
+      <strong>100% 同期</strong>し、<strong>地点間は 18%</strong>、距離で減衰した。
+      ＝<strong>微小生息場所の現象ではなく「地点」の現象</strong>である。
+      続けて<strong>同じ場所のタワーの気象（Rg・Ta・VPD・P とその 1–5 日ラグ）を駆動に足しても消えなかった</strong>（旗100）。
+      ＝残るのは<strong>林分規模の生物過程か土壌水文</strong>。<strong>手元のデータでは、ここまでである。</strong></p>
     </div>
 
   </div>
@@ -463,9 +468,11 @@ footer .files{margin-top:10px}
     <div class="item"><span class="h">観測された土壌水の履歴・非線形 Birch</span><span class="by">旗45 プラセボ超えず</span></div>
     <div class="item"><span class="h">熱慣性・温度の位相遅れ</span><span class="by">旗45・54 プラセボ超えず</span></div>
     <div class="item"><span class="h">検出器のモデル形（線形当てはめの取り残し）</span><span class="by">旗52 で発見 → 旗53・54 で制御しても残存</span></div>
+    <div class="item"><span class="h">チャンバー・スケールの微小生息場所</span><span class="by">旗99 同一地点で 100% 同期＝地点の現象</span></div>
+    <div class="item"><span class="h">同じ場所のタワーが測る気象（Rg・Ta・VPD・P とラグ）</span><span class="by">旗100 判定 4 組中 1 組しか説明せず</span></div>
     <div class="rest"><span class="k">残るもの</span>
-      <p><strong>基質の遅い転流・微生物群集の動態・根の動態</strong>——いずれも
-      <strong>チャンバー＋土壌センサでは測れていない量</strong>。「観測の隙間」は比喩ではなく、
+      <p><strong>林分規模の生物過程（基質の遅い転流・微生物群集の動態・根の動態）か、土壌水文</strong>——いずれも
+      <strong>チャンバー＋土壌センサでは測れていない量</strong>。<strong>空間スケールは「地点」と決まった</strong>（旗99）。「観測の隙間」は比喩ではなく、
       いま名指しできる具体的な欠落になった。次に効く観測は <strong>降水の実測・複数深度の土壌水分・
       同位体パルス標識・微生物バイオマス</strong>。</p>
       <p style="margin:.7em 0 0;font-size:.95rem"><em>いったんは「深部の地温こそ次の一手では」と考えた——
@@ -615,7 +622,7 @@ footer .files{margin-top:10px}
     ＝<strong>この研究の中心的な発見は、自分の道具を疑い切ったあとに残ったもの</strong>である。</div>
   <p><em>この過程で自分の実装の欠陥も三度見つけた：帰無条件に土壌温度を入れ忘れ、判別統計に使えない量
   （e-fold）を選び、対照（プラセボ）が作れなかったサイトに星を付けていた。いずれも出力の数値から気づいて直した。</em></p>
-  <p><em>その後も同じやり方で見つけ続け、<strong>数え上げた自分の道具の欠陥は 31 件</strong>になった——
+  <p><em>その後も同じやり方で見つけ続け、<strong>数え上げた自分の道具の欠陥は 34 件</strong>になった——
   Ω の生符号で判定していた（z で見ると逆）、当てはめ崩壊を結果に計上していた、
   プラセボが帰無になっていなかった、年ブロック・ブートを渡し忘れていた、交差検証のブロック間の段差が判定を潰していた——
   <strong>すべて自分で見つけて直し、影響範囲まで確かめた</strong>。</em></p>
@@ -638,8 +645,12 @@ footer .files{margin-top:10px}
     <b>区別できる設計（4月のみ×年の上下1/4）には実データの検出力が無い</b>と判明。
     <b>下限を緩めずに、実行そのものを取りやめた。</b>
     <br><br><em>いずれも実データに触れる前に追補を書き、元の事前登録は書き換えずに残した。
-    合成検証が進路を変えたのは <b>5 度</b>（旗89・91・93×2・<b>96</b>）——
-    <b>実データで先に走らせていたら、5 回とも誤った結論を出していた。</b>
+    合成検証が進路を変えたのは <b>8 度</b>（旗89・91・93×2・96・97・100・<b>102</b>）——
+    <b>実データで先に走らせていたら、8 回とも誤った結論を出していた。</b>
+    <br><b>旗102 の型はさらに新しかった</b>——<b>壊れていたのは道具でも設計でもなく、私の物理そのもの</b>。
+    「気温で駆動を引くと記憶が増える」と予測したが<b>逆で</b>、気温は白色雑音を余分に持つため記憶を<b>薄める</b>。
+    <b>前提の事実を確かめる節を設けても、物理の「向き」までは守れない</b>と分かり、
+    <b>向きを合成で確かめる工程</b>を作法に加えた。
     <br><b>旗96 の型は新しかった</b>——<b>道具が壊れていたのではなく、
     「検定が答えている問いが、私の問いより広かった」</b>。
     合成 <code>wet_overlap</code>（θ が真因・VPD は無関係）でも「VPD で説明された」を返してしまうと分かり、
@@ -748,6 +759,48 @@ footer .files{margin-top:10px}
       <b>北米 3 サイトは通過し、モンゴル MN-Hst は落ちた</b>——
       <b>門が無ければ、対照ごと落ちた結果を数えていた</b>。
       ＝<b>旗96 の ▲ は、旗95 の ▲ より強い</b>。</div></div>
+    <div class="row"><div class="verdict"><span class="chip good">★地点スケール</span></div>
+      <div class="what"><b>~4 日メモリは、微小生息場所ではなく「地点」の現象である</b>（旗99）。
+      同一地点（KAYE・8 本・19 対）で残差が <b>100% 同期</b>（r 中央 +0.344 対 プラセボ −0.015）、
+      <b>地点間は 18%</b>、距離で減衰（&lt;100 km 50% → &gt;1000 km 18%）。
+      <b>帰無率の較正が効いた</b>——6 通りシフトの最大を超える確率は <b>1/7 ≈ 14%</b> で、
+      地点間 18% と合成 <code>chamber</code> 15% がその線に一致した。
+      <em>これは長い連敗の後の、最初の明確な陽性である。</em></div></div>
+    <div class="row"><div class="verdict"><span class="chip warn">説明されない</span></div>
+      <div class="what"><b>同じ場所のタワーの気象を駆動に足しても、記憶は消えなかった</b>（旗100）。
+      Rg・Ta・VPD・P とその 1–5 日ラグ（25 列）を外挿残差に当て、判定できた 4 組のうち
+      <b>説明されたのは 1 組だけ</b>（CA-TP3 +35%／US-Ha1 −6%／US-MMS −11%）。
+      <b>最も重い限界</b>：旗99 が地点スケールを示した <b>KAYE 自身は、タワーが 2016 年開始で
+      重なりが 2 暦年しか無く、検定できていない</b>——事前登録の「前提の事実確認」で先に予告した通り。
+      <em>予測が当たった（8 回中 3 勝）が、根拠は「手元の量は外れてきた」という帰納であって機構の理解ではない。</em></div></div>
+    <div class="row"><div class="verdict"><span class="chip crit">見落とし</span></div>
+      <div class="what"><b>本研究は 40 旗にわたって、土壌の浅い 1 層しか使っていなかった</b>（旗101）。
+      <code>_pick_sm</code>／<code>_pick_soil_temp</code> は「5 cm に最も近い層」を選ぶだけで、
+      <b>実際に使われた層は 1 cm〜30 cm に散らばる</b>（ZHANG_maple の水分は 30 cm、UEYAMA_TESHIO の温度は 1 cm）。
+      <b>土壌温度列が無い地点では気温に落ちる</b>——一度も報告していなかった。
+      <b>手 E（深い層で駆動を組み直す）は実行不能</b>：多層は 43 本中 1 本、しかもそれは★ではない。
+      <em>旗97 で FLUXNET の多深度水分を見落としたのと同じ型が、COSORE 側でも起きていた。</em></div></div>
+    <div class="row"><div class="verdict"><span class="chip good">A-1 は動かない</span></div>
+      <div class="what"><b>駆動センサをすべて明示して数え直しても、A-1 は 37%</b>（旗102）。
+      COSORE 全 82 本のうち下限を満たす <b>38 本／30 地点で★ 14 本＝37%</b>——
+      データセット 36%・場所 34–36%・出版物 33% に並ぶ、<b>最も広く、最も明示的な集計</b>。
+      軸A（土壌温度 vs 気温）は比 0.90 で差なし、<b>ただし気温群は 3 本しかなく実際には何も判別していない</b>
+      ——<b>事前登録の下限「3 本」は率の比較には低すぎた。次は 10 本にする。</b>
+      <em>規則は結果を見る前に決めたので変えていない。読み方だけを正した。</em></div></div>
+    <div class="row"><div class="verdict"><span class="chip warn">兆し（主張しない）</span></div>
+      <div class="what"><b>深い温度センサ（&gt;5 cm）の 4 本は、★が 0 である</b>（旗102）。
+      4 本すべて <code>CSR_T10</code> で、<b>3 本は ACF1 が高いのに e-fold が長くて落ちている</b>（9・11・22 日）
+      ＝★ではなく<b>「季節メモリ」に分類されている</b>。深い土壌温度は滑らかなので残差に長い尺度が残る——物理としては自然。
+      <b>もしそうなら、★と季節メモリの線引きは生物ではなくセンサの深さを一部なぞる。</b>
+      ただし <b>4 本・3 地点</b>。<b>逆向きの参考</b>：唯一の多層データセット JASSAL では
+      温度 3 層 × 水分 3 層の <b>9 通りすべてで判定が動かなかった</b>（n=1）。<b>両方そのまま書く。</b></div></div>
+    <div class="row"><div class="verdict"><span class="chip crit">前提が誤り（3 度目）</span></div>
+      <div class="what"><b>「気温で駆動を引くと★が増える」という私の物理は、逆だった</b>（旗102）。
+      気温は「鈍った土壌温度」ではなく、<b>土壌温度が持たない白色雑音を余分に持つ</b>——
+      土壌温度を気温の関数で近似した残りは<b>ほぼ白色</b>（ACF1 +0.12）で、その雑音が残差を薄め★を減らす。
+      合成で確認：土壌温度観測 → ★（ACF1 +0.77）／気温観測 → ★でない（+0.58）。
+      <b>旗96・97 は実データを見てから気づいたが、今回は合成が実データ前に捕まえた。</b>
+      <em>「前提の事実確認」の節だけでは物理の向きは守れない——<b>合成で向きを確かめる工程</b>を作法に加えた。</em></div></div>
     <div class="row"><div class="verdict"><span class="chip warn">言えなかった</span></div>
       <div class="what"><b>PhenoCam の日次緑度でも、春と秋の差は説明できなかった</b>（旗95）。
       <b>ただし「棄却された」とは書かない</b>——<b>US-Wkg は対照（秋）まで反転せず情報を持たず、実質 n=1</b>。
@@ -851,14 +904,14 @@ footer .files{margin-top:10px}
 
 <hr>
 <footer class="wrap">
-  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–96）。文献は書誌と要約までの確認で、<b>一次PDFは未読</b>。
+  <div><b>出所</b> — 数値は各ツールの実行出力（旗13–102）。文献は書誌と要約までの確認で、<b>一次PDFは未読</b>。
   旗92 で<b>この環境では構造的に読めない</b>と確認した（出版社・学術API・大学の PDF 直リンクまで egress で遮断）。
   <b>論文化の前に、文献を根拠に自分の主張を下げた 2 件（新規性の撤回・水分依存 Q10 の「再発見」評価）を必ず一次で確認する。</b></div>
   <div class="files"><b>記録</b> · research/FLAGS_LOG.md（各旗の詳細）· research/MEASURED_ONLY_SPINE.md（測定量だけの骨格）·
   research/SESSION_STATE.md（現在地と次の一手）· research/LITERATURE_VERIFICATION_TODO.md（<b>一次確認の作業指示</b>）· research/VALIDITY_SYNTHESIS.md（妥当性検証）·
   research/LIMITATIONS.md（穴と対処）· research/PREMISE_AUDIT.md（前提の監査）·
-  research/PREREGISTRATION_step55・57・58・59・61・62・70・82・88・89・90・91・93・95・96.md（<b>事前登録 15 件</b>、うち
-  step89・91・96 は<b>実データ実行前に追補</b>して設計を直した）· research/NEW_OBSERVATION_DESIGN.md（次に何を測るか）· research/PHENOCAM_ACQUISITION.md（取得指示）· research/LITERATURE_NOTES.md（先行研究）·
+  research/PREREGISTRATION_step55・57・58・59・61・62・70・82・88〜91・93・95〜97・99・100・102.md（<b>事前登録 19 件</b>、うち
+  step89・91・96・97・100・102 は<b>実データ実行前に追補</b>して設計を直した）· research/NEW_OBSERVATION_DESIGN.md（次に何を測るか）· research/PHENOCAM_ACQUISITION.md（取得指示）· research/LITERATURE_NOTES.md（先行研究）·
   japanflux_pn/DATA_QUALITY.md（品質基準）</div>
   <div class="files"><b>データ利用</b> · チャンバー呼吸は COSORE（Bond-Lamberty et al. 2020, GCB）— 公表時は各データセット提供者への
   クレジットと同論文の引用が要る。TROPOMI SIF は Caltech（Köhler / Frankenberg）— 公表時は要連絡。
