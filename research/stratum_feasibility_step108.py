@@ -116,7 +116,7 @@ def main():
           f"（**手登録＋JapanFlux／ChinaFlux／KoFlux の自動発見をすべて合わせた**）"
           f"／雛形を除いた：{sorted(TEMPLATES)}")
     print("  **第1版は手登録の 31 件しか数えていなかった**（道具の欠陥 #39）。\n")
-    full, partial, no_p, unread = [], [], [], []
+    full, partial, no_p, no_th, unread = [], [], [], [], []
     for s in sites:
         try:
             d, _ = daily_energy(s, list(range(1, 13)), a.qc_max)
@@ -128,8 +128,20 @@ def main():
             unread.append((s, f"P: {type(e).__name__}")); continue
         if P is None or P.dropna().empty:
             no_p.append(s); continue
+        # **道具の欠陥 #40（旗108 の再実行で判明）**：
+        # **`KeyError: 'dry'` を「読めない」に混ぜていた**。
+        # 実際の原因は**土壌水分 θ が全 NaN で `θ高×Rg高` セルが空**になり、
+        # 空の枠に降雨履歴を join しても列が付かないことである
+        # （警告に「変数 th の写像先 'SWC_F_MDS' が … に無い＝**この変数は全 NaN**」と出ている）。
+        # **「読めない」と「θ が無い」は別の事実**なので分けて数える（欠陥 #34 と同じ形・2 度目）。
+        if d.empty or "th" not in d.columns or not np.isfinite(d["th"]).any():
+            no_th.append(s); continue
         try:
             g, tmed, rmed, ncell = four_groups(d, P)
+        except KeyError as e:
+            if str(e).strip("'\"") == "dry":
+                no_th.append(s); continue
+            unread.append((s, f"層別: KeyError: {str(e)[:40]}")); continue
         except Exception as e:
             unread.append((s, f"層別: {type(e).__name__}: {str(e)[:40]}")); continue
         ok = {k: (n >= MIN_DAYS and y >= MIN_YEARS) for k, (n, y, _) in g.items()}
@@ -154,6 +166,8 @@ def main():
     print(f"  **4 群すべて使える：{len(full)} 件** → {full}")
     print(f"  一部だけ：{len(partial)} 件 → {partial}")
     print(f"  降水 P が無い：{len(no_p)} 件 → {no_p}")
+    print(f"  **土壌水分 θ が無い（＝セルを作れない）：{len(no_th)} 件** → {no_th}")
+    print("    （**第1版はこれを『読めない』に混ぜていた**＝道具の欠陥 #40）")
     if unread:
         print(f"  読めない：{len(unread)} 件")
         for s, w in unread:
