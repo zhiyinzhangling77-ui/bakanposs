@@ -48,15 +48,36 @@ TEMPLATES = {"A3-base"}
 
 
 def all_sites():
-    """`sites.py` の登録名を機械的に拾う（**手で並べると旗43 の再現になる**）。"""
+    """**`get_site` が知っているサイトを全部**拾う（**手で並べない**）。
+
+    **道具の欠陥 #39（旗109 の後に判明）**：第1版は**静的な `SITES` 辞書だけ**を読んでいた。
+    **`sites.py` には登録簿が四つある**——
+    `SITES`（手登録）・`discover_japanflux_sites`（`/mnt/hdd/JAPANFLUX`）・
+    `discover_chinaflux_sites`（`/mnt/hdd/ChinaFlux`）・`discover_koflux_sites`。
+    **`get_site` はこの四つを順に見る**（見つからないときの例外に
+    `sorted(set(SITES) | set(disc) | set(cn) | set(kr))` と書いてある）。
+
+    **＝第1版は「A-3 の元のクラスタであるモンゴルのサイト」も
+    「ChinaFlux の乾燥草原」も数えていなかった。**
+    **旗108 の結論「手元の乾燥地クラスタは 2 が上限」は、この不完全な数え上げの上に立っていた。**
+    **本版で数え直すまで、その結論は保留する。**
+
+    **`get_site` 自身の定義をそのまま使う**——**別の並べ方を自分で書かない。**
+    """
     from japanflux_pn import sites as S
-    for nm in ("SITES", "SITE_TABLE", "REGISTRY", "_SITES"):
-        obj = getattr(S, nm, None)
-        if isinstance(obj, dict):
-            return sorted(obj)
-    import re
-    src = Path(S.__file__).read_text()
-    return sorted(set(re.findall(r'"([A-Z]{2}-[A-Za-z0-9]+)"\s*:', src)))
+    names = set(S.SITES)
+    for fn in ("discover_japanflux_sites", "discover_chinaflux_sites",
+               "discover_koflux_sites"):
+        f = getattr(S, fn, None)
+        if f is None:
+            continue
+        try:
+            got = f()
+        except Exception as e:            # ルートが無い環境では空 dict が返る設計
+            print(f"  （{fn} が失敗：{type(e).__name__}）")
+            continue
+        names |= set(got)
+    return sorted(names)
 
 
 def four_groups(d, P):
@@ -91,8 +112,10 @@ def main():
     print("  **旗107 で `直後` 層が唯一の識別軸**と分かったので、**4 群すべて**を要求する。\n")
 
     sites = [s for s in all_sites() if s not in TEMPLATES]
-    print(f"  登録サイト：{len(sites)} 件（`sites.py` から機械的に取得）"
-          f"／雛形を除いた：{sorted(TEMPLATES)}\n")
+    print(f"  登録サイト：{len(sites)} 件"
+          f"（**手登録＋JapanFlux／ChinaFlux／KoFlux の自動発見をすべて合わせた**）"
+          f"／雛形を除いた：{sorted(TEMPLATES)}")
+    print("  **第1版は手登録の 31 件しか数えていなかった**（道具の欠陥 #39）。\n")
     full, partial, no_p, unread = [], [], [], []
     for s in sites:
         try:
