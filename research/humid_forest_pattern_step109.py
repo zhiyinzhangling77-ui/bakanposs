@@ -217,12 +217,13 @@ def main():
             continue
         if P is None or P.dropna().empty:
             print(f"\n  ━━ {s} ━━\n    **降水 P が無い**"); continue
-        try:
-            from japanflux_pn.sites import get_site
-            st = get_site(s)
-            coords[s] = (getattr(st, "lat", None), getattr(st, "lon", None))
-        except Exception:
-            coords[s] = (None, None)
+        # **道具の欠陥 #38（旗109 の実行で判明）**：
+        # **`SiteSpec` は座標を持たない**（フィールドは code/data_dir/source/hh_glob/
+        # fmt/var_overrides/description の 7 つだけ）。**`st.lat` は最初から存在しなかった。**
+        # **座標は BADM から引くのが正しい**（旗79/86 の `build_badm_index`）。
+        # **本実行では 3 サイトすべてが門①-a で落ちたので結論に影響しない**が、
+        # **「座標を取れなかった」という護りが働いて誤った主張を防いだ**ことは記録する。
+        coords[s] = (None, None)
         verd[s] = run_site(s, d, P)
 
     print("\n  === クラスタを座標で確かめる（**手で断定しない**・50 km 単連結）===")
@@ -236,7 +237,9 @@ def main():
                 print(f"    {s1} × {s2}：{km:,.0f} km"
                       f" → {'**同一クラスタ**' if km <= CLUSTER_KM else '別クラスタ'}")
     else:
-        print("    **座標を取れなかった**——**クラスタ数を主張しない。**")
+        print("    **座標を取れない**——**`SiteSpec` は座標を持たない**（欠陥 #38）。")
+        print("    **正しくは BADM から引く**（旗79/86 の `build_badm_index`）。")
+        print("    **クラスタ数を主張しない。**")
 
     print("\n  === 集計 ===")
     for s in SITES:
