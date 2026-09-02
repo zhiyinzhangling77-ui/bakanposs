@@ -236,6 +236,12 @@ def synth(kind, years=16, seed=0):
       ・`nodata`     —— **P が無い** → **「P が無い」で落ちる**べき
     """
     rng = np.random.default_rng(seed)
+    if kind == "separable":
+        # **旗104：この対照だけ 30 年**。16 年では**秋が帯の中で下限に届かない**——
+        # 秋の `Rg高` は 9 月にほぼ限られ、セル内の日数がそもそも足りない（下の較正の記録）。
+        # **対照の役目は「下限を満たす」枝が到達可能で正しいと示すこと**であって、
+        # **実サイトの年数を模すことではない**。**実データ側の年数はいじらない。**
+        years = 30
     idx = pd.date_range("2008-01-01", periods=365 * years, freq="D")
     doy = idx.dayofyear.to_numpy()
     Rg = np.clip(150 + 120 * np.sin(2 * np.pi * (doy - 80) / 365)
@@ -246,6 +252,12 @@ def synth(kind, years=16, seed=0):
     if kind == "sparse":
         # **春をほとんど降らせない**（春の山を消し、春の底も下げる）
         lam = 0.10 * (1 - 0.95 * spring) + 0.30 * monsoon
+    elif kind == "separable":
+        # **旗104 で較正した**（旗103 は一度も走らせずに書いたので値が合っていなかった）。
+        # 旧値は `confounded` と共用の `0.10 + 0.22*spring + 0.30*monsoon` で、
+        # **イベントが年 54 回＝平均間隔 6.8 日**。**`遠い`(≥7 日) は構造的に作れなかった**——
+        # ＝**陽性の対照が陽性を出せていなかった**。**雨を疎にして間隔を空ける。**
+        lam = 0.070 + 0.150 * spring + 0.170 * monsoon
     else:
         lam = 0.10 + 0.22 * spring + 0.30 * monsoon
     wet = rng.random(len(idx)) < np.clip(lam, 0.005, 1)
@@ -254,6 +266,17 @@ def synth(kind, years=16, seed=0):
     recent = np.exp(-np.nan_to_num(ds, nan=30.) / 4.0)               # 直後ほど 1 に近い
     if kind == "confounded":
         th = np.clip(0.10 + 0.30 * recent + rng.normal(0, 0.005, len(idx)), .02, .6)
+    elif kind == "separable":
+        # **旗104 で較正**：θ を**雨の直後性から切り離す**。
+        # 旧式は `0.16 + 0.06*recent + 季節 + 雑音` で、**θ高 のセルが `直後` の日に偏っていた**。
+        # **ゆっくり動く独立成分**（深層貯留のような、雨の直後性では決まらない量）を主にする。
+        # **これが `separable` の定義そのもの**——「θ は雨の直後性だけでは決まらない」。
+        slow = (pd.Series(rng.normal(0, 1, len(idx)))
+                .rolling(45, min_periods=1).mean().to_numpy())
+        slow = slow / (np.std(slow) + 1e-12)
+        th = np.clip(0.16 + 0.015 * recent + 0.065 * slow
+                     + 0.040 * np.sin(2 * np.pi * (doy - 200) / 365)
+                     + rng.normal(0, 0.020, len(idx)), .02, .6)
     else:
         th = np.clip(0.16 + 0.06 * recent
                      + 0.06 * np.sin(2 * np.pi * (doy - 200) / 365)
