@@ -186,6 +186,8 @@ def synth(kind, years=22, seed=0):
 def main():
     ap = argparse.ArgumentParser(description="旗106：Bowen 反転は雨からの日数で説明できるか")
     ap.add_argument("--real", action="store_true")
+    ap.add_argument("--qc-max", type=int, default=None,
+                    help="旗103/105 と同じ既定（None＝設定ファイルのまま）")
     a = ap.parse_args()
 
     print("=== 旗106：Bowen 反転は「雨からの日数」で説明できるか（手C）===")
@@ -217,8 +219,12 @@ def main():
     verdicts = {}
     for s in SITES:
         try:
-            d = daily_energy(s, tuple(range(1, 13)))
-            P = daily_precip(s)
+            # **道具の欠陥 #37**：第1版は `daily_energy(s, months)` と呼んでいた。
+            # **`qc_max` は必須の位置引数**で、**戻り値は `(d, 年数)` の組**である
+            # （旗91/93/95/97/103 はすべて `d, _ = daily_energy(s, months, qc_max)` と書いている）。
+            # **合成の枝は `synth` が d と P を直接返すので、この行を一度も通らなかった。**
+            d, _ = daily_energy(s, list(range(1, 13)), a.qc_max)
+            P = daily_precip(s, a.qc_max)
         except Exception as e:
             print(f"\n  ━━ {s} ━━\n    読めない {type(e).__name__}: {str(e)[:90]}")
             continue
@@ -242,8 +248,8 @@ def main():
 
     print("\n  ── 参考（**主判定には使わない**）：春の US-SRM ──")
     try:
-        run_site("US-SRM", daily_energy("US-SRM", tuple(range(1, 13))),
-                 daily_precip("US-SRM"), SPRING, "春")
+        d_sp, _ = daily_energy("US-SRM", list(range(1, 13)), a.qc_max)
+        run_site("US-SRM", d_sp, daily_precip("US-SRM", a.qc_max), SPRING, "春")
     except Exception as e:
         print(f"    読めない {type(e).__name__}: {str(e)[:80]}")
 
