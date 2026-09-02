@@ -121,6 +121,12 @@ def synth(kind, years=22, seed=0):
       ・`theta_confounded` —— **同じだが交絡が極端** → **`遠い` が潰れて判定しないはず**
                          （**極端な交絡では道具が自ら判定を拒む**ことの確認）
       ・`no_reversal` —— **そもそも反転しない** → **門①-a で落ちるべき**
+      ・`theta_real` —— **【事後】実データの交絡の強さに合わせた `theta_driven`**。
+        **実データを見た後に足した**ので**事後**と明記する（**判定規則は変えていない**）。
+        **事前の `theta_partial` は θ 比 1.07 までしか作れておらず、
+        実データは 1.56–1.87 だった**——**検証していない領域で★が出ていた。**
+        **反転は θ の水準だけで決まり、雨の日数とは無関係**に作る。
+        **ここで★が出るなら、実データの★は交絡と区別できない。**
     """
     if kind == "theta_partial":
         years = 30
@@ -133,6 +139,11 @@ def synth(kind, years=22, seed=0):
     spring = np.exp(-0.5 * ((doy - 100) / 30.) ** 2)
     monsoon = np.exp(-0.5 * ((doy - 250) / 45.) ** 2)
     lam = 0.055 + 0.110 * spring + 0.150 * monsoon
+    if kind == "theta_real":
+        # **実データの層の大きさに合わせる**（掃引で選んだ）：
+        # lam×0.45・c_recent 0.24 → **直後 88 日／遠い 173 日／θ比 1.67**
+        # ＝US-Wkg の実測（75／173／1.61）にほぼ一致する。
+        lam = 0.45 * lam
     wet = rng.random(len(idx)) < np.clip(lam, 0.005, 1)
     P = np.where(wet, rng.gamma(1.3, 7.0, len(idx)), 0.0)
     from precip_pressure_test_step77 import dryspell
@@ -147,6 +158,13 @@ def synth(kind, years=22, seed=0):
     # 両層の θ 中央が 0.21 で揃っていた＝交絡の試験になっていなかった**（旗104 と同じ形）。
     if kind == "theta_confounded":
         th = np.clip(0.10 + 0.30 * recent + rng.normal(0, 0.010, len(idx)), .02, .6)
+    elif kind == "theta_real":
+        slow = (pd.Series(rng.normal(0, 1, len(idx))).rolling(45, min_periods=1)
+                .mean().to_numpy())
+        slow = slow / (np.std(slow) + 1e-12)
+        th = np.clip(0.16 + 0.240 * recent + 0.045 * slow
+                     + 0.040 * np.sin(2 * np.pi * (doy - 200) / 365)
+                     + rng.normal(0, 0.020, len(idx)), .02, .9)
     elif kind == "theta_partial":
         # **交絡を「実データくらい」に弱める**。`recent` の係数を掃引して選んだ
         # （0.015→θ 比 1.02／0.05→1.07／0.12→1.18 だが 0.12 では `遠い` が 51 日で潰れる）。
@@ -171,7 +189,7 @@ def synth(kind, years=22, seed=0):
         g = 1.0 * (ds <= RECENT_MAX)                 # **`直後` の日だけ反転**
     elif kind == "rain_free":
         g = np.full(len(idx), 1.0)                   # **いつでも反転**
-    elif kind in ("theta_driven", "theta_partial", "theta_confounded"):
+    elif kind in ("theta_driven", "theta_partial", "theta_confounded", "theta_real"):
         g = 1.0 * (thz > 0)                          # **θ が高い日だけ反転**（雨の日数は無関係）
     else:                                            # no_reversal
         g = np.zeros(len(idx))
@@ -203,7 +221,8 @@ def main():
         want = {"rain_driven": "★", "rain_free": "▲", "theta_driven": "▲",
                 "theta_partial": "**★が出たら区別できない（最重要）**",
                 "theta_confounded": "`遠い` が潰れて判定しない",
-                "no_reversal": "門①-a で落ちる"}
+                "no_reversal": "門①-a で落ちる",
+                "theta_real": "**【事後】実データの交絡域で★が出ないか**"}
         got = {}
         for k, w in want.items():
             print(f"\n  ===== 合成 `{k}` —— 期待：**{w}** =====")
