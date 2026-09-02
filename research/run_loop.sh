@@ -26,6 +26,7 @@ PERM_MODE="acceptEdits"
 DO_PUSH=1
 DRY_RUN=0
 CHECK_ONLY=0
+ALLOW_TOOLS=""
 STALL_LIMIT=2
 
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -44,7 +45,9 @@ Options:
   -b, --branch NAME    回してよいブランチ (default claude/new-branch-creation-heq0i1)
       --any-branch     今いるブランチが何であれ回す（push もそのブランチへ）
       --yolo           全権限を素通し (--dangerously-skip-permissions)。
-                       無人放置向けだが、実データのあるマシンでは中身を理解してから使うこと
+                       **無人で回すなら実質必須**（既定では git commit すら承認待ちで拒否される）
+      --allow "<tools>"  承認なしで通すツールを絞る。--yolo の代わりに使う
+                       例: --allow 'Bash(git *) Bash(python3 *) Read Write Edit Grep Glob'
       --no-push        push しない（ローカルで試すとき）
       --dry-run        プロンプトと起動コマンドを表示して終了
   -h, --help           これ
@@ -62,6 +65,7 @@ while [[ $# -gt 0 ]]; do
     --no-push)      DO_PUSH=0; shift ;;
     --dry-run)      DRY_RUN=1; shift ;;
     --check)        CHECK_ONLY=1; shift ;;
+    --allow)        ALLOW_TOOLS="$2"; shift 2 ;;
     -h|--help)      usage; exit 0 ;;
     *) echo "不明な引数: $1" >&2; usage; exit 2 ;;
   esac
@@ -87,6 +91,13 @@ if [[ "$PERM_MODE" == "__yolo__" ]]; then
   CLAUDE_ARGS+=( --dangerously-skip-permissions )
 else
   CLAUDE_ARGS+=( --permission-mode "$PERM_MODE" )
+fi
+# 承認なしで通すツール。非対話セッションには承認する人がいないので、
+# ここに無いコマンドは「承認待ち」＝実質拒否になる（git commit を含む）
+if [[ -n "$ALLOW_TOOLS" ]]; then
+  # 空白区切りを個別の引数として渡す
+  read -r -a _allow <<<"$ALLOW_TOOLS"
+  CLAUDE_ARGS+=( --allowedTools "${_allow[@]}" )
 fi
 
 if [[ "$DRY_RUN" -eq 1 ]]; then
@@ -213,6 +224,10 @@ for (( i=1; i<=MAX_FLAGS; i++ )); do
     log "⚠ claude が rc=$rc で終了（ログ: $raw）"
   fi
 
+  if grep -qiE 'requires? (approval|permission)|permission denied by|has not been granted|承認' "$raw" 2>/dev/null; then
+    log "⚠ 周 $i で承認待ちになったツール呼び出しがある（--yolo か --allow で通すこと）"
+  fi
+
   # 認証切れは何周回しても直らない。空回りさせずにここで止める
   if grep -qiE 'OAuth session expired|Failed to authenticate|Invalid API key|authentication_error' "$raw" 2>/dev/null; then
     stop_reason="claude の認証が切れている。対話で一度 claude を起動してログインし直すこと"
@@ -229,6 +244,11 @@ for (( i=1; i<=MAX_FLAGS; i++ )); do
     git status --short --untracked-files=no
     stop_reason="追跡下に未コミットの変更が残った（周 $i・rc=$rc）。git diff を確認すること"
     log "✗ $stop_reason"
+    if [[ "$PERM_MODE" != "__yolo__" && -z "$ALLOW_TOOLS" ]]; then
+      log "  ↑ 権限が原因の可能性が高い。非対話セッションには承認する人がいないので、"
+      log "    git commit や python3 の実行が承認待ちのまま拒否される。"
+      log "    編集だけ残って未コミットになるのはその症状。--yolo か --allow を使うこと。"
+    fi
     break
   fi
 
