@@ -5669,3 +5669,134 @@ ET ヒステリシス文献が日内スケールであること（Zheng 2014 を
 **得たものは「A-3 の非対称について、最近接と目していた先行が実は違う量の組を見ていた」という
 一点の確定と、その確定に伴う限界の明文化である。**
 **旗119 が最優先に置いた ⚪ #1 は、これで「潰した」ではなく「到達できた範囲で潰し、限界を書いた」。**
+
+---
+
+## 旗121：**Elsevier の本文に、初めて届いた**——**Zhang 2018 は A-3 を先取りしない。ただし A-2 の「差分の書き方」が 1 箇所弱かった**
+
+**この周でやったこと**＝**旗120 が「次に潰す価値が最も高い」と置いた ⚪ #1（AFM 2018 の
+季節ヒステリシス論文）を、全文で一次確認した。**
+**新しい解析はしていない。数値・土俵分け・スコープは動かしていない。動かしたのは新規性の判定と、
+自分の差分の書き方 1 箇所である。**
+
+### 前提の確認（周の最初に道具を一つずつ叩く・旗119 の作法）
+
+| 叩いたもの | 結果 |
+|---|---|
+| `ls /mnt/hdd` | **サンドボックス外として拒否**＝**実データは無い周**（D 分類はゲートのまま） |
+| `.venv/bin/python -c` | **通った**（`PYTHON_OK`） |
+| `WebSearch` | **通った**（2 本実行） |
+| `WebFetch` | **通った**（到達性は相手ホスト次第・下表） |
+
+**整合性チェック（COLD_START Step 2）**：**`SESSION_STATE.md` の最新旗＝旗120、
+`FLAGS_LOG.md` の最終旗＝旗120。ずれ無し。** よって今周は本来の作業に入った。
+
+### ★到達性の新事実 — **`WebFetch` は PDF を手元に保存する。保存された PDF は `Read` で読める**
+
+**これが今周の最大の収穫であり、次の周が最初に使うべき道具である。**
+
+- **`WebFetch` に PDF の URL を渡すと、要約モデルは「バイナリで読めない」と答えて失敗する。**
+  **しかし同時に、PDF 本体がローカルのツール結果ディレクトリに保存される**
+  （`.../tool-results/webfetch-*.pdf`・今回 1.6MB）。
+- **その保存先を `Read` の `file_path` に渡し、`pages` を指定すると、本文がページ単位で読める。**
+  **＝WebFetch の要約モデルを迂回して、自分の目で本文を読める。**
+- **今周はこれで Elsevier（AFM）の本文 12 ページ全部に到達した。**
+  **旗118/120 で三度 403 に阻まれた出版社の論文を、初めて本文で確認できた。**
+
+**★これに伴う作法の追加（旗120 の反省）**：
+**旗120 は ScienceDirect が 403・S2 検索 API が 500 だった時点で「⚪ のまま」と結論した。
+しかし今周、同じ論文を検索したら 1 回目の結果の中に
+`harvardforest1.fas.harvard.edu/publications/pdfs/Zhang_AgForMet_2018.pdf` があった。**
+**＝出版社が 403 でも、著者所属機関（大学・USDA FS・NSF PAR）のミラー PDF が検索結果に出ていることがある。**
+**「出版社に 403 で弾かれた」で諦める前に、検索結果の全リンクを見て機関ミラーの PDF 直リンクを探す。**
+**これは道具の欠陥ではなく、探し方の欠陥だった。**
+
+| ルート | 結果 |
+|---|---|
+| ScienceDirect（Elsevier） | 旗120 で **403**（今周は叩いていない） |
+| **Harvard Forest の PDF 直リンク** | **✅ 到達。`WebFetch`→ローカル保存→`Read` で本文 12 ページ全部** |
+| Springer Link（Tucker & Reed 2016） | **303 で `idp.springer.com` の認証へリダイレクト＝未到達** |
+| S2 Graph API（Tucker & Reed 2016・Suseela 2012） | **書誌は返るが「抄録は出版社が制限」で本文も抄録も取れず** |
+
+### やったこと — **Zhang et al. (2018) AFM を全文で一次確認した**
+
+**書誌（確定）**：**Zhang, Q., Phillips, R.P., Manzoni, S., Scott, R.L., Oishi, A.C., Finzi, A.,
+Daly, E., Vargas, R., Novick, K.A. (2018), *Changes in photosynthesis and soil moisture drive the
+seasonal soil respiration-temperature hysteresis relationship*, Agricultural and Forest Meteorology
+259, 184–195. doi:10.1016/j.agrformet.2018.05.005**
+
+**本文から確定した中身**：
+
+1. **測定＝自動／動的チャンバーの土壌呼吸 Rs。8 AmeriFlux サイト・15 サイト年**
+   （US-Dk2・US-Dk3・Duke-OP・US-MMS・US-Ha1(E1)・US-Ha1(E2)・**US-SRM**・**US-Wkg**）。
+   **加えて FLUXNET2015 Tier1 の 129 サイトで GPP–Ts のラグを相互相関で評価。**
+2. **ヒステリシスの定義＝`Rs` と `Ts` の間・季節スケール**（本文は日内スケールの先行と明示的に区別している）。
+   **頻度＝「evidence of seasonal hysteresis in 9 out of 15 site-years across 8 diverse biomes」。**
+   **FLUXNET へ外挿して「occurs in 64% of site-years」。**
+3. **モデル（式7）：`Rs = R_ref,θ [1 − c(θ − θ_opt)²] e^{b·Ts}`。**
+   **＝θ は基底速度 `R_ref` を乗法的に修飾する。指数 `b`（＝Q10 に対応）は θ で変えていない。**
+   **したがって Zhang 2018 自身は「水分依存の見かけ Q10」を推定していない。**
+   **彼らの説明は「GPP と θ が T に対して位相をずらすからループが出る」である。**
+
+### ★結果① — **A-3（θ を揃えた秋>春の Bowen 非対称）の先取りには当たらない。確定**
+
+**旗120 は抄録も取れず「量の組が `Rs–T` だから A-3 ではない」と書誌から推定していた。
+今周それを本文で確かめた。推定は当たっていた。**
+**量の組は `Rs–T` であって `蒸発–θ` ではなく、「θ を揃えたときの秋と春の差」は扱っていない。**
+
+**ただし★重要な注意が 1 つ増えた**：**この論文のサイトに `US-SRM`（Santa Rita）と `US-Wkg`
+（Walnut Gulch）が入っている**——**我々の A-3 の中核クラスタそのものである。**
+**同じサイトで「季節ヒステリシス（Rs–Ts）」が既に報告されている**以上、
+**本文では「同じサイトで別の量の組の季節ヒステリシスが既報である」ことを必ず引いて、
+我々の非対称がそれとは別物であることを明示する必要がある。**
+**これを書き落とすと、査読で「既報の焼き直し」と読まれる。**（新しい穴ではなく、書き方の要求。）
+
+### ★結果② — **A-2 の「差分の書き方」が 2 箇所で弱かった。1 箇所は今周訂正した**
+
+**この論文は §4.5 で、一定 Q10 への挑戦の一覧を挙げ、その中に土壌水分を明記している**：
+
+> "using a constant Q10 value has been widely challenged ..., as we continue to learn more about the
+> sensitivity of Q10 to the depth of soil temperature measurement ..., soil temperature range ...,
+> **soil moisture (Gaumont-Guay et al., 2006; Wang et al., 2014; Tucker and Reed, 2016)** and
+> C substrate supply to microbes ..."
+
+**＝「見かけ Q10 が土壌水分に依存する」は、2018 年時点で既に経験的な先行を 3 件伴って引用される既知である。**
+**`NOVELTY_ASSESSMENT.md` の A-2 は「機構は既知（DAMM）／多サイトの経験的検証が別種の寄与」と
+書いていたが、この前半は狭すぎた**——**既知なのは機構だけでなく、経験的な報告も複数ある。**
+
+**【今周の訂正・確定】A-2 の差分として「分割を通さないチャンバーであること」を挙げるのは弱い。**
+**Zhang 2018 も自動チャンバーの Rs である**（本文 §2.4 で確認）。
+**チャンバーであること自体は差分にならない。** **`NOVELTY_ASSESSMENT.md` に訂正を追記した。**
+
+**【今周は断定しない・⚪ として登録】A-2 に残る差分の候補は 2 つある**：
+**(i) 36 サイトという多サイト性、(ii) 温度エイリアシングの分離。**
+**上の 3 件はいずれも単一サイトに見える**（Tucker & Reed＝Utah の 1 サイト・2013/10–2014/11、
+Suseela＝old-field の操作実験 1 箇所、Wang 2014＝desert shrub の 1 生態系）
+**が、これは題名と検索要約の水準であって一次確認ではない。**
+**「多サイト性が差分である」と本文に書く前に、少なくとも Wang et al. 2014 を一次確認すること。**
+
+### 新たに登録した ⚪（次周の標的・優先順つき）
+
+| # | 文献 | なぜ効くか | 今周の到達 | 次の手 |
+|---|---|---|---|---|
+| **1** | **Wang et al. 2014, "Soil moisture modifies the response of soil respiration to temperature in a desert shrub ecosystem", Biogeosciences 11, 259–268** | **題名が A-2 そのもの。乾燥地・水分が温度応答を修飾** | 未実施 | **★Copernicus は OA で到達しやすい（旗118 の一覧）。次周の最優先** |
+| 2 | **Tucker & Reed 2016, Biogeochemistry 128, 155–169** | 見かけの**負**の温度感度を乾燥地で報告 | **Springer は認証リダイレクト・S2 は抄録制限＝検索要約水準のみ** | 機関ミラー（USGS は `pubs.usgs.gov`）を探す |
+| 3 | **Suseela et al. 2012 GCB 18, 336–348** | 題名が「水分が従属栄養呼吸の温度感度に効き、季節で変わる」 | **Wiley・S2 とも抄録制限＝題名のみ** | 機関ミラー（Purdue/CSU）を探す |
+| 4 | Gaumont-Guay et al. 2006 AFM | 上の 3 件と同じ文脈で引用 | 未実施 | 優先度低 |
+| 5 | Stoy 2007（基質供給ラグ） | 結論に効かない | 未実施 | 優先度低（旗119 から据え置き） |
+
+**今周に実行した検索語（次周が繰り返さないため）**：
+1. `seasonal hysteresis soil respiration temperature Agricultural and Forest Meteorology 2018`
+2. `Tucker Reed 2016 "Low soil moisture during hot periods drives apparent negative temperature sensitivity of soil respiration" Biogeochemistry pdf`
+
+### この周の位置づけ
+
+**○。陽性でも陰性でもなく、「自分の主張の書き方が 1 箇所弱かった」を見つけた周である。**
+**得たもの＝(a) Elsevier 本文への到達手段（WebFetch→ローカル PDF→Read）、
+(b) Zhang 2018 が A-3 を先取りしないことの全文根拠、
+(c) A-2 の差分から「チャンバーだから」を落としたこと、
+(d) A-2 により近い先行 3 件を ⚪ として名指しで登録したこと。**
+
+**旗119→120→121 と、新規性を語る場面で留保が落ちる型が三周続けて出ている。**
+**今回は「他人の論文に無いこと」ではなく「自分の差分の言い方」の側で出た。**
+**＝新規性の点検は、相手を調べるだけでなく、自分の差分の言い方を毎回読み直すこと。**
