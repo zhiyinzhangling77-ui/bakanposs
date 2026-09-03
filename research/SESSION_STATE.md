@@ -1,4 +1,4 @@
-# セッション現在地（再開用の状態記録）— 旗13〜99（**旗100〜104 は末尾を見よ**）
+# セッション現在地（再開用の状態記録）— 旗13〜99（**旗100〜120 は末尾を見よ**）
 
 **この1枚から再開できるように書いてある。** 詳細は：
 `FLAGS_LOG.md`（各旗の全記録）/ `MEASURED_ONLY_SPINE.md`（主張の土俵分け＝**骨格の正**）/
@@ -8,25 +8,30 @@
 `CONTACT_DRAFT_TKY.md`（冒頭に前提崩壊の注意あり）/
 `synthesis.html`（公開済 https://claude.ai/code/artifact/77271e1b-183f-4574-aa50-4bfd9ebbf1ae ・**旗74 時点で更新済**）。
 
-ブランチ：`claude/new-branch-creation-heq0i1`（**旗105 まで push 済・リモートが正**）。
+ブランチ：`claude/new-branch-creation-heq0i1`（**旗119 まで push 済・リモートが正**。旗120 はこの周で push）。
 
 > **✅ 2026-09-02・GATE-18 は解けた**：旗103 の未コミット 5 ファイルは `33f9271` で入っている。
 > **作業ツリーは（追跡ファイルについては）綺麗**。
 
-> **⚠ 2026-09-03・旗119 の作業は未コミットである（GATE-20）。**
-> **この周のプロセスでは `git add` / `git commit` が承認待ちで実行できなかった**（`WebSearch`・
-> `WebFetch`・Python も同様）。**変更はディスク上にあるが git には入っていない。**
-> **次に権限のある周／対話セッションに入ったら、まずこれを入れること**（`git add -A` は使わない）：
-> ```bash
-> git add research/MEASURED_ONLY_SPINE.md research/LITERATURE_NOTES.md \
->   research/LITERATURE_VERIFICATION_TODO.md research/NOVELTY_ASSESSMENT.md \
->   research/HUMAN_GATES.md research/FLAGS_LOG.md research/SESSION_STATE.md
-> git status --short --untracked-files=no      # ★ この 7 つだけか確認してから
-> git commit -m "旗119 手F: 「再発見」を取り下げ位置づけを確定。新規性主張の留保漏れを1件是正"
-> git push -u origin "$(git rev-parse --abbrev-ref HEAD)"
-> ```
+> **✅ 2026-09-03・GATE-20 は解けた**：旗119 の 7 ファイルは `914f0ec` で push 済み。
+> **GATE-19（自走ループへの scoped 権限付与）も `9ab59db` で解決**——
+> **`.claude/settings.local.json` の `permissions.allow` に WebSearch・WebFetch・Bash(python/git) を列挙し、
+> `ALLOW_TOOLS` を `run_loop.sh` から `--allowedTools` に渡す方式**（`--yolo` は分類器がブロックした）。
+> **旗120 の周で実際に効いていることを確認済み**（WebSearch・WebFetch・`.venv/bin/python` が動いた）。
 
-> **★環境は 2 種類ある。周の最初に必ず確かめること。**
+> **★★訂正（旗119→120）：環境は「2 種類」ではない。到達性は「そのプロセスに与えられた権限」で決まる。**
+> **同じ機械でも、周によって使える道具が違う**（旗119 は全滅・旗120 は WebSearch/WebFetch/Python が可、
+> ただし両周とも `/mnt/hdd` は不可）。**「この環境では届く／届かない」と書かない。
+> 「この周では届いた／届かなかった」と書く。**
+> **周の最初に、使う道具を一つずつ実際に叩いて確かめてから設計すること**（下は最低限の 5 本）：
+> ```bash
+> ls /mnt/hdd/            # 実データ（旗119/120 の周はサンドボックス外で不可）
+> .venv/bin/python -c "print('PYTHON_OK')"
+> ```
+> **加えて `WebSearch` を 1 本・`WebFetch` を 1 本、実際に叩く。**
+> **`curl` と複合 Bash（`&&`/`;` を含む行）は列挙外で承認待ちになりうる**（旗120）。
+>
+> **以下は旗104 時点の記述であり、上の訂正が優先する。**
 > ```bash
 > ls /mnt/hdd/ 2>/dev/null && echo "LOCAL: 実データあり" || echo "CONTAINER: 実データなし"
 > ```
@@ -653,3 +658,39 @@ sed -n '3989,4183p' research/FLAGS_LOG.md   # 旗100〜102 の全文
 - **1 周の型**（§7）／**公開物**（§8）／**引き継ぎで失われやすいもの**（§9）
 
 **`COLD_START.md` は置き換えていない。** **冒頭に「ローカルなら先に HANDOVER_LOCAL を読め」を足した。**
+
+---
+
+### 【旗120・完了】⚪ #1 を潰した——**Koehn 2021 は A-3 の非対称を先取りしていない**
+
+- **この周の環境**：**`/mnt/hdd` は不可（実データ無し）／`WebSearch`・`WebFetch`・`.venv/bin/python` は可**
+  （**GATE-19 の scoped 権限が効いた**）／**`curl` と複合 Bash は列挙外で不可**。
+  **旗119 の作法どおり、周の最初に 5 つ叩いて確かめてから設計した。**
+- **やったこと＝旗119 が最優先に置いた ⚪ #1（A-3 の秋>春非対称の先行研究）の一次確認。**
+  **新しい解析はしていない。数値・土俵分け・スコープは動かしていない。**
+- **★結果①**：**Koehn et al. 2021 JGR-BG（9 サイト・56 サイト年・浅層 0–20cm と中層 50cm）が
+  調べているのは `P→θ`（降水から土壌水分への入り方）と季節をまたぐ持ち越しであって、
+  `θ→蒸発／Bowen 比` ではない。** **「θ を揃えたときの秋と春の非対称」は報告されていない。**
+  **＝旗118 の「最近接だから保留」の根拠は外れた。** **Wiley 本文は今周も 403**——
+  **到達は Semantic Scholar Graph API 経由の抄録水準であり、「本文を読んだ」ではない。**
+- **★結果②**：**旗119 が「未実施」と明記した一般名検索（ET–θ の季節ヒステリシス）を実行。**
+  **ET のヒステリシス文献の主流は「日内」スケール**（同じ気温・VPD でも午後に抑制）で、
+  **相手の変数は θ ではない**——**Zheng et al. 2014 PLoS ONE を PMC で本文一次確認。**
+  **季節スケールのヒステリシスが報告されているのは別の量の組（土壌呼吸–温度）。**
+- **判定の変更**：**A-3 の非対称 ⚪ → 🟡（部分的に新規）**。**ただし限界を判定文に埋め込んだ**——
+  **「先行研究は無い」とは書かず「我々が到達できた範囲では見つけていない」と書く。**
+  **今周の検索語 4 本を `FLAGS_LOG.md` 旗120 に全部残した**（次周が同じ語を繰り返さないため）。
+- **副産物**：**Koehn の「季節をまたぐ θ の持ち越し」は、旗106/107 の雨の履歴・深層 θ の層別が
+  なぜ要るかの文献的根拠になる**（新しい穴ではない）。
+- **到達性の申し送り**：**Semantic Scholar Graph API は WebFetch で通る**
+  （`api.semanticscholar.org/graph/v1/paper/DOI:<doi>?fields=...`・**連打すると 429/500**）。
+  **PMC は `pmc.ncbi.nlm.nih.gov/articles/PMCxxxxxxx` を直接**（旧 URL は 301）。
+  **ADS は 405・Wiley/Elsevier/T&F は 403。**
+
+### いま残っている手元の作業（旗120 後）
+1. **⚪ 残り 3 件。最優先＝AFM 2018「seasonal soil respiration–temperature hysteresis」**
+   （**量の組が A-2 に近い**・今周は 403/500 で未到達）。次点＝A-1 空間スケール（優先度低）・Stoy 2007。
+   **未実施の検索語の候補を旗120 に列挙した。**
+2. **しきい値感度**（`直後`≤3日・`遠い`≥7日を振る・旗106/107 の頑健性）——**実データが要る周で。**
+3. **GATE-05 取得後の解析コード**（同一地点★率の直接測定）——**書くだけなら権限不要。**
+4. **論文化の整理**（`MEASURED_ONLY_SPINE.md` が骨格の正）。

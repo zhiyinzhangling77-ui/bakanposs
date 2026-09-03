@@ -5549,3 +5549,123 @@ Bowen 反転の季節依存を説明しようとして、すべて外れた**（
 **旗119 の変更 7 ファイルはディスク上にあるが、コミットも push もされていない。**
 **次の周は、ディスク上の変更をそのまま読んで続行できる**（記録は失われていない）。
 **＝この周でできた権限は「ファイルの読み書き」と「読み取り専用の git」だけだった。**
+
+---
+
+## 旗120：**⚪ を 1 件潰した**——**Koehn 2021 は A-3 の非対称を報告していない。ET ヒステリシスの先行は「日内」であって「季節」ではない**
+
+**この周でやったこと**＝**旗119 が最優先に置いた ⚪ #1（A-3 の秋>春非対称の先行研究）を、実際に調べた。**
+**新しい解析はしていない。数値・土俵分け・スコープは一切動かしていない。動かしたのは新規性の判定 1 件だけ。**
+
+### 前提の確認（周の最初に道具を一つずつ叩く・旗119 の作法）
+
+**旗119 が定めたとおり、「この環境では」ではなく「この周では」を確かめた。**
+
+| 叩いたもの | 結果 |
+|---|---|
+| `ls /mnt/hdd` | **サンドボックス外として拒否**（許可は作業ディレクトリのみ）＝**実データは無い周** |
+| `.venv/bin/python -c` | **通った**（`PYTHON_OK`） |
+| `WebSearch` | **通った**（4 本実行） |
+| `WebFetch` | **通った**（到達性は相手ホスト次第・下表） |
+| `curl` / `test -d` などの複合コマンド | **承認待ちで不可**（`.claude/settings.local.json` の列挙に無い） |
+
+**＝GATE-19 の scoped 権限（旗119→対話セッションで付与）は効いている。**
+**ただし `/mnt/hdd` は依然として見えない**——**D 分類（実データ）はこの周でもゲートのまま。**
+**よって今周は「文献側の ⚪ を潰す」を 1 単位に選んだ**（旗119 の申し送りの最優先とも一致）。
+
+### やったこと① — **Koehn 2021 JGR に、抄録水準で到達した**（旗118 の 403 を迂回）
+
+**Wiley 本文は今周も 403**（旗118 と同じ）。**代替ルートを 4 本試し、1 本が通った。**
+
+| ルート | 結果 |
+|---|---|
+| Wiley `agupubs.onlinelibrary.wiley.com/doi/full/...` | **403**（旗118 と同一・再現した） |
+| NASA ADS `ui.adsabs.harvard.edu` | **405 Method Not Allowed** |
+| **Semantic Scholar Graph API（DOI 指定）** | **✅ 到達。書誌＋抄録が取れた** |
+| tandfonline（別文献・後述） | **403** |
+
+**得られた書誌（確定）**：**Koehn, C., Petrie, M. D., Bradford, J. B., Litvak, M., Strachan, S. (2021),
+*Seasonal Precipitation and Soil Moisture Relationships Across Forests and Woodlands in the
+Southwestern United States*, JGR-Biogeosciences 126, e2020JG005986.**
+**対象＝半乾燥の森林・疎林 9 サイト・計 56 サイト年・標高傾度 3 本。深さ＝浅層(0–20cm)と中層(50cm)。**
+
+**★中身（A-3 との関係が、これで初めて判定できた）**：
+- **この論文が調べているのは `P → θ`（降水から土壌水分への入り方）であって、
+  `θ → 蒸発／Bowen 比`（水分から熱の分配への応答）ではない。**
+- 報告している主なもの：**(a) 浅層 θ が中層 θ から切り離される**（平年並み以下の降水期・雨と雪の違いによる）、
+  **(b) 季節をまたぐ持ち越し**——「across-season influence of θ ... was high when the first season
+  experienced above- or below-average P」、(c) 高標高ほど冬季降水が多く春が長く夏が短い。
+- **＝「同じ θ に揃えたとき、蒸発の応答が秋と春で違う」という非対称は、報告されていない。**
+
+**判定への影響**：**旗118 は「最近接の Koehn 2021 が未確認だから A-3 の非対称の新規性を断定しない
+（🔴 側に倒して保留）」としていた。** **その保留の根拠は外れた**——**近いのは対象地域と深さの扱いだけで、
+量の組（P–θ か θ–蒸発か）が違う。** **したがって Koehn 2021 は A-3 の非対称を先取りしていない。**
+
+**ただし本文は今周も読めていない**（Wiley 403）。**よって「抄録水準の一次確認」であり、
+「本文まで確認済み」ではない。** **この区別を `NOVELTY_ASSESSMENT.md` の表にそのまま書いた。**
+
+**★同時に、Koehn 2021 は A-3 にとって「先行」ではなく「効く注意」を 1 つくれた**：
+**季節をまたぐ θ の持ち越しがあるなら、「θ を揃えた」秋の日と春の日は、
+前歴（浅層と中層の切り離れ方）が違いうる。** **これは旗106/107（雨の履歴）と
+深層 θ の層別で既に潰しにかかった軸と同じもの**であり、**新しい穴ではない**が、
+**本文にこの文献を引いて「なぜその層別が要るか」を根拠づけられる。**（`PREMISE_AUDIT.md` は今周は触っていない。）
+
+### やったこと② — **旗119 が「未実施」と明記した一般名検索を実行した**
+
+**「ET–θ 関係の季節ヒステリシス」という一般名での検索**（旗119 の申し送り）を 3 本回した。
+**★結果＝先行の主流は「日内(diel)」であって「季節」ではなかった。**
+
+- **ET のヒステリシスとして確立しているのは日内スケール**——**朝と午後で、同じ気温・VPD でも ET が違う。**
+  **【一次確認・PMC で本文到達】Zheng et al. (2014) PLoS ONE**：明示的に
+  「investigate the hysteresis response of ET to environmental variables ... **at a diel timescale**」、
+  「ET was always significantly depressed in the afternoon compared with the morning」。
+  **相手の変数は気温・VPD・純放射であって θ ではない。春と秋を θ を揃えて比べてもいない**（本文で確認）。
+- 同型の後続（sub-diurnal の ET–VPD ヒステリシスを全球で評価・AFM 2022）も**日内**。
+- **季節スケールのヒステリシスが報告されているのは、別の量の組**である——
+  **土壌呼吸–温度**（AFM 2018「Changes in photosynthesis and soil moisture drive the seasonal soil
+  respiration–temperature hysteresis relationship」）。**これは ScienceDirect で 403・
+  Semantic Scholar 検索 API も 500 で落ち、今周は書誌までしか取れていない（⚪ のまま）。**
+  **ただし量の組が `Rs–T` であって `蒸発–θ` ではないので、A-3 の先取りには当たらない。**
+  **A-2（水分依存の見かけ Q10）側には近いので、次周で潰す価値がある。**
+- **乾燥地 Bowen 比の季節変化そのものは既知**（Loess Plateau ほか・旗118 で既に 🔴 として記録済み）。
+  **ただしそれは「季節ごとに Bowen 比が違う」であって、「θ を揃えても秋>春」ではない。**
+  **この区別を書き落とすと既知に見えてしまう**ので、本文では必ず添える。
+
+### 結論——**A-3 の非対称について、先行は見つからなかった。ただし「無い」とは書かない**
+
+**判定を ⚪（未確認）から 🟡（部分的に新規・ただし探索の限界つき）へ動かした。**
+**根拠＝最近接と目していた Koehn 2021 が量の組から外れたこと（抄録一次確認）と、
+ET ヒステリシス文献が日内スケールであること（Zheng 2014 を本文で一次確認）。**
+
+**★同時に、次の限界を判定そのものに書き込んだ**（旗119 の「留保が落ちやすいのは新規性を語る場面」の適用）：
+
+> **検索で見つからなかったことは、存在しないことの弱い証拠にすぎない。**
+> **今周に叩いた検索語は 4 本（下記）だけであり、Wiley・Elsevier・T&F は 403 で本文に入れていない。**
+> **「先行研究は無い」とは書かない。「我々が到達できた範囲では見つからなかった」と書く。**
+
+**今周に実行した検索語（次の周が同じものを繰り返さないために全部残す）**：
+1. `seasonal hysteresis evapotranspiration soil moisture relationship spring autumn drylands`
+2. `Koehn "Seasonal Precipitation and Soil Moisture Relationships" southwestern United States forests woodlands 2021 pdf`
+3. `hysteresis evapotranspiration soil moisture eddy covariance seasonal loop same soil moisture different flux semiarid`
+4. `"Bowen ratio" seasonal asymmetry spring autumn same soil moisture semiarid grassland flux tower`
+
+**まだ叩いていない語（次周の候補）**：`legacy effect` × `evapotranspiration` × `monsoon`、
+`antecedent precipitation` × `energy partitioning`、`phenological asymmetry` × `water use`、
+`Cable 2013 antecedent moisture` の被引用をたどる（Semantic Scholar の citations は今周通った API で引ける）。
+
+### 道具・到達性について記録すること（次の周への申し送り）
+
+- **Semantic Scholar Graph API は WebFetch で通る**（`api.semanticscholar.org/graph/v1/paper/DOI:<doi>?fields=...`）。
+  **Wiley・Elsevier・T&F が 403 でも、書誌と抄録はここで取れる。** **旗118 の「到達しやすいソース」一覧に加える。**
+  **ただし短時間に叩くと 429／500 になる**（今周 2 度発生）。**間を空けて 1 本ずつ。**
+- **`ncbi.nlm.nih.gov/pmc/...` は 301 で `pmc.ncbi.nlm.nih.gov/...` へ飛ぶ。** **後者を直接叩けば 1 回で済む。**
+- **`curl` は今周の権限に無い**（`.claude/settings.local.json` の列挙外）。**WebFetch で代替できたので GATE にはしない。**
+- **抄録は要約モデル経由で読んでいる。** **「本文を読んだ」と書かないこと**——
+  **旗118/119 で三度直した型の誤りが、ここでも起きうる。**
+
+### この周の位置づけ
+
+**▲寄りの ○**。**新しい陽性は出ていない**（出る種類の作業ではない）。
+**得たものは「A-3 の非対称について、最近接と目していた先行が実は違う量の組を見ていた」という
+一点の確定と、その確定に伴う限界の明文化である。**
+**旗119 が最優先に置いた ⚪ #1 は、これで「潰した」ではなく「到達できた範囲で潰し、限界を書いた」。**
