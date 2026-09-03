@@ -494,12 +494,19 @@ def discover_chinaflux_sites(root: str = CHINAFLUX_ROOT) -> dict[str, SiteSpec]:
         return found
     for d in sorted(p for p in root_p.iterdir() if p.is_dir()):
         code = d.name                         # 例 "CN-AaG"
-        eco = ""
+        data_root = d
         subs = [s for s in d.iterdir() if s.is_dir()]
-        if subs:
-            eco = subs[0].name                # 例 "Ansai_grassland"
+        # 旗114・欠陥 #43：CN-HbC だけは他 13 サイト（CN-Erg/CN-HaG/CN-HeD/CN-Gng…）を
+        # 内包するコンテナで、``**/*_HH_ALL.xlsx`` の再帰探索が 66 ファイル・13 サイトを
+        # 「CN-HbC」1 件に混ぜていた。直下に自コードと同名の子（＝本体）があればそれを
+        # 本体とし、混入を防ぐ。同名の子を持つのは CN-HbC のみで、他 62 サイトは無変化。
+        same = [s for s in subs if s.name == code]
+        if same:
+            data_root = same[0]
+            subs = [s for s in data_root.iterdir() if s.is_dir()]
+        eco = subs[0].name if subs else ""     # 例 "Ansai_grassland"
         found[code] = SiteSpec(
-            code=code, data_dir=str(d), fmt="chinaflux",
+            code=code, data_dir=str(data_root), fmt="chinaflux",
             hh_glob="**/*_HH_ALL.xlsx",
             description=f"ChinaFlux site ({eco})" if eco else "ChinaFlux site",
         )
