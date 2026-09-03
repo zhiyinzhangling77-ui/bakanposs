@@ -41,11 +41,14 @@ SITES = ("US-Wkg", "US-Whs", "US-SRM", "CN-Du2")   # 旗115 で 4 群が下限�
 SIGNS = ("上昇", "下降")   # Δθ>0 / Δθ<0
 
 
-def prep_b(d: pd.DataFrame) -> pd.DataFrame:
-    """θ高×Rg高 セルの日に、暦日ベースの Δθ 符号を付ける。"""
+def prep_b(d: pd.DataFrame, window: int = WINDOW) -> pd.DataFrame:
+    """θ高×Rg高 セルの日に、暦日ベースの Δθ 符号を付ける。
+
+    ``window`` は Δθ の窓（既定 10 日）。旗117 の窓長感度から別値を渡せる。
+    """
     lab, _, _ = cell_of(d)
     j = d[lab == "θ高×Rg高"].copy()
-    dth = delta_theta(d)                 # 全 d 上で暦日差、d.index に整列
+    dth = delta_theta(d, window)         # 全 d 上で暦日差、d.index に整列
     j["dth"] = dth.reindex(j.index)
     return j.dropna(subset=["dth"])
 
@@ -59,9 +62,9 @@ def _thmed(sub) -> str:
     return f"{np.nanmedian(sub['th']):.3f}" if len(sub) else "—"
 
 
-def run_site(tag: str, d: pd.DataFrame):
+def run_site(tag: str, d: pd.DataFrame, window: int = WINDOW):
     print(f"\n  ━━ {tag}（{CLUSTER.get(tag, '?')}）━━")
-    j = prep_b(d)
+    j = prep_b(d, window)
     # 門①-a：秋全体で反転するか
     print("    ── 門①-a：秋全体（θ高×Rg高）で反転するか ──")
     au_all = j[[m in AUTUMN for m in j.index.month]]
