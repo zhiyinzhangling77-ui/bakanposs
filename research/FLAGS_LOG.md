@@ -5936,3 +5936,156 @@ Biogeosciences 11, 259–268, doi:10.5194/bg-11-259-2014.** CC-BY 3.0。
 
 **旗119→120→121→122 と四周続けて、動いたのは「自分の差分の言い方」の側である。**
 **＝相手を 1 件潰すたびに、自分の差分は 1 段ずつ細くなる。細くなった差分を、そのつど書き直す。**
+
+---
+
+## 旗123：**Gaumont-Guay 2006 には届かなかった**——**代わりに Wen 2006 に全文で届き、A-2 の 🔴 が「同時推定の形」まで広がった／交絡そのものを題名にした先行が 1 件出た**
+
+**この周でやったこと**＝**旗122 が最優先に置いた ⚪ #1（Gaumont-Guay et al. 2006, AFM 140, 220–235）の一次確認を試み、
+全文に届かなかった。** **その検索の副産物として出た別論文（Wen et al. 2006, AFM 137, 166–175）が
+A-2 に直接効く題名だったので、対象を切り替えて全文 10 ページを一次確認した。**
+**新しい解析はしていない。数値・土俵分け・スコープは動かしていない。動いたのは A-2 の新規性の記述である。**
+
+### 前提の確認（周の最初に道具を一つずつ叩く・旗119 の作法）
+
+| 叩いたもの | 結果 |
+|---|---|
+| `ls /mnt/hdd` | **サンドボックス外として拒否**＝**実データは無い周**（D 分類はゲートのまま） |
+| `.venv/bin/python -c` | **通った**（`PYTHON_OK`） |
+| `WebSearch` | **通った**（4 本） |
+| `WebFetch` | **通った**（ただし後述のとおり相手により 403/429/500） |
+| `curl`（ミラー PDF の HTTP コード確認） | **承認待ちで不可**（旗120 の申し送りどおり列挙外） |
+
+**整合性チェック（COLD_START Step 2）**：**`SESSION_STATE.md` の最新旗＝旗122、
+`FLAGS_LOG.md` の最終旗＝旗122。ずれ無し。** 追跡ファイルもクリーン。よって本来の作業に入った。
+
+### 第一部：**Gaumont-Guay 2006 の全文には届かない（⚪ のまま）**
+
+**書誌は確定した**（UBC Biometeorology and Soil Physics Group の刊行物一覧で著者順まで確認）：
+**Gaumont-Guay, D., Black, T.A., Griffis, T.J., Barr, A.G., Jassal, R.S., Nesic, Z. (2006),
+*Interpreting the dependence of soil respiration on soil temperature and water content in a boreal aspen stand*,
+Agricultural and Forest Meteorology 140, 220–235, doi:10.1016/j.agrformet.2006.08.003.**
+
+**試した経路と結果（次の周が同じ順路を繰り返さないために全部残す）**：
+
+| 経路 | 結果 |
+|---|---|
+| `biometeorology.umn.edu/sites/biometeorology.umn.edu/files/2021-04/boreal_aspen_2006.pdf`（**UMN の機関ミラー・検索に出る**） | **403** |
+| 同上から `sites/.../files` を外した短い形 | **403** |
+| **OpenAlex**（`api.openalex.org/works?filter=title.search:...`） | **到達。だが `is_oa: false`・OA ロケーション 0 件** |
+| **Semantic Scholar Graph API**（DOI 指定） | **到達。だが抄録は publisher により elided（null）・`openAccessPdf` 空** |
+| 同 API の `paper/search` | **429**（旗120 の「連打すると 429」と同じ） |
+| **UBC cIRcle の博士論文**（同じ解析の章を含む・item `1.0092838`） | **`open.library.ubc.ca` が「unusual activity」でブロック** |
+| `scholar.archive.org` の検索 | **500** |
+| `curl` でミラーの応答コード確認 | **承認待ちで不可** |
+
+**＝旗121 が見つけた「機関ミラーの PDF を探す」手は、今回は機関ミラーが存在しても 403 で通らなかった。**
+**旗121 の作法は「必ず届く」ではなく「届く可能性が上がる」である。過信しない。**
+
+**抄録水準で読めることだけ記す**（**検索エンジンの要約経由であり、一次確認ではない**）：
+**単一林分**（Saskatchewan・南部境界の成熟トレンブリングアスペン）・**2001 年 1–12 月の半時間値**・
+日平均 Rs は 2 月 0.1 → 7 月中旬 9.2 µmol m⁻² s⁻¹・季節スケールの Rs10＝3.8・Q10＝3.8・
+**Rs10 と Q10 の季節変化は 0–15 cm の θ と強く相関し、θ が低いと両方とも低い傾向**。
+**＝A-2 側の「Q10–θ 正」は抄録水準でも読める。だが「Q10–Ts 負」と交絡の扱いは本文が要る。⚪ のまま据え置く。**
+
+### 第二部：**Wen et al. 2006 を全文で一次確認した**（今周の実質）
+
+**到達経路**：**Gaumont-Guay を検索した結果に混じっていた `chinaflux.org/upload/fckeditor/6.pdf` が
+別論文だった**——**題名が `Soil moisture effect on the temperature dependence of ecosystem respiration`
+＝A-2 が扱う関係そのものだったので、対象を切り替えた。**
+`WebFetch` → `tool-results/` に PDF（448.7 KB）が落ちる → `Read` に `pages: 1-5` と `6-10` を渡して本文 10 ページ全部。
+**旗121/122 の到達手段が三度目も効いた。**
+
+**書誌（確定）**：**Wen, X.-F., Yu, G.-R., Sun, X.-M., Li, Q.-K., Liu, Y.-F., Zhang, L.-M., Ren, C.-Y.,
+Fu, Y.-L., Li, Z.-Q. (2006), *Soil moisture effect on the temperature dependence of ecosystem respiration
+in a subtropical Pinus plantation of southeastern China*, Agricultural and Forest Meteorology 137, 166–175,
+doi:10.1016/j.agrformet.2006.02.005.**
+
+**中身（本文から）**：
+1. **単一サイト**——千烟洲（Qianyanzhou・CERN/ChinaFLUX・26°44′52″N, 115°03′47″E・標高 102 m・
+   年平均気温 17.9 ℃・年降水 1485.1 mm）の *Pinus elliottii* 等の人工林 1 つ。
+2. **量の組は `Reco–Ta`**——**渦相関の夜間生態系呼吸**（39.6 m のタワー・CSAT-3 ＋ LI-7500）であって、
+   **チャンバーの Rs ではない。** θ は 5 cm の TDR 3 本（CS615-L）。
+3. **期間＝2002 年 9 月〜2003 年 10 月**（約 14 か月・2003 年夏の異常干ばつを狙った 1 事例）。
+4. u\* < 0.2 m s⁻¹ の夜を除外（半時間値の 32.8%）・2 K ビン・ビン内最低 n=10 で当てはめ（総 n=1253）。
+
+### ★結果① — **A-2 の 🔴 は「Q10 を温度と θ の同時関数として推定する形」まで広がる**
+
+**Wen 2006 は Q10 を、温度と土壌水分の両方を含む 1 本の式として当てはめている**（本文 §2.4・逐語）：
+
+> "In the Q10 model I, dependence of Q10 on temperature and soil moisture was expressed as
+> (e.g. Xu and Qi, 2001): **Q10 = a − bT_K + cS_w** (12) where positive b and c mean that the Q10 of
+> ecosystem respiration decreases with increasing temperature and decreasing soil water content,
+> respectively, over a limited range of soil water content (Xu and Qi, 2001; Reichstein et al., 2002;
+> Qi et al., 2002). In the Q10 model II, a quadratic relationship of Q10 with soil water content was
+> suggested to be **Q10 = a − bT_K + cS_w + dS_w²** (13)"
+
+**当てはめの結果（Table 2）**：乗法モデル R²=0.959／**Q10 model I R²=0.973／Q10 model II R²=0.99**。
+
+**＝(a) 「見かけ Q10 が温度とともに下がる」と「θ とともに変わる」の両方を 1 本の式に同時に入れる形は、
+2001–2002 年時点で既にある**（Xu & Qi 2001・Reichstein 2002・Qi 2002 を Wen が明示的に出典として挙げている）。
+**(b) さらに Wen 2006 は θ を 6 水準に層別し、各水準内で Van't Hoff を当てはめて「measured Q10」を得ている**
+（Fig. 4）——**我々が旗42/44 でやった「θ ビンごとに Q10 を推定する」手続きと同型のものが、2006 年に既にある。**
+
+### ★結果② — **旗122 が Wang 2014 について書いた一文は、先行一般には成り立たない（自分の記述の訂正）**
+
+**旗122 は「Wang 2014 は Q10–Ts と Q10–VWC を別々の単回帰で並べ、両者を分離する検定を行っていない」と書いた。**
+**この記述は Wang 2014 については本文で確認済みであり正しい。**
+**だが `NOVELTY_ASSESSMENT.md` の差分表 (ii) は、これを「温度エイリアシングの分離＝残る」の根拠にしていた。**
+**Wen 2006 は 1 本の式に T と θ を同時に入れているので、「先行は分離していない」と一般化することはできない。**
+
+**→ 差分 (ii) の言い方を、もう一段細くする：**
+- **✗「先行は温度と水分を分離していない」**——**一般化として偽**（Wen 2006 が反例）。
+- **✓「先行が行っているのは、Q10 を T と θ の同時関数として当てはめ、当てはまりの良さ（R²・残差構造）で
+  評価することである。『生の陽性のうち何割が温度域の交絡で説明されるか』という分数は問われていない。」**
+  **旗122 が確定させた差分の言い方（分数を出せること）は、この訂正を通しても生き残る**——
+  **分数は複数サイトの陽性・陰性の分布からしか出ず、単一サイトでは原理的に出せないからである。**
+
+**この訂正は、旗122 の記録を書き換えるものではない**（`FLAGS_LOG.md` は追記のみ）。
+**書き換えるのは `NOVELTY_ASSESSMENT.md` の差分表 (ii) の文言だけである。**
+
+### ★結果③ — **★新しい最優先の ⚪ が出た。題名が我々の差分そのものを名乗っている**
+
+**Wen 2006 の参考文献から拾った**：
+
+> **Davidson, E.A., Belk, E., Boone, R.D. (1998), *Soil water content and temperature as independent
+> or confounded factors controlling soil respiration in a temperate mixed hardwood forest*,
+> Global Change Biology 4, 217–227.**
+
+**題名が「independent or confounded factors」＝A-2 の差分 (ii)（温度と水分の交絡の分離）そのものを名指ししている。**
+**Gaumont-Guay 2006 より優先度が高い。次周の ⚪ #1 に置く。**
+**Wiley（GCB）なので出版社は 403 が予想される**——**Woods Hole Research Center / MBL / Harvard Forest LTER の
+機関ミラーを探すこと**（Davidson は当時 Woods Hole、Boone は MBL、サイトは Harvard Forest）。
+
+**★現時点での正直な扱い**：**差分 (ii) は「保留」に落とす。**
+**題名の水準で我々の差分を名乗る先行が存在する以上、Davidson 1998 を一次で読むまで
+「温度エイリアシングの分離が我々の差分である」と本文に書いてはならない。**
+**（旗119 以来の作法：誇張を避ける側に倒す。）**
+
+### 記録だけしておく観察（主張には上げない）
+
+**Wen 2006 では θ の効きの符号が一定しない**——**Q10 model I の当てはめでは c = −0.043 と負になり、
+本文 p. 171 が自ら「これは温度感度が θ の低下とともに上がることを意味し、先行（Xu & Qi 2001;
+Reichstein et al., 2002）と矛盾する」と書いている。** **model II（θ の二次項）では Q10 は θ の
+最適値で最大の山型**（Fig. 4：θ が高すぎても低すぎても Q10 が小さい）。
+**我々の旗48/61 が「符号の規則は未解明」としている点に、文献側でも符号が一定しないという状況証拠が付いた。**
+**ただし量の組が `Reco–Ta`（渦相関・生態系）であって我々の `Rs–Ts`（チャンバー・土壌）ではないので、
+我々の未解明の説明には使わない。**
+
+### 作法に加わったもの（旗123）
+
+- **検索の副産物を捨てない。** **今周は目的の文献に届かなかったが、検索結果に混じっていた別論文が
+  本命より A-2 に効いた。** 「探していたものが無かった」で周を終えない。
+- **「先行は X をしていない」と一般化しない。** **一次確認した 1 本について言う。**
+  **旗122 の書き方（Wang 2014 について正しい）を、今周 Wen 2006 が一般化の水準で反証した。**
+- **一次確認した論文の参考文献を、自分の差分の題名に最も近いものがないかという目で読む。**
+  **Davidson 1998 はこれで出た。** **相手の本文だけでなく相手の引用先が、最近接の先行を持っている。**
+- **機関ミラーが検索に出ることと、そこへ届くことは別**（UMN のミラーは存在するが 403）。
+
+### 数え上げ（旗123 時点）
+
+- **道具の欠陥：43 件**（**今周は道具を走らせていないので増減なし**）
+- **事前登録：24 件**（**今周は検定をしていない**）
+- **事前予測：14 回中 8 勝**（**一次確認の周は賭けの場ではない＝旗105 の作法どおり動かさない**）
+- **一次確認で全文に到達した文献：4 件**（Eldhose 2025・Zhang 2018・Wang 2014・**Wen 2006**）
+  ／**全文に届かなかった文献：1 件**（**Gaumont-Guay 2006**・経路 7 本を上表に記録）

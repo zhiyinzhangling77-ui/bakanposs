@@ -356,3 +356,96 @@ Q10–VWC 正：Chen & Tian 2005・Gaumont-Guay 2006・Riveros-Iregui 2007・Zha
 3. **Suseela et al. 2012, GCB 18, 336–348**（機関ミラー＝Purdue/CSU を探す）。
 4. A-1 の残差同期（空間スケール）の先行——旗119 の訂正①で主張の水準を落としたので優先度は低い。
 5. Stoy 2007——結論に効かない・低優先。
+
+---
+
+## 【旗123】**Gaumont-Guay 2006 には届かず／Wen 2006 に全文で届いた — A-2 の 🔴 は「同時推定の形」まで広がり、差分 (ii) は保留に落ちる**
+
+### 1. Gaumont-Guay et al. 2006 — **⚪ のまま据え置き（全文に届かなかった）**
+
+**書誌は確定**：Gaumont-Guay, D., Black, T.A., Griffis, T.J., Barr, A.G., Jassal, R.S., Nesic, Z. (2006),
+AFM 140, 220–235, doi:10.1016/j.agrformet.2006.08.003（UBC Biomet の刊行物一覧で著者順まで確認）。
+
+**試した経路 7 本はすべて失敗**（`FLAGS_LOG.md` 旗123 に表で記録）——
+**UMN の機関ミラー PDF は検索に出るが 403**／**OpenAlex は `is_oa: false`・OA ロケーション 0**／
+**Semantic Scholar は抄録が publisher により elided**／**UBC cIRcle の学位論文はホストがブロック**／
+**scholar.archive.org は 500**／`curl` は承認待ち。
+
+**抄録水準で読めることのみ**（**一次確認ではない**）：単一林分（Saskatchewan の成熟アスペン）・2001 年通年・
+**Rs10 と Q10 の季節変化が 0–15 cm の θ と強く相関し、θ が低いと両方低い**。
+**＝Q10–θ 正は抄録でも読めるが、Q10–Ts 負と交絡の扱いは本文が要る。**
+
+### 2. Wen et al. 2006 — **✅ 全文一次確認（本文 10 ページ）**
+
+**Wen, X.-F., Yu, G.-R., Sun, X.-M., Li, Q.-K., Liu, Y.-F., Zhang, L.-M., Ren, C.-Y., Fu, Y.-L., Li, Z.-Q. (2006),
+*Soil moisture effect on the temperature dependence of ecosystem respiration in a subtropical Pinus
+plantation of southeastern China*, AFM 137, 166–175, doi:10.1016/j.agrformet.2006.02.005.**
+
+**単一サイト**（千烟洲・ChinaFLUX）・**量の組は `Reco–Ta`（渦相関の夜間生態系呼吸。チャンバーの Rs ではない）**・
+**2002-09〜2003-10 の約 14 か月**（2003 年夏の干ばつを狙った 1 事例）。
+
+**🔴 の拡大（本文 §2.4 逐語）**：
+
+> "In the Q10 model I, dependence of Q10 on temperature and soil moisture was expressed as
+> (e.g. Xu and Qi, 2001): **Q10 = a − bT_K + cS_w** (12) … (Xu and Qi, 2001; Reichstein et al., 2002;
+> Qi et al., 2002). In the Q10 model II … **Q10 = a − bT_K + cS_w + dS_w²** (13)"
+
+**＝(a) 温度依存と水分依存を 1 本の式に同時に入れて Q10 を推定する形は 2001–2002 年時点で既にある。**
+**(b) Wen 2006 は θ を 6 水準に層別し各水準内で Van't Hoff を当てはめている**（Fig. 4）——
+**我々が旗42/44 でやった「θ ビンごとの Q10」と同型の手続きが 2006 年に既にある。**
+当てはめ（Table 2）：乗法 R²=0.959／model I R²=0.973／**model II R²=0.99**。
+
+### 3. **【訂正】差分 (ii)「温度エイリアシングの分離」は保留に落とす**
+
+**旗122 の差分表 (ii) は「先行は Q10–Ts と Q10–VWC を別々の単回帰で並べ、分離する検定を行っていない」を
+根拠にしていた。** **この記述は Wang 2014 については本文で確認済みで正しいが、先行一般には成り立たない**
+——**Wen 2006 が反例である。**
+
+| 差分 | 旗122 の状態 | **旗123 の状態** |
+|---|---|---|
+| **(i) 多サイト性** | 残る | **残る**（変更なし。**「先行はいずれも単一サイト」とは書かない**——一次確認できた 3 件が単一サイトなだけ） |
+| **(ii) 温度エイリアシングの分離** | 残る | **⚠ 保留。**「**先行は分離していない**」と**一般化して書いてはならない** |
+
+**書いてよい形（現時点）**：
+**✗「先行は温度と水分を分離していない」＝一般化として偽。**
+**✓「先行が行っているのは Q10 を T と θ の同時関数として当てはめ、当てはまりの良さで評価することである。
+『生の陽性のうち何割が温度域の交絡で説明されるか』という分数は問われていない。」**
+**旗122 が確定させた差分の言い方（＝分数を出せること）は、この訂正を通しても生き残る**
+——**分数は複数サイトの陽性・陰性の分布からしか出ず、単一サイトでは原理的に出せないからである。**
+
+### 4. ★**新しい最優先の ⚪ — 題名が我々の差分そのものを名乗っている**
+
+**Davidson, E.A., Belk, E., Boone, R.D. (1998), *Soil water content and temperature as independent
+or confounded factors controlling soil respiration in a temperate mixed hardwood forest*,
+Global Change Biology 4, 217–227.**（Wen 2006 の参考文献から拾った）
+
+**「independent or confounded factors」＝A-2 の差分 (ii) そのもの。**
+**これを一次で読むまで、「温度エイリアシングの分離が我々の差分である」と本文に書かない。**
+**取得の当て**：Wiley は 403 が予想される→**Woods Hole / MBL / Harvard Forest LTER の機関ミラーを探す**
+（Davidson は当時 Woods Hole、Boone は MBL、サイトは Harvard Forest）。
+
+### 5. 記録のみ（主張には上げない）
+
+**Wen 2006 では θ の効きの符号が一定しない**——model I の c = −0.043（負）で、**本文 p. 171 が自ら
+「先行（Xu & Qi 2001; Reichstein et al. 2002）と矛盾する」と書いている。** model II では Q10 は
+**θ の最適値で最大の山型**（Fig. 4）。**我々の旗48/61「符号の規則は未解明」に状況証拠が付くが、
+量の組が `Reco–Ta` なので我々の未解明の説明には使わない。**
+
+### 一次確認の記録に追加（2026-09-04・旗123）
+
+| 文献 | 確認方法 | 結果 |
+|---|---|---|
+| **Gaumont-Guay et al. 2006, AFM 140, 220–235** | UMN ミラー 403／OpenAlex OA 無し／S2 は抄録 elided／UBC cIRcle ブロック／scholar.archive.org 500 | ⚪ **書誌のみ確定。全文未到達。据え置き** |
+| **Wen et al. 2006, AFM 137, 166–175** | **`chinaflux.org` の PDF 直リンク → `WebFetch` でローカル保存 → `Read` で本文 10 ページ** | ✅ **本文まで一次確認。単一サイト・渦相関 Reco。A-2 の 🔴 を「同時推定の形」まで広げ、差分 (ii) を保留に落とした** |
+
+### 残る ⚪（優先順・**旗123 で更新**）
+
+1. ★**Davidson, Belk & Boone 1998, GCB 4, 217–227**——**題名が差分 (ii) そのもの。最優先。**
+2. **Gaumont-Guay et al. 2006, AFM 140, 220–235**——**経路 7 本が失敗。新しい当てが要る**
+   （AmeriFlux/BERMS の報告書・Barr か Griffis の機関ページ・NRC Canada の登録簿）。
+3. **Xu & Qi 2001, Global Biogeochem. Cycles 15, 687–696**——**`Q10 = a − bT + cS_w` の原型。**
+   AGU は 403 の見込み→機関ミラーを探す。
+4. Tucker & Reed 2016, Biogeochemistry 128, 155–169（`pubs.usgs.gov`）。
+5. Suseela et al. 2012, GCB 18, 336–348（Purdue/CSU）。
+6. A-1 の残差同期（空間スケール）——旗119 で主張の水準を落としたので優先度は低い。
+7. Stoy 2007——結論に効かない・低優先。
