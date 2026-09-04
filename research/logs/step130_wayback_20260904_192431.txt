@@ -1,0 +1,42 @@
+  【記録】この実行の出力は **/home/shion-nagamine/bakanposs/research/logs/step130_wayback_20260904_192431.txt** にも残ります（**ターミナルを遡らなくてよい**）。
+=== 旗130 段2 — scholar.archive.org が出した全文リンクを取りに行く ===
+2026-09-04 19:24:31
+
+==============================================================================
+### Gaumont-Guay2006 [WHITE]
+  ✗ https://web.archive.org/web/20080708193216id_/http://www.biometeorology.umn.edu/pdf/boreal_aspen_2006.pdf
+    status=None IncompleteRead: IncompleteRead(130825 bytes read, 1138759 more expected) (1.5s)
+  ✓ https://scholar.archive.org/work/janteh56h5aqfdjjr2dqqb2rbq/access/wayback/http://www.biometeorology.umn.edu/pdf/boreal_aspen_2006.pdf
+    status=200 ctype=text/html; charset=UTF-8 bytes=4429 final=https://scholar.archive.org/work/janteh56h5aqfdjjr2dqqb2rbq/access/wayback/http://www.biometeorology.umn.edu/pdf/boreal_ (0.4s)
+    → PDF ではない。先頭: <!DOCTYPE html> <html class="no-js"> <meta name="viewport" content="width=device-width"> <title>Session Verification</title> <style>     body {          background: radial-gradient(39% 39% at 50% 50%,
+
+==============================================================================
+### Suseela2012 [WHITE]
+  ✓ https://web.archive.org/web/20171211163614id_/https://dge.carnegiescience.edu/DGE/Dukes/SuseelaEtAl2012.pdf
+    status=200 ctype=application/pdf bytes=544225 final=https://web.archive.org/web/20171211163614id_/https://dge.carnegiescience.edu/DGE/Dukes/SuseelaEtAl2012.pdf (1.4s)
+    ★ PDF 取得 bytes=544225 sha256=9d20ff5742881689 → /home/shion-nagamine/bakanposs/research/tmp_pdfs/Suseela2012.pdf
+    本文の語 ['heterotrophic', 'old-field', 'temperature sensitivity'] / ['heterotrophic', 'old-field', 'temperature sensitivity']  （抽出 22271 文字）
+    先頭 400 字: Global Change Biology (2012) 18, 336–348, doi: 10.1111/j.1365-2486.2011.02516.x Effects of soil moisture on the temperature sensitivity of heterotrophic respiration vary seasonally in an old-field climate change experiment V I D Y A S U S E E L A * , R I C H A R D T . C O N A N T † ‡ , M A T T H E W D . W A L L E N S T E I N † and J E F F R E Y S . DUKES*§¶ *Department of Forestry and Natural Res
+
+==============================================================================
+### CTRL_Davidson1998 [CTRL]
+  ✓ https://web.archive.org/web/2019id_/http://pdfs.semanticscholar.org/f72a/8e9f706df71f0b7ce7750157f43792a2e66b.pdf
+    status=200 ctype=application/pdf bytes=528526 final=https://web.archive.org/web/20190308180624id_/http://pdfs.semanticscholar.org/f72a/8e9f706df71f0b7ce7750157f43792a2e66b. (3.8s)
+    ★ PDF 取得 bytes=528526 sha256=59c500468992178c → /home/shion-nagamine/bakanposs/research/tmp_pdfs/CTRL_Davidson1998.pdf
+    本文の語 ['confounded', 'soil respiration'] / ['confounded', 'soil respiration']  （抽出 17896 文字）
+    先頭 400 字: Global Change Biology (1998) 4, 217–227 Soil water content and temperature as independent or confounded factors controlling soil respiration in a temperate mixed hardwood forest E R I C A . D AV I D S O N , * E L I Z A B E T H B E L K * and R I C H A R D D . B O O N E † *The Woods Hole Research Centre, PO Box 296, Woods Hole, MA 02543 USA, †Institute of Arctic Biology, University of Alaska, Fairb
+
+==============================================================================
+### CTRL_Wen2006 [CTRL]
+  ✓ https://scholar.archive.org/search?q=%22Soil+moisture+effect+on+the+temperature+dependence+of+ecosystem+respiration%22
+    status=200 ctype=text/html; charset=UTF-8 bytes=4429 final=https://scholar.archive.org/search?q=%22Soil+moisture+effect+on+the+temperature+dependence+of+ecosystem+respiration%22 (0.4s)
+    → PDF ではない。先頭: <!DOCTYPE html> <html class="no-js"> <meta name="viewport" content="width=device-width"> <title>Session Verification</title> <style>     body {          background: radial-gradient(39% 39% at 50% 50%,
+
+==============================================================================
+### まとめ
+  Gaumont-Guay2006       NO_ROUTE
+  Suseela2012            GOT_PDF
+  CTRL_Davidson1998      GOT_PDF
+  CTRL_Wen2006           NO_ROUTE
+
+  【記録】出力を **/home/shion-nagamine/bakanposs/research/logs/step130_wayback_20260904_192431.txt** に保存しました。

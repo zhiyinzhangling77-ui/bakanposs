@@ -1,0 +1,10 @@
+  【記録】この実行の出力は **/home/shion-nagamine/bakanposs/research/logs/step130_retry_20260904_192520.txt** にも残ります（**ターミナルを遡らなくてよい**）。
+=== 旗130 段2b — Gaumont-Guay 2006 を Range で継ぐ ===
+2026-09-04 19:25:20
+  試行1: status=200 +130825B 累計=130825B 切断: IncompleteRead: IncompleteRead(130825 bytes read, 1138759 more expected)
+  試行2: status=206 +0B 累計=130825B 切断: IncompleteRead: IncompleteRead(0 bytes read, 1138759 more expected)
+    → これ以上増えない
+  bytes=130825 sha256=d770c8a7b8f36295 末尾に %%EOF: False → /home/shion-nagamine/bakanposs/research/tmp_pdfs/Gaumont-Guay2006.pdf
+  判定: TRUNCATED（読める範囲だけ・完本ではない）
+
+  【記録】出力を **/home/shion-nagamine/bakanposs/research/logs/step130_retry_20260904_192520.txt** に保存しました。

@@ -1,0 +1,45 @@
+  【記録】この実行の出力は **/home/shion-nagamine/bakanposs/research/logs/step130_titles_20260904_192128.txt** にも残ります（**ターミナルを遡らなくてよい**）。
+=== 旗130 段0 — DOI から書誌を確定（Crossref）===
+
+### WHITE Xu-Qi2001  doi:10.1029/2000GB001365
+  題名: Spatial and seasonal variations of
+                    <i>Q</i>
+                    <sub>10</sub>
+                    determined by soil respiration measurements at a Sierra Nevadan Forest
+  誌名: Global Biogeochemical Cycles (2001)  vol=15 page=687-696
+  著者: Xu Ming; Qi Ye
+
+### WHITE Gaumont-Guay2006  doi:10.1016/j.agrformet.2006.08.003
+  題名: Interpreting the dependence of soil respiration on soil temperature and water content in a boreal aspen stand
+  誌名: Agricultural and Forest Meteorology (2006)  vol=140 page=220-235
+  著者: Gaumont-Guay David; Black T. Andrew; Griffis Tim J.; Barr Alan G.; Jassal Rachhpal S.; Nesic Zoran
+
+### WHITE Tucker-Reed2016  doi:10.1007/s10533-016-0200-1
+  題名: Low soil moisture during hot periods drives apparent negative temperature sensitivity of soil respiration in a dryland ecosystem: a multi-model comparison
+  誌名: Biogeochemistry (2016)  vol=128 page=155-169
+  著者: Tucker Colin L.; Reed Sasha C.
+
+### WHITE Suseela2012  doi:10.1111/j.1365-2486.2011.02516.x
+  題名: Effects of soil moisture on the temperature sensitivity of heterotrophic respiration vary seasonally in an old‐field climate change experiment
+  誌名: Global Change Biology (2011)  vol=18 page=336-348
+  著者: Suseela Vidya; Conant Richard T.; Wallenstein Matthew D.; Dukes Jeffrey S.
+
+### WHITE Bunnell1977  doi:10.1016/0038-0717(77)90058-X
+  題名: Microbial respiration and substrate weight loss—I
+  誌名: Soil Biology and Biochemistry (1977)  vol=9 page=33-40
+  著者: Bunnell F.L.; Tait D.E.N.; Flanagan P.W.; Van Clever K.
+
+### CTRL Davidson1998  doi:10.1046/j.1365-2486.1998.00128.x
+  題名: Soil water content and temperature as independent or confounded factors controlling soil respiration in a temperate mixed hardwood forest
+  誌名: Global Change Biology (1998)  vol=4 page=217-227
+  著者: Davidson EriC. A.; Belk Elizabeth; Boone Richard D.
+
+### CTRL Wang2014  doi:10.5194/bg-11-6205-2014
+  !! HTTPError: HTTP Error 404: Not Found
+
+### CTRL Zhang2018  doi:10.1016/j.agrformet.2018.05.005
+  題名: Changes in photosynthesis and soil moisture drive the seasonal soil respiration-temperature hysteresis relationship
+  誌名: Agricultural and Forest Meteorology (2018)  vol=259 page=184-195
+  著者: Zhang Quan; Phillips Richard P.; Manzoni Stefano; Scott Russell L.; Oishi A. Christopher; Finzi Adrien; Daly Edoardo; Vargas Rodrigo; Novick Kimberly A.
+
+  【記録】出力を **/home/shion-nagamine/bakanposs/research/logs/step130_titles_20260904_192128.txt** に保存しました。

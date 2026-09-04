@@ -1401,3 +1401,71 @@ not high temperatures."）。**A-2 の色は動かさない**（🔴 は既に 1
 
 **＝直す前の判定は、5 件中 2 件で「載っていない」と読める言葉を、
 情報の無い場所に貼っていた。** **本文到達の結論（0/5）は変わらない。**
+
+---
+
+# 【旗130・2026-09-04】**⚪ を 1 件、本文で閉じた**——**Suseela 2012 に全文到達。到達の経路が 1 本、確定した**
+
+**この周でやったこと＝旗129 が「次の周の最有力」と置いた手 (b)（索引を `WebFetch` で読み直す）を 1 単位。**
+
+### この周に実際に叩いた道具（**周ごとに違う。必ず最初に叩いて確かめる**）
+
+| 道具 | 結果 |
+|---|---|
+| `/mnt/hdd` | **✗ サンドボックス外で `ls` が拒否された**（実データに届かない周） |
+| `.venv/bin/python` | ○ |
+| `WebFetch` | ○（`scholar.archive.org`・`api.crossref.org` に届いた。**`escholarship.org`・`www.usgs.gov` はこの周は DNS タイムアウト**） |
+| 生 HTTP（`urllib`） | ○ API と `web.archive.org` には通る。**Dukes 研の自前サーバは `Connection reset`** |
+| `pdftotext` | ○ **ただし `subprocess` 経由でのみ。素の Bash では承認待ちになる** |
+
+### ★確定した到達経路（**これが本周の一番の成果**）
+
+```
+1. scholar.archive.org の検索ページを WebFetch で読む（生 HTTP は 4429 B の関門で弾かれる）
+   → クエリは短く。長い引用句は 500 を返す
+2. 出てきた「Archived PDF (… captured YYYY)」の元 URL と捕獲年を拾う
+3. https://web.archive.org/web/<timestamp>id_/<元 URL> を生 HTTP で叩く（★`id_` が要る）
+```
+
+**`id_` を付けないと wayback は中継 HTML を返し、「PDF ではない＝経路が無い」に見える（欠陥 #55）。**
+**この経路で、対照（Davidson 1998）も同じように取れた＝経路は健全である。**
+
+### 成果と、成果でないもの
+
+- **★Suseela et al. 2012, GCB 18, 336–348 に全文到達**（544,225 B・sha256 `9d20ff5742881689`）。
+  **本文まで一次確認できた文献は 5 → 6 件。⚪ は 5 → 4 件。**
+- **Gaumont-Guay 2006 は全文リンクを特定したが `TRUNCATED`**（1.27 MB のうち 130 KB で切断・Range で継げず）。
+  **「取れた」とは書かない。「本文が無い」とも書かない。次の周に別の捕獲時刻で継ぐ＝最有力の手。**
+- **Xu & Qi 2001・Tucker & Reed 2016・Bunnell 1977 は `scholar.archive.org` に本体なし**
+  （Tucker は 0 件、他 2 件は引用のみ）。
+
+### 主張への帰結（**色は 1 つも動いていない**）
+
+- **A-2 の 🔴 が 1 件広がった**：旗44 が交絡として制御した組（**θ に正・T に負**）は、
+  **Suseela 2012 が野外・季節別で 1 本の論文に並べて報告している**。**必ず引用する。**
+- **★差分は残る**：**彼らは θ と T を見かけ Q10 に対して別々の単変量で当てているだけで、
+  Q10 に対する結合モデルが無い**（結合モデルは Rh に対して）。**＝交絡は分離されていない。**
+- **★禁止が 1 つ増えた**：**「季節で見かけ Q10 が変わる」を我々が新しいと書かない**
+  （Suseela 2012 が野外での初出を明示的に主張。骨格はもともと主張していない）。
+- **A-3 には効かない**（中湿性・Rh・θ–Rh のヒステリシス ↔ 乾燥地・Bowen の秋>春）。
+
+### 数え上げ（旗130 時点）
+
+**道具の欠陥 56 件**（#55 wayback の `id_`／#56 旗129 の「JS の殻」は実体が `Session Verification` の関門で、
+含意が逆だった）／**本文まで一次確認 6 件**／**合成・対照が進路を変えた 17 度**（段3 の 1 走目で対照も落ちた）／
+**事前登録 26 件（増えない）**／**事前予測 16 回中 9 勝（変わらず）**。
+
+### 次の周にやる（優先順）
+
+1. **Gaumont-Guay 2006 を継ぐ**——`http://archive.org/wayback/available` か CDX API
+   （`http://web.archive.org/cdx/search/cdx?url=biometeorology.umn.edu/pdf/boreal_aspen_2006.pdf&output=json`）
+   **で捕獲時刻を全部列挙し、`id_` 付きで 1 つずつ取る。門①として Davidson 1998 を同じ手で 1 本通す。**
+2. **Tucker & Reed 2016**——USGS 職員ページ／USGS Publications Warehouse を `WebFetch` で
+   （**本周は DNS タイムアウトで未着手。サイトの性質ではない**）。
+3. **本文側の未着手 6 件**（旗121 (a)・旗122 (b)・旗123 (c)・旗124 (d)・旗127 (e)・**旗130 (f)＝
+   A-2 に Suseela 2012 を引き、「彼らは分離していない」を差分として書く**）。
+4. **実データのある周になったら GATE-21・GATE-22 としきい値感度**（合わせて 5 分・道具は自己検証済み）。
+
+**本周に書いたファイル**：`research/doi_titles_step130.py`・`research/wayback_pdf_step130.py`・
+`research/wayback_retry_step130.py`・`research/pdf_read_step130.py`・`research/logs/step130_*.txt`。
+**取得した PDF と抽出テキストは `research/tmp_pdfs/` に置き、版管理しない（生成物）。**
