@@ -1,0 +1,76 @@
+  【記録】この実行の出力は **/home/shion-nagamine/bakanposs/research/logs/step129_20260904_191724.txt** にも残ります（**ターミナルを遡らなくてよい**）。
+=== 旗129 所属機関索引プローブ（索引を作ってから引く版）===
+2026-09-04 19:17:24
+UA: Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36
+段1=索引を取る / 段2=索引の中を照合する。落ちた段を分けて記録する。
+
+==============================================================================
+### Gaumont-Guay2006 — Gaumont-Guay et al. 2006, Agric. For. Meteorol. 140, 220-235
+    所属索引: UBC Biometeorology / Andy Black lab
+  [索引] ✗ https://biomet.ubc.ca/publications/
+         status=None URLError: <urlopen error [Errno -3] Temporary failure in name resolution> (10.0s)
+  [索引] ✗ https://ibis.geog.ubc.ca/~achristn/publications.html
+         status=404 HTTPError Not Found (0.4s)
+  [索引] ✗ https://www.landfood.ubc.ca/andrew-black/
+         status=500 HTTPError Internal Server Error (1.6s)
+  → 判定: INDEX_UNREACHABLE（索引そのものに 1 本も届かない）
+
+==============================================================================
+### Tucker-Reed2016 — Tucker & Reed 2016, Biogeochemistry 128, 155-169
+    所属索引: USGS Southwest Biological Science Center
+  [索引] ✗ https://www.usgs.gov/publications/low-soil-moisture-during-hot-periods-drives-apparent-negative-temperature
+         status=404 HTTPError Not Found (3.8s)
+  [索引] ✓ https://www.sciencebase.gov/catalog/items?q=Low+soil+moisture+during+hot+periods&format=json&max=20
+         status=200 ctype=application/json;charset=UTF-8 bytes=173 links=1 中身=**なし（JS の殻）** (0.8s)
+         生ページに著者語: なし
+  [索引] ✓ https://www.usgs.gov/staff-profiles/sasha-reed
+         status=200 ctype=text/html; charset=UTF-8 bytes=483298 links=644 中身=あり (0.1s)
+         生ページに著者語: ['tucker']
+  → 判定: IN_PAGE_NOT_LINKED（著者名は生 HTML に在るが、辿れるリンクの札に無い）
+
+==============================================================================
+### Xu-Qi2001 — Xu & Qi 2001, Global Biogeochem. Cycles 15, 687-696
+    所属索引: LBNL / UC eScholarship
+  [索引] ✓ https://escholarship.org/search/?q=%22soil-surface%20CO2%20efflux%22%20ponderosa%20Xu%20Qi
+         status=202 ctype=text/html; charset=UTF-8 bytes=2018 links=1 中身=**なし（JS の殻）** (0.5s)
+         生ページに著者語: なし
+  [索引] ✗ https://escholarship.org/api/search?q=ponderosa%20pine%20soil%20CO2%20efflux%20Xu
+         status=404 HTTPError Not Found (0.4s)
+  [索引] ✓ https://www.osti.gov/api/v1/records?title=Soil-surface%20CO2%20efflux&rows=20
+         status=200 ctype=application/json bytes=2 links=0 中身=**なし（JS の殻）** (0.5s)
+         生ページに著者語: なし
+  → 判定: INDEX_EMPTY_OR_JS（HTTP は通ったが中身の無い殻。**載っていないの意ではない**）
+
+==============================================================================
+### Suseela2012 — Suseela et al. 2012, Global Change Biol. 18, 336-348
+    所属索引: MBL / Dukes lab (BACE)
+  [索引] ✗ https://www.mbl.edu/research/publications?search_api_fulltext=Suseela
+         status=404 HTTPError Not Found (0.0s)
+  [索引] ✗ https://jeffdukes.weebly.com/publications.html
+         status=404 HTTPError Not Found (0.2s)
+  [索引] ✗ https://docs.lib.purdue.edu/do/search/?q=Suseela&start=0&context=52108
+         status=500 HTTPError Internal Server Error (0.5s)
+  → 判定: INDEX_UNREACHABLE（索引そのものに 1 本も届かない）
+
+==============================================================================
+### Bunnell1977 — Bunnell et al. 1977, Soil Biol. Biochem. 9, 33-40
+    所属索引: UBC (Forestry / IBP Tundra Biome)
+  [索引] ✓ https://open.library.ubc.ca/search?q=Bunnell%20microbial%20respiration%20soil
+         status=200 ctype=text/html; charset=UTF-8 bytes=31093 links=24 中身=あり (0.7s)
+         生ページに著者語: なし
+  [索引] ✗ https://www.forestry.ubc.ca/faculty/fred-bunnell/
+         status=500 HTTPError Internal Server Error (3.8s)
+  [索引] ✓ https://scholar.archive.org/search?q=%22Microbial+respiration+and+substrate+weight+loss%22
+         status=200 ctype=text/html; charset=UTF-8 bytes=4429 links=1 中身=**なし（JS の殻）** (0.4s)
+         生ページに著者語: なし
+  → 判定: NOT_IN_INDEX（中身のある索引を取れたが、著者語がページのどこにも無い）
+
+==============================================================================
+### まとめ
+  Gaumont-Guay2006     INDEX_UNREACHABLE
+  Tucker-Reed2016      IN_PAGE_NOT_LINKED
+  Xu-Qi2001            INDEX_EMPTY_OR_JS
+  Suseela2012          INDEX_UNREACHABLE
+  Bunnell1977          NOT_IN_INDEX
+
+  【記録】出力を **/home/shion-nagamine/bakanposs/research/logs/step129_20260904_191724.txt** に保存しました。

@@ -1191,3 +1191,213 @@ not high temperatures."）。**A-2 の色は動かさない**（🔴 は既に 1
    （旗121 (a)・旗122 (b)・旗123 (c)・旗124 (d)・旗127 (e)）。
 5. **次の自己点検の候補**（旗126 が残した穴・**変わらず**）：**駆動側（温度）の雑音は iid のまま。
    AR(1) は日周期と雨イベントの跳ねを表さない。** **どちらもデータ不要・Python だけ。**
+
+---
+
+## 旗129：**「所属機関の索引で引き直す」手を、残る ⚪ 5 件全部に当てた**——**本文は 1 件も取れなかった。だが対照が二度仕事をし、旗128 の申し送りが「API には真・ファイルサーバには偽」と分かれた。到達性スクリーンは Unpaywall 単独から三索引の和に更新する**
+
+**この周の環境**：**`/mnt/hdd` は不可**（`ls` がサンドボックス外として拒否＝実データ無し・
+**D 分類（GATE-01〜04・06・21・22）はゲートのまま**）／**`.venv/bin/python` は可**／
+**`WebSearch`・`WebFetch` はどちらも可**／**複合 Bash（`A && B`）は拒否**——単文で走らせる。
+**ただし `.venv/bin/python - <<'PY'` のヒアドキュメントは通った**（本周の新事実・`tee` は不可・
+**`/tmp` への書き込みも不可＝作業ファイルはリポジトリ内に置く**）。
+
+**整合性チェック**：**SESSION_STATE 最新旗＝旗128、FLAGS_LOG 最終旗＝旗128。ずれ無し。** 追跡ファイルもクリーン。
+
+**やったこと＝旗128 の作業リスト 1 番**（**⚪ 5 件を「著者の所属の刊行物索引」で引き直す**・欠陥 #52 の解消）。
+**実データは使っていない。数値・土俵分け・スコープは動かしていない。⚪ の数も動いていない（5 件のまま）。**
+
+**道具（本周に書いた 4 本・すべて出力を `runlog` でファイルに残した）**：
+- `research/inst_index_step129.py`（段1-2：所属機関の刊行物一覧を取り、索引の中で照合する）
+  → `research/logs/step129_20260904_190525.txt`
+- `research/direct_pdf_step129.py`（段3：検索索引が名指しした PDF 直リンクを生 HTTP で叩く）
+  → `research/logs/step129b_20260904_190728.txt`
+- `research/fatcat_probe_step129.py`（段4：fatcat＝scholar.archive.org 索引・対照つき）
+  → `research/logs/step129c_20260904_190814.txt`
+- `research/oa_locations_step129.py`（段5：OpenAlex `locations[]` 全部 ＋ S2 `openAccessPdf`・対照つき）
+  → `research/logs/step129d_20260904_191041.txt`
+
+---
+
+### 0. **先に、前の周が残した未実行の草稿についての自分の言い分を訂正する**
+
+`research/inst_index_step129.py` は**前の周（旗128 の周・14:42）が書いて一度も走らせずに終わっていた**
+（`research/.auto_resume_status` に 14:42 以降 13 回の「過負荷/上限・20分待機」が残っている）。
+**本周の冒頭、私はこれを読んで「PDF のファイル名を推測して叩いている＝この研究で 3 度出ている失敗型だ」
+と判断し、書き直した。**
+
+**この判断は半分外れていた。訂正する。**
+- 草稿が叩いていた 5 本のうち**PDF 直リンクは 1 本だけ**で、それは
+  `biometeorology.umn.edu/.../boreal_aspen_2006.pdf`＝**旗123 が記録に残していた URL** である
+  （**推測ではない**）。**しかも本周の `WebSearch` は同じ URL を返した＝実在する。**
+- 残り 4 本は索引ページ（USGS・eScholarship・MBL・ScienceDirect）で、**推測ではない。**
+- **正しく言えるのは「草稿は索引ページを叩きはするが、その中を照合する段が無く、
+  `.pdf` を含む文字列を機械的に拾うだけだった」まで。** 書き直したこと自体は無駄ではないが、
+  **「3 度目の失敗型」は言い過ぎであり、欠陥として数えない。**
+
+---
+
+### 1. 段1-2（所属機関の刊行物索引）＝**5 件中 1 件も本文に届かない。しかも 3 件は「索引が取れていない」**
+
+| ⚪ | 索引 | 結果 |
+|---|---|---|
+| Gaumont-Guay 2006 | UBC Biomet（`biomet.ubc.ca` DNS 解決失敗）／`ibis.geog.ubc.ca` 404／`landfood.ubc.ca` 500 | `INDEX_UNREACHABLE` |
+| Suseela 2012 | MBL 404／Dukes 研 weebly 404／Purdue e-Pubs 500 | `INDEX_UNREACHABLE` |
+| Tucker & Reed 2016 | USGS 職員ページ 200（483 KB・644 リンク） | 著者語 `tucker` は**生ページに在る**が、**リンクの札としては 0 件** |
+| Xu & Qi 2001 | eScholarship 202（**2018 バイト・リンク 1 本**）／OSTI API 200（**2 バイト**） | 同上 |
+| Bunnell 1977 | UBC Open Library 200（31 KB・24 リンク）／`scholar.archive.org` 200（**4429 バイト・リンク 1 本**） | 同上 |
+
+**★ここで自分の判定器の欠陥が出た（欠陥 #53）**：
+**私は「HTTP 200 が返った＝索引が取れた」として `NOT_IN_INDEX` を出していたが、
+2 KB・4 KB でリンクが 1 本しか無いページは JS で描かれる殻であって索引ではない。**
+**旗108 の欠陥 #40（落ちた理由を一つの籠に入れない）の再発**——
+`INDEX_UNREACHABLE` と `NOT_IN_INDEX` に分けたのに、**後者の中で「索引が空」と「索引に載っていない」を
+混ぜていた**。**正しい判定は `INDEX_EMPTY_OR_JS`（＝情報を持たない）である。**
+**＝段1-2 が言えるのは「所属機関の索引は、この経路（生 HTTP）では読めない」まで。
+「載っていない」ではない。**
+
+---
+
+### 2. 段3（PDF 直リンクを生 HTTP で）＝**3 本とも 403。旗128 の申し送りが二つに割れた**
+
+| URL | 出所 | 結果 |
+|---|---|---|
+| `biometeorology.umn.edu/.../boreal_aspen_2006.pdf` | 旗123 の記録＋本周の WebSearch | **403** |
+| `agupubs.onlinelibrary.wiley.com/doi/pdf/10.1029/2000GB001365` | 本周の WebSearch | **403** |
+| 同 `/epdf/` | 同上 | **403** |
+
+**★旗128 の新事実「`.venv/bin/python` の `urllib.request` は外部 HTTP が通る／`WebFetch` の要約モデルを
+経由しなくてよい」は、そのままでは強すぎた。正しくは：**
+- **✓ API（`api.unpaywall.org`・`api.openalex.org`・`api.semanticscholar.org`）に対しては真。**
+- **✗ UA・Referer・Cookie を見るファイルサーバ（Wiley・UMN の Drupal）に対しては偽。**
+  **Chrome の UA と `Referer: google.com` を付けても 403 のままだった。**
+  **＝`WebFetch` が 403 を返した先を生 HTTP で叩き直しても、同じ壁に当たる。**
+
+---
+
+### 3. 段4（fatcat）＝**★対照が仕事をした。負の結果ですらなかった**
+
+`api.fatcat.wiki` は **10 件中 10 件が `Connection reset by peer`**——
+**⚪ 5 件だけでなく、対照（本文まで一次到達した実績のある 5 件）も全部落ちた。**
+
+**対照を先に通していなければ、私は「fatcat には 5 件ともファイルが無い」と書いていた。**
+**実際には「このホストに届かないので、この索引からは何も分からない」である。**
+**旗89・91・93×2・104・128 と同じ形の救済で 16 度目（文献到達では 2 度目）。**
+
+---
+
+### 4. 段5（OpenAlex `locations[]` 全部 ＋ S2 `openAccessPdf`）＝**★本周で唯一、実のある結果**
+
+**感度（対照 5 件のうち PDF URL を出せた数）＝3/5。旗128 の Unpaywall 単独 2/5 から 1 件増えた。**
+
+| 対照 | 旗128（Unpaywall） | 本周（OpenAlex `locations[]` ∪ S2） |
+|---|---|---|
+| Wang 2014 BG | 通す | 通す（Copernicus の PDF） |
+| Dörr & Münnich 1987 Tellus | 通す | 通す（T&F の PDF・**ただし本周も 403**） |
+| **Zhang 2018 AFM** | **偽陰性** | **★通す**——**S2 が `sciencedirect.com/science/article/am/pii/...` を返す** |
+| Wen 2006 AFM | 偽陰性 | 偽陰性（**ただし下記のリポジトリ項目は出る**） |
+| Davidson 1998 GCB | 偽陰性 | 偽陰性 |
+
+**★申し送りを 2 つ更新する：**
+
+1. **到達性スクリーンは Unpaywall 単独ではなく、`Unpaywall ∪ OpenAlex.locations ∪ S2.openAccessPdf` の和にする。**
+   **S2 は Elsevier の `article/am/`（accepted manuscript）を持っており、他の 2 索引はこれを持たない。**
+   **それでも感度は 3/5。⚪ を閉じる根拠には依然ならない。**
+2. **★`best_oa_location` ではなく `locations[]` を全部読む。`is_oa:false` のリポジトリ項目が、
+   実は一番の手がかりである。** 本周に 2 件見つかった：
+   - **Wen 2006** → 中国科学院 地理科学与資源研究所 IR に `submittedVersion`。
+     **これは「本文に一次到達した実績のある対照」であり、
+     `is_oa:false` のリポジトリ項目が実在の経路でありうることの陽性例になっている。**
+   - **Xu & Qi 2001** → **香港科技大学（HKUST）`Rare & Special e-Zone` に `submittedVersion`**
+     （`http://repository.hkust.edu.hk/ir/Record/1783.1-161573`）。**⚪ 5 件で唯一の新しい経路。**
+
+**⚪ 5 件はいずれも `NO_PDF_URL`。感度 3/5 なので、これは 1 件も閉じない。**
+
+---
+
+### 5. **Xu & Qi 2001 の HKUST 記録＝CAPTCHA で止まった（→ GATE-23）**
+
+- `WebFetch`：**「Too many redirects (exceeded 10)」**。
+- 生 HTTP（`urllib`・Chrome UA）：**302 の無限ループ**。
+- **Cookie を持たせると 200 で通ったが、行き先は
+  `https://repository.hkust.edu.hk/ir/captcha?redirect=%2Fir%2FRecord%2F1783.1-161573`（2580 バイト）**——
+  **記録ページではなく CAPTCHA ページである。**
+- **＝機械では越えられない。人間の手が要る。** **GATE-23 に登録した（P 分類・所要 2 分）。**
+
+### 5b. **⚪ の書誌そのものを 1 件間違えていた（欠陥 #54）**
+
+**本周の最初の `WebSearch` は Xu & Qi の別論文を探していた。**
+- **⚪ の対象＝Xu, M. & Qi, Y. (2001), *Spatial and seasonal variations of Q10 determined by soil
+  respiration measurements at a Sierra Nevadan forest*, Global Biogeochem. Cycles 15(3), 687–696,
+  doi:10.1029/2000GB001365。** **これが `Q10 = a − bT + cS_w` の原型であり、A-2 に効く。**
+- **私が最初に検索した題名＝*Soil-surface CO2 efflux and its spatial and temporal variations in a young
+  ponderosa pine plantation in northern California*, Global Change Biology 7, 667–677。
+  同じ 2 人・同じサイト・同じ年の別論文で、`Q10` の話ではない。**
+- **出所は前の周の草稿の eScholarship クエリ（`"soil-surface CO2 efflux" ponderosa Xu Qi`）で、
+  私はそれをそのまま引き継いだ。** **＝⚪ の題名を書誌（DOI）から確かめずに検索した。**
+- **段5 で DOI を引いたときに気づいた。** **今後は ⚪ に着手する前に DOI で題名を確定する。**
+
+---
+
+### 判定と、⚪ の色
+
+**本文への一次到達：0/5。⚪ は 5 件のまま。どの主張の色も動かさない。**
+**A-2 の 🔴 は旗127 で 1987 年まで遡っており、本周はそこを触っていない。**
+**「経路が尽きた」とも書かない**——**段1-2 は索引が読めていないだけ、段4 はホストに届いていないだけである。**
+
+### 作法に加わったもの（旗129）
+- **★HTTP 200 は「中身が取れた」ことを意味しない。** 索引を叩いたら**バイト数とリンク数を見て、
+  JS の殻でないことを確かめてから**「載っていない」と書く（欠陥 #53）。
+- **★「生 HTTP なら通る」は API に対してだけ真。** ファイルサーバは UA を見る（段3）。
+- **★⚪ に着手する前に DOI で題名を確定する。** 前の周のクエリ文字列を引き継がない（欠陥 #54）。
+- **★索引 API は `best_oa_location` ではなく `locations[]` を全部読む。**
+  **`is_oa:false` のリポジトリ項目が最良の手がかりになりうる**（Wen 2006 が陽性例）。
+
+### 数え上げ（旗129 時点）
+- **道具の欠陥：54 件**（#53 索引の HTTP 200 と「索引が読めた」を同一視し、JS の殻を `NOT_IN_INDEX` と
+  判定していた／#54 ⚪ の題名を DOI で確かめず、前の周のクエリ文字列を引き継いで別論文を探した）
+- **事前登録：26 件（増えない）**／**合成・対照が進路を変えた：16 度**（**本周の段4**）／
+  **事前予測：16 回中 9 勝（変わらず・本周は事前登録が無いので数えない）**／
+  **本文まで一次確認できた文献：5 件（増えない）**
+
+### いま残っている手元の作業（旗129 後）
+
+1. **⚪ 5 件**——**残る経路は 3 つで、どれも本周に潰していない**：
+   (a) **HKUST の CAPTCHA（Xu & Qi 2001）＝GATE-23・人間の手**。
+   (b) **★所属機関の索引を `WebFetch` で読み直す**——
+       **生 HTTP では JS の殻しか取れなかったが、`WebFetch` は markdown に変換して返すので
+       中身が出る可能性がある。未着手。次の周の最有力。**
+   (c) **著者への直接連絡**（Sasha Reed＝USGS・David Gaumont-Guay＝VIU は職員ページが実在）
+       ＝**人間の判断が要る**（GATE-09 と同種）。
+2. **GATE-21 と GATE-22**（実データの `corr_thT` と ACF1 の分布・**合わせて 5 分・道具は自己検証済み**）
+   と**しきい値感度**（`直後`≤3日・`遠い`≥7日）——**実データのある周で。**
+3. **GATE-05 取得後の解析コード**（同一地点★率の直接測定）——**書くだけなら権限不要。**
+4. **論文化の整理**（`MEASURED_ONLY_SPINE.md` が骨格の正）。**本文側の未着手は 5 件のまま**
+   （旗121 (a)・旗122 (b)・旗123 (c)・旗124 (d)・旗127 (e)）。
+5. **次の自己点検の候補**（旗126 が残した穴・**変わらず**）：**駆動側（温度）の雑音は iid のまま。
+   AR(1) は日周期と雨イベントの跳ねを表さない。** **どちらもデータ不要・Python だけ。**
+
+### 【旗129・追記】**欠陥 #53 は本周のうちに直して再走した**（追記であり、上の記録は書き換えていない）
+
+`inst_index_step129.py` の判定を **2 つ→4 つ**に割り、**実測から閾値を決めて**再走した
+（→ `research/logs/step129_20260904_191724.txt`）。
+
+| 判定 | 意味 | 閾値・根拠 |
+|---|---|---|
+| `INDEX_UNREACHABLE` | 索引に 1 本も HTTP が通らない | — |
+| **`INDEX_EMPTY_OR_JS`（新）** | **HTTP は通ったが中身の無い殻。情報を持たない** | `bytes < 10000` **かつ** `links < 10`。本周の実測から（殻＝2018B/1link・4429B/1link・2B ↔ 実物＝483 KB/644link・31 KB/24link） |
+| **`IN_PAGE_NOT_LINKED`（新）** | **著者名は生 HTML に在るが、辿れるリンクの札に無い** | — |
+| `NOT_IN_INDEX` | 中身のある索引を取れたが、著者語がページのどこにも無い | — |
+
+**再走の結果（判定だけが変わり、取れた本文は 0/5 のまま）**：
+
+| ⚪ | 直す前 | 直した後 |
+|---|---|---|
+| Gaumont-Guay 2006 | `INDEX_UNREACHABLE` | `INDEX_UNREACHABLE` |
+| **Tucker & Reed 2016** | `NOT_IN_INDEX` | **`IN_PAGE_NOT_LINKED`**（USGS 職員ページ 483 KB に `tucker` は在る） |
+| **Xu & Qi 2001** | `NOT_IN_INDEX` | **`INDEX_EMPTY_OR_JS`** |
+| Suseela 2012 | `INDEX_UNREACHABLE` | `INDEX_UNREACHABLE` |
+| Bunnell 1977 | `NOT_IN_INDEX` | `NOT_IN_INDEX`（**5 件で唯一、これだけが本来の意味の「載っていない」**） |
+
+**＝直す前の判定は、5 件中 2 件で「載っていない」と読める言葉を、
+情報の無い場所に貼っていた。** **本文到達の結論（0/5）は変わらない。**

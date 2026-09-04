@@ -689,3 +689,51 @@ Biogeochemistry 128, 155–169, doi:10.1007/s10533-016-0200-1。**
   （欠陥 #52）。** **残る ⚪ も同じ手で引き直す**：Gaumont-Guay 2006＝UBC Biomet／
   Xu & Qi 2001＝LBNL（`escholarship.org` 未着手）／Suseela 2012＝Purdue・CSU・MBL（Dukes 研）／
   Bunnell 1977＝UBC。
+
+---
+
+## 【旗129・2026-09-04】**⚪ 5 件に「所属機関の索引」の手を当てた**——**本文到達 0/5。⚪ は 5 件のまま。到達性スクリーンは三索引の和に更新する**
+
+**全文は `FLAGS_LOG.md` の旗129。ここには ⚪ の台帳としての差分だけ置く。**
+**どの主張の色も動かしていない。**
+
+### 到達性スクリーンの更新（旗128 の申し送りをさらに 1 段更新）
+
+**✗ Unpaywall 単独**（旗128 で感度 2/5 と判明）。
+**✓ `Unpaywall ∪ OpenAlex.locations[] ∪ Semantic Scholar.openAccessPdf` の和**（本周で感度 **3/5**）。
+
+- **増えた 1 件は Zhang 2018 AFM**——**S2 だけが `sciencedirect.com/science/article/am/pii/...`
+  （accepted manuscript）を持っている。** Unpaywall も OpenAlex もこれを持たない。
+- **★`best_oa_location` ではなく `locations[]` を全部読む。`is_oa:false` のリポジトリ項目が手がかり。**
+  陽性例＝**Wen 2006（本文到達済みの対照）が CAS の機関リポジトリに `submittedVersion` を持つ。**
+- **それでも感度 3/5＝偽陰性率 40%。「スクリーンが空だから到達不能」とは依然として書けない。**
+
+### 残る ⚪ 5 件の到達状況（**本周で 1 件も閉じていない・1 件も開いていない**）
+
+| ⚪ | DOI | 所属索引（生 HTTP） | OpenAlex `locations[]` | S2 | 残る経路 |
+|---|---|---|---|---|---|
+| **Xu & Qi 2001**, GBC **15(3), 687–696** | 10.1029/2000GB001365 | eScholarship・OSTI とも**JS の殻**（2 KB / 2 B） | **★HKUST `Rare & Special e-Zone` に `submittedVersion`** | 無 | **GATE-23（CAPTCHA・人間の手）** |
+| Gaumont-Guay 2006, AFM 140, 220–235 | 10.1016/j.agrformet.2006.08.003 | UBC 3 経路とも DNS 失敗/404/500 | 出版社のみ | 無 | UMN ミラーは**生 HTTP でも 403**／`WebFetch` で索引を読み直す／著者連絡（VIU） |
+| Tucker & Reed 2016, Biogeochem. 128, 155–169 | 10.1007/s10533-016-0200-1 | USGS 職員ページは 200 だが著者名がリンク札に無い | 出版社のみ | 無 | `WebFetch` で職員ページを読み直す／著者連絡（USGS） |
+| Suseela 2012, GCB 18, 336–348 | 10.1111/j.1365-2486.2011.02516.x | MBL 404・Dukes 研 404・Purdue 500 | 出版社のみ | 無 | `WebFetch` で索引を読み直す |
+| Bunnell 1977, SBB 9, 33–40 | 10.1016/0038-0717(77)90058-X | UBC Open Library 200（24 リンク）・`scholar.archive.org` は**JS の殻** | 出版社のみ | 無 | `WebFetch`／IBP Tundra Biome の報告書系 |
+
+### ★書誌の訂正（欠陥 #54）
+
+**⚪ #2 の題名は `Q10` の論文である。**
+**Xu, M. & Qi, Y. (2001), *Spatial and seasonal variations of Q10 determined by soil respiration
+measurements at a Sierra Nevadan forest*, Global Biogeochem. Cycles 15(3), 687–696,
+doi:10.1029/2000GB001365。**
+
+**同じ 2 人・同じサイト・同じ年に別論文がある**——
+*Soil-surface CO2 efflux and its spatial and temporal variations in a young ponderosa pine plantation
+in northern California*, Global Change Biology 7, 667–677。**こちらは `Q10` の論文ではなく、A-2 に効かない。**
+**旗128 の周の草稿と、本周の最初の検索は、この別論文を探していた。**
+**⚪ に着手する前に DOI で題名を確定すること。**
+
+### 到達できなかった索引（**負の結果ではなく、情報が無い**）
+
+- **`api.fatcat.wiki`（scholar.archive.org）＝10 件中 10 件が `Connection reset by peer`。
+  対照 5 件も全滅。この索引からは何も分からない。**
+- **所属機関の刊行物一覧は生 HTTP では JS の殻しか返らない**（eScholarship 2 KB・
+  `scholar.archive.org` 4.4 KB・OSTI API 2 B）。**「載っていない」ではない。**

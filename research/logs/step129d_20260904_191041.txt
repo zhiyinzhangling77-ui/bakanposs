@@ -1,0 +1,91 @@
+  【記録】この実行の出力は **/home/shion-nagamine/bakanposs/research/logs/step129d_20260904_191041.txt** にも残ります（**ターミナルを遡らなくてよい**）。
+=== 旗129 段5：OpenAlex `locations[]` 全部 ＋ S2 `openAccessPdf` ===
+2026-09-04 19:10:41
+**対照を先に通す。感度 0 なら ⚪ の空欄は情報を持たない**（旗128 の読み方）。
+
+--- 対照（本文まで一次到達した実績あり） ---
+
+  Zhang2018 AFM 259 (旗121 到達)
+    doi=10.1016/j.agrformet.2018.05.005
+    [OpenAlex] locations=1
+           is_oa=False ver=publishedVersion src=Agricultural and Forest Meteorology
+    [S2]       isOpenAccess=True pdf=https://www.sciencedirect.com/science/article/am/pii/S0168192318301515 pmid=None
+    ★ 取りにいける PDF URL 1 本
+
+  Wang2014 BG 11 (旗122 到達)
+    doi=10.5194/bg-11-259-2014
+    [OpenAlex] locations=2
+       PDF is_oa=True  ver=publishedVersion src=Biogeosciences
+           pdf: https://bg.copernicus.org/articles/11/259/2014/bg-11-259-2014.pdf
+           is_oa=False ver=submittedVersion src=DOAJ (DOAJ: Directory of Open Access Journals)
+    [S2]       isOpenAccess=True pdf=https://doi.org/10.5194/bgd-10-9213-2013 pmid=None
+    ★ 取りにいける PDF URL 2 本
+
+  Wen2006 AFM 137 (旗123 到達)
+    doi=10.1016/j.agrformet.2006.02.005
+    [OpenAlex] locations=2
+           is_oa=False ver=publishedVersion src=Agricultural and Forest Meteorology
+           is_oa=False ver=submittedVersion src=Institute of Geographic Sciences and Natural Resources Research, CAS Institutional Repository
+    [S2]       isOpenAccess=False pdf= pmid=None
+
+  Davidson1998 GCB 4 (旗124 到達)
+    doi=10.1046/j.1365-2486.1998.00128.x
+    [OpenAlex] locations=1
+           is_oa=False ver=publishedVersion src=Global Change Biology
+    [S2]       isOpenAccess=False pdf= pmid=None
+
+  Doerr&Muennich1987 Tellus 39B (旗127 到達)
+    doi=10.3402/tellusb.v39i1-2.15331
+    [OpenAlex] locations=1
+       PDF is_oa=True  ver=publishedVersion src=Tellus B
+           pdf: https://www.tandfonline.com/doi/pdf/10.3402/tellusb.v39i1-2.15331?needAccess=true
+    [S2]       isOpenAccess=True pdf=https://www.tandfonline.com/doi/pdf/10.3402/tellusb.v39i1-2.15331?needAccess=true pmid=None
+    ★ 取りにいける PDF URL 2 本
+
+--- 残る ⚪ 5 件 ---
+
+  Xu&Qi2001 GBC 15 687-696
+    doi=10.1029/2000GB001365
+    [OpenAlex] locations=2
+           is_oa=False ver=publishedVersion src=Global Biogeochemical Cycles
+           is_oa=False ver=submittedVersion src=Rare & Special e-Zone (The Hong Kong University of Science and Technology)
+    [S2]       isOpenAccess=False pdf= pmid=None
+
+  Gaumont-Guay2006 AFM 140 220-235
+    doi=10.1016/j.agrformet.2006.08.003
+    [OpenAlex] locations=1
+           is_oa=False ver=publishedVersion src=Agricultural and Forest Meteorology
+    [S2]       isOpenAccess=False pdf= pmid=None
+
+  Tucker&Reed2016 Biogeochem 128 155-169
+    doi=10.1007/s10533-016-0200-1
+    [OpenAlex] locations=1
+           is_oa=False ver=publishedVersion src=Biogeochemistry
+    [S2]       isOpenAccess=False pdf= pmid=None
+
+  Suseela2012 GCB 18 336-348
+    doi=10.1111/j.1365-2486.2011.02516.x
+    [OpenAlex] locations=1
+           is_oa=False ver=publishedVersion src=Global Change Biology
+    [S2]       isOpenAccess=False pdf= pmid=None
+
+  Bunnell1977 SBB 9 33-40
+    doi=10.1016/0038-0717(77)90058-X
+    [OpenAlex] locations=1
+           is_oa=False ver=publishedVersion src=Soil Biology and Biochemistry
+    [S2]       isOpenAccess=False pdf= pmid=None
+
+=== まとめ ===
+  感度: 3/5
+    [対照] PDF_URL      Zhang2018 AFM 259 (旗121 到達)
+    [対照] PDF_URL      Wang2014 BG 11 (旗122 到達)
+    [対照] NO_PDF_URL   Wen2006 AFM 137 (旗123 到達)
+    [対照] NO_PDF_URL   Davidson1998 GCB 4 (旗124 到達)
+    [対照] PDF_URL      Doerr&Muennich1987 Tellus 39B (旗127 到達)
+    [⚪]   NO_PDF_URL   Xu&Qi2001 GBC 15 687-696
+    [⚪]   NO_PDF_URL   Gaumont-Guay2006 AFM 140 220-235
+    [⚪]   NO_PDF_URL   Tucker&Reed2016 Biogeochem 128 155-169
+    [⚪]   NO_PDF_URL   Suseela2012 GCB 18 336-348
+    [⚪]   NO_PDF_URL   Bunnell1977 SBB 9 33-40
+
+  【記録】出力を **/home/shion-nagamine/bakanposs/research/logs/step129d_20260904_191041.txt** に保存しました。

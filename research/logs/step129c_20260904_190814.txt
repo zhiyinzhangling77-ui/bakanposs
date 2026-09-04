@@ -1,0 +1,58 @@
+  【記録】この実行の出力は **/home/shion-nagamine/bakanposs/research/logs/step129c_20260904_190814.txt** にも残ります（**ターミナルを遡らなくてよい**）。
+=== 旗129 段4：fatcat（scholar.archive.org 索引）を全 ⚪ に当てる ===
+2026-09-04 19:08:14
+**先に対照（本文到達済み 5 件）に当て、感度を見てから ⚪ を読む。**
+
+--- 対照（本文まで一次到達した実績あり）---
+  ✗ Zhang2018 AFM 259 (旗121 到達)
+      doi=10.1016/j.agrformet.2018.05.005
+      lookup: URLError: <urlopen error [Errno 104] Connection reset by peer>
+  ✗ Wang2014 BG 11 (旗122 到達)
+      doi=10.5194/bg-11-259-2014
+      lookup: URLError: <urlopen error [Errno 104] Connection reset by peer>
+  ✗ Wen2006 AFM 137 (旗123 到達)
+      doi=10.1016/j.agrformet.2006.02.005
+      lookup: URLError: <urlopen error [Errno 104] Connection reset by peer>
+  ✗ Davidson1998 GCB 4 (旗124 到達)
+      doi=10.1046/j.1365-2486.1998.00128.x
+      lookup: URLError: <urlopen error [Errno 104] Connection reset by peer>
+  ✗ Doerr&Muennich1987 Tellus 39B (旗127 到達)
+      doi=10.3402/tellusb.v39i1-2.15331
+      lookup: URLError: <urlopen error [Errno 104] Connection reset by peer>
+
+  感度: 0/5（実ファイルを持つ対照の数）
+
+--- 残る ⚪ 5 件 ---
+  ✗ Xu&Qi2001 GBC 15 687-696
+      doi=10.1029/2000GB001365
+      lookup: URLError: <urlopen error [Errno 104] Connection reset by peer>
+  ✗ Gaumont-Guay2006 AFM 140 220-235
+      doi=10.1016/j.agrformet.2006.08.003
+      lookup: URLError: <urlopen error [Errno 104] Connection reset by peer>
+  ✗ Tucker&Reed2016 Biogeochem 128 155-169
+      doi=10.1007/s10533-016-0200-1
+      lookup: URLError: <urlopen error [Errno 104] Connection reset by peer>
+  ✗ Suseela2012 GCB 18 336-348
+      doi=10.1111/j.1365-2486.2011.02516.x
+      lookup: URLError: <urlopen error [Errno 104] Connection reset by peer>
+  ✗ Bunnell1977 SBB 9 33-40
+      doi=10.1016/0038-0717(77)90058-X
+      lookup: URLError: <urlopen error [Errno 104] Connection reset by peer>
+
+=== まとめ ===
+  [対照]
+    API_ERROR       Zhang2018 AFM 259 (旗121 到達)
+    API_ERROR       Wang2014 BG 11 (旗122 到達)
+    API_ERROR       Wen2006 AFM 137 (旗123 到達)
+    API_ERROR       Davidson1998 GCB 4 (旗124 到達)
+    API_ERROR       Doerr&Muennich1987 Tellus 39B (旗127 到達)
+  [⚪]
+    API_ERROR       Xu&Qi2001 GBC 15 687-696
+    API_ERROR       Gaumont-Guay2006 AFM 140 220-235
+    API_ERROR       Tucker&Reed2016 Biogeochem 128 155-169
+    API_ERROR       Suseela2012 GCB 18 336-348
+    API_ERROR       Bunnell1977 SBB 9 33-40
+
+  **感度が低ければ、⚪ 側の `RECORD_NO_FILE` は到達不能の根拠にならない**（旗128 と同じ読み方）。
+
+  【記録】出力を **/home/shion-nagamine/bakanposs/research/logs/step129c_20260904_190814.txt** に保存しました。

@@ -1,0 +1,22 @@
+  【記録】この実行の出力は **/home/shion-nagamine/bakanposs/research/logs/step129b_20260904_190728.txt** にも残ります（**ターミナルを遡らなくてよい**）。
+=== 旗129 段3：検索索引が名指しした PDF 直リンクを生 HTTP で叩く ===
+2026-09-04 19:07:28
+**推測した URL は入れていない。出所を各行に書く。**
+
+--- Gaumont-Guay2006
+    出所: 旗123 の記録（WebFetch で 403）＋本周の WebSearch が同じ URL を返した
+    URL : https://biometeorology.umn.edu/sites/biometeorology.umn.edu/files/2021-04/boreal_aspen_2006.pdf
+    ✗ HTTP 403 Forbidden (0.5s)
+
+--- Xu-Qi2001_agu_pdf
+    出所: 本周の WebSearch（AGU/Wiley の PDF 直リンク・対照として 403 を期待）
+    URL : https://agupubs.onlinelibrary.wiley.com/doi/pdf/10.1029/2000GB001365
+    ✗ HTTP 403 Forbidden (0.0s)
+
+--- Xu-Qi2001_agu_epdf
+    出所: 本周の WebSearch（同上・epdf 版）
+    URL : https://agupubs.onlinelibrary.wiley.com/doi/epdf/10.1029/2000GB001365
+    ✗ HTTP 403 Forbidden (0.0s)
+
+
+  【記録】出力を **/home/shion-nagamine/bakanposs/research/logs/step129b_20260904_190728.txt** に保存しました。
