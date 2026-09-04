@@ -1,0 +1,24 @@
+==========================================================================
+[TUCKER_2025capture] https://web.archive.org/web/20250815010715id_/https://link.springer.com/article/10.1007/s10533-016-0200-1
+  http: 200 bytes: 332475
+  text chars: 18493
+  節見出し hit: ['Methods', 'Results', 'Acknowledg', 'References', 'Fig. 1']
+  paywall 文言 hit: ['This is a preview of subscription content', 'Institutional subscriptions', 'log in via an institution', 'Access this article', 'Subscribe and save']
+  saved: /home/shion-nagamine/bakanposs/research/tmp_pdfs/tucker2016_springer_20250815.txt
+   語 'negative temperature sensitivity': 5 回
+   語 'Q10': 0 回
+   語 'soil moisture': 4 回
+   語 'abstract': 1 回
+   語 'Canyonlands': 0 回
+   語 'Moab': 1 回
+   語 'Utah': 1 回
+   語 'volumetric water content': 0 回
+
+---- 先頭 2500 字 ----
+Low soil moisture during hot periods drives apparent negative temperature sensitivity of soil respiration in a dryland ecosystem: a multi-model comparison | Biogeochemistry Skip to main content Advertisement Log in Menu Find a journal Publish with us Track your research Search Cart Home Biogeochemistry Article Low soil moisture during hot periods drives apparent negative temperature sensitivity of soil respiration in a dryland ecosystem: a multi-model comparison Published: 02 April 2016 Volume 128 , pages 155–169, ( 2016 ) Cite this article Biogeochemistry Aims and scope Submit manuscript Colin L. Tucker 1 & Sasha C. Reed 1 1210 Accesses 40 Citations 1 Altmetric Explore all metrics Abstract Arid and semiarid ecosystems (drylands) may dominate the trajectory of biosphere-to-atmosphere carbon (C) exchange, and understanding dryland CO 2 efflux is important for C cycling at the global-scale. However, unknowns remain regarding how temperature and moisture interact to regulate dryland soil respiration ( R s ), while ‘islands of fertility’ in drylands create spatially heterogeneous R s . At a site in southeastern Utah, USA we added or removed litter (0–650 % of control) in plots associated with either shrubs or biological soil crust-dominated interspaces between vascular plants. We measured R s , soil temperature (T s ), and water content (θ) repeatedly from October 2013 to November 2014. R s was highest following rain in late summer at T s ~30 °C, and lowest mid-summer at T s > 40 °C, resulting in apparent negative temperature sensitivity of R s at high temperatures, and positive temperature sensitivity at low-moderate temperatures. We used Bayesian statistical methods to compare models capturing a range of hypothesized relationships between T s , θ, and R s . The best model indicates that apparent negative temperature sensitivity of R s at high T s reflects the control of water content, not high temperatures. Modeled Q 10 ranged from 2.7 to 1.4 between 5 and 45 °C. Litter addition had no effect on Q 10 or reference respiration ( R ref = R s at 20 °C and optimum θ) beneath shrubs, and little effect on R ref in interspaces, yet R ref was 1.5 times higher beneath shrubs than in interspaces. Altogether, these results suggest reduced R s often observed at high T s in drylands is dominated by the control of θ, and, on shorter-timescales, variable litter inputs exert minimal control over R s . This is a preview of subscription content, log in via an institution to ch
+==========================================================================
+[CTRL_OA_s10533-016-0233-5] https://web.archive.org/web/2018/https://link.springer.com/article/10.1007%2Fs10533-016-0233-5
+  http: 200 bytes: 209842
+  text chars: 63386
+  節見出し hit: ['Methods', 'Results', 'Discussion', 'Acknowledg', 'References', 'Conclusion', 'Fig. 1', 'Table 1']
+  paywall 文言 hit: ['Access this article']

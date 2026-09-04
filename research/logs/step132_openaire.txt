@@ -1,0 +1,33 @@
+==========================================================================
+[TARGET_tucker2016] doi=10.1007/s10533-016-0200-1
+  http: 200 bytes: 81596
+  総 URL: 6 / PDF らしい: 1
+    * http://www.stat.columbia.edu/~gelman/research/unpublished/waic_stan.pdf.
+==========================================================================
+[CTRL_POS_suseela2012] doi=10.1111/j.1365-2486.2011.02516.x
+  http: 200 bytes: 21050
+  総 URL: 9 / PDF らしい: 0
+    - http://namespace.openaire.eu/oaf
+    - http://www.colostate.edu/
+    - http://www.massachusetts.edu/
+    - http://www.purdue.edu/
+    - https://doi.org/10.1111/j.1365-2486.2011.02516.x
+    - https://doi.org/https://doi.org/10.1111/j.1365-2486.2011.02516.x
+    - https://www.openaire.eu/schema/1.0/oaf-1.0.xsd
+    - https://www.qut.edu.au/
+    - https://www.umb.edu/
+==========================================================================
+[CTRL_POS_gaumontguay2006] doi=10.1016/j.agrformet.2006.08.003
+  http: 200 bytes: 15700
+  総 URL: 7 / PDF らしい: 0
+    - http://namespace.openaire.eu/oaf
+    - http://www.morris.umn.edu/
+    - http://www.umn.edu/
+    - https://doi.org/10.1016/j.agrformet.2006.08.003
+    - https://www.ec.gc.ca/meteo-weather/
+    - https://www.openaire.eu/schema/1.0/oaf-1.0.xsd
+    - https://www.ubc.ca/
+==========================================================================
+[CTRL_NEG_fakedoi] doi=10.9999/this-doi-does-not-exist-9999
+  http: 200 bytes: 364
+  総 URL: 0 / PDF らしい: 0

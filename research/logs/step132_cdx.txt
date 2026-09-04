@@ -1,0 +1,71 @@
+### 門①（対照）
+==========================================================================
+[CTRL_POS_davidson1998] http://harvardforest.fas.harvard.edu/sites/harvardforest.fas.harvard.edu/files/publications/pdfs/Davidson_GlobalChangeBiology_1998.pdf
+  CDX: HAVE http=200 n=1
+    20150925121144 517112 application/pdf http://harvardforest.fas.harvard.edu/sites/harvardforest.fas.harvard.edu/files/publications/pdfs/Davidson_Glob
+   -> ts=20150925121144 {'verdict': 'GOT_PDF', 'bytes': 528526, 'declared': '528526', 'sha256': '59c500468992178c', 'head': '%PDF-1.1\r\n%âãÏÓ\r\n1 0 obj\r\n[ \r\n/CalRGB <<', 'path': '/home/shion-nagamine/bakanposs/research/tmp_pdfs/CTRL_POS_davidson1998_20150925121144.pdf'}
+==========================================================================
+[CTRL_NEG_fake] http://harvardforest.fas.harvard.edu/sites/harvardforest.fas.harvard.edu/files/publications/pdfs/Davidson_GlobalChangeBiology_XXNOTREAL.pdf
+  CDX: NO_CAPTURE http=200 n=0
+
+門①: 陽性=GOT_PDF（期待 GOT_PDF） / 陰性=NO_CAPTURE（期待 NO_CAPTURE）
+
+### 本命 Tucker & Reed 2016 (doi 10.1007/s10533-016-0200-1)
+==========================================================================
+[springer_pdf] https://link.springer.com/content/pdf/10.1007/s10533-016-0200-1.pdf
+  CDX: NO_CAPTURE http=200 n=0
+==========================================================================
+[springer_pdf_enc] http://link.springer.com/content/pdf/10.1007%2Fs10533-016-0200-1.pdf
+  CDX: NO_CAPTURE http=200 n=0
+==========================================================================
+[springer_art] https://link.springer.com/article/10.1007/s10533-016-0200-1
+  CDX: HAVE http=200 n=7
+    20250815010715 78417 text/html https://link.springer.com/article/10.1007/s10533-016-0200-1
+    20250413032325 76328 text/html https://link.springer.com/article/10.1007/s10533-016-0200-1
+    20250410114253 75908 text/html https://link.springer.com/article/10.1007/s10533-016-0200-1
+    20250312201037 75286 text/html https://link.springer.com/article/10.1007/s10533-016-0200-1
+    20221028004011 51842 text/html https://link.springer.com/article/10.1007/s10533-016-0200-1
+    20180614034735 27007 text/html https://link.springer.com/article/10.1007%2Fs10533-016-0200-1
+    20170217094810 25758 text/html http://link.springer.com:80/article/10.1007/s10533-016-0200-1
+   -> ts=20250815010715 {'verdict': 'NOT_PDF', 'bytes': 332475, 'declared': None, 'sha256': '9d32a81cd4640f95', 'head': '<!DOCTYPE html>\n<html lang="en" class="n'}
+   -> ts=20250413032325 {'verdict': 'NOT_PDF', 'bytes': 327019, 'declared': None, 'sha256': 'a353d889ba820d08', 'head': '<!DOCTYPE html>\n<html lang="en" class="n'}
+   -> ts=20250410114253 {'verdict': 'NOT_PDF', 'bytes': 325629, 'declared': None, 'sha256': '9453ef36b2f48f6c', 'head': '<!DOCTYPE html>\n<html lang="en" class="n'}
+==========================================================================
+[springer_art_enc] http://link.springer.com/article/10.1007%2Fs10533-016-0200-1
+  CDX: HAVE http=200 n=7
+    20250815010715 78417 text/html https://link.springer.com/article/10.1007/s10533-016-0200-1
+    20250413032325 76328 text/html https://link.springer.com/article/10.1007/s10533-016-0200-1
+    20250410114253 75908 text/html https://link.springer.com/article/10.1007/s10533-016-0200-1
+    20250312201037 75286 text/html https://link.springer.com/article/10.1007/s10533-016-0200-1
+    20221028004011 51842 text/html https://link.springer.com/article/10.1007/s10533-016-0200-1
+    20180614034735 27007 text/html https://link.springer.com/article/10.1007%2Fs10533-016-0200-1
+    20170217094810 25758 text/html http://link.springer.com:80/article/10.1007/s10533-016-0200-1
+   -> ts=20250815010715 {'verdict': 'NOT_PDF', 'bytes': 332475, 'declared': None, 'sha256': '9d32a81cd4640f95', 'head': '<!DOCTYPE html>\n<html lang="en" class="n'}
+   -> ts=20250413032325 {'verdict': 'NOT_PDF', 'bytes': 327019, 'declared': None, 'sha256': 'a353d889ba820d08', 'head': '<!DOCTYPE html>\n<html lang="en" class="n'}
+   -> ts=20250410114253 {'verdict': 'NOT_PDF', 'bytes': 325629, 'declared': None, 'sha256': '9453ef36b2f48f6c', 'head': '<!DOCTYPE html>\n<html lang="en" class="n'}
+==========================================================================
+[prefix_springer_thisdoi] link.springer.com/content/pdf/10.1007/s10533-016-0200-1  (matchType=prefix)
+  CDX: NO_CAPTURE http=200 n=0
+==========================================================================
+[prefix_springer_s10533_2016] link.springer.com/content/pdf/10.1007/s10533-016-02  (matchType=prefix)
+  CDX: HAVE http=200 n=13
+    20220121140340 1228035 application/pdf http://link.springer.com/content/pdf/10.1007/s10533-016-0226-4.pdf
+    20220121100103 497934 application/pdf http://link.springer.com/content/pdf/10.1007/s10533-016-0249-x.pdf
+    20220120162044 372853 application/pdf http://link.springer.com/content/pdf/10.1007/s10533-016-0207-7.pdf
+    20220120082312 768168 application/pdf http://link.springer.com/content/pdf/10.1007/s10533-016-0247-z.pdf
+    20190505082232 141673 application/pdf https://link.springer.com/content/pdf/10.1007%2Fs10533-016-0258-9.pdf
+    20181030091305 1495649 application/pdf https://link.springer.com/content/pdf/10.1007%2Fs10533-016-0233-5.pdf
+    20180729150558 189285 application/pdf https://link.springer.com/content/pdf/10.1007%2Fs10533-016-0282-9.pdf
+    20180728222438 146872 application/pdf https://link.springer.com/content/pdf/10.1007%2Fs10533-016-0242-4.pdf
+    20180728033809 2128860 application/pdf https://link.springer.com/content/pdf/10.1007%2Fs10533-016-0266-9.pdf
+    20180727032146 1935658 application/pdf https://link.springer.com/content/pdf/10.1007%2Fs10533-016-0263-z.pdf
+    20180724073210 140195 application/pdf https://link.springer.com/content/pdf/10.1007%2Fs10533-016-0260-2.pdf
+    20170722193701 1137783 application/pdf https://link.springer.com/content/pdf/10.1007%2Fs10533-016-0270-0.pdf
+
+### まとめ
+  springer_pdf                 NO_CAPTURE
+  springer_pdf_enc             NO_CAPTURE
+  springer_art                 NO_FULLTEXT
+  springer_art_enc             NO_FULLTEXT
+  prefix_springer_thisdoi      NO_CAPTURE
+  prefix_springer_s10533_2016  HAVE
