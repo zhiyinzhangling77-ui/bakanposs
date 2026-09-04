@@ -1,0 +1,12 @@
+  【記録】この実行の出力は **/home/shion-nagamine/bakanposs/research/logs/step131_ctrl_20260904_193310.txt** にも残ります（**ターミナルを遡らなくてよい**）。
+=== 旗131 段2 — 門①の陽性対照（Davidson 1998）を引き直す ===
+2026-09-04 19:33:10
+  元 URL: http://pdfs.semanticscholar.org/f72a/8e9f706df71f0b7ce7750157f43792a2e66b.pdf
+  CDX 試行1: 1 件
+    20190308180624  application/pdf      len=517201
+  [1/1] 20190308180624 → 528526B 宣言=528526 判定=GOT_PDF
+    ★ 完本 528526B / 本文の語 ['confounded', 'soil respiration'] / ['confounded', 'soil respiration']
+    先頭 200 字: Global Change Biology (1998) 4, 217–227 Soil water content and temperature as independent or confounded factors controlling soil respiration in a temperate mixed hardwood forest E R I C A . D AV I D
+  判定: GOT_PDF —— **門①（陽性）は通った**
+
+  【記録】出力を **/home/shion-nagamine/bakanposs/research/logs/step131_ctrl_20260904_193310.txt** に保存しました。

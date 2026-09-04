@@ -1,0 +1,34 @@
+  【記録】この実行の出力は **/home/shion-nagamine/bakanposs/research/logs/step131_20260904_193216.txt** にも残ります（**ターミナルを遡らなくてよい**）。
+=== 旗131 — CDX で全捕獲を列挙し、id_ 付きで 1 つずつ取る ===
+2026-09-04 19:32:16
+
+==============================================================================
+### Gaumont-Guay2006 [WHITE]
+  元 URL: http://www.biometeorology.umn.edu/pdf/boreal_aspen_2006.pdf
+  CDX: 3 件（digest 折り畳み後・statuscode:200）
+    20100630113316  application/pdf      len=1095158
+    20080708193216  application/pdf      len=107153
+    20080221212008  application/pdf      len=1094991
+  [1/3] 20100630113316 → 1269584B 宣言=1269584 判定=GOT_PDF
+    ★ 完本 bytes=1269584 sha256=fad0a5f7dcd84e0d → /home/shion-nagamine/bakanposs/research/tmp_pdfs/Gaumont-Guay2006.pdf
+    本文の語 ['soil respiration', 'aspen', 'temperature sensitivity'] / ['soil respiration', 'aspen', 'temperature sensitivity']（抽出 68891 文字）
+    先頭 400 字: Agricultural and Forest Meteorology 140 (2006) 220–235 www.elsevier.com/locate/agrformet Interpreting the dependence of soil respiration on soil temperature and water content in a boreal aspen stand David Gaumont-Guay a,*, T. Andrew Black a, Tim J. Griffis b, Alan G. Barr c, Rachhpal S. Jassal a, Zoran Nesic a a Biometeorology and Soil Physics Group, University of British Columbia, Vancouver, BC
+
+==============================================================================
+### CTRL_POS_Davidson1998 [CTRL_POS]
+  元 URL: http://pdfs.semanticscholar.org/f72a/8e9f706df71f0b7ce7750157f43792a2e66b.pdf
+  CDX_FAIL(HTTPError: HTTP Error 503: Service Unavailable)
+
+==============================================================================
+### CTRL_NEG_nonexistent [CTRL_NEG]
+  元 URL: http://www.biometeorology.umn.edu/pdf/boreal_aspen_2006_XXNOTREAL.pdf
+  CDX: 0 件（digest 折り畳み後・statuscode:200）
+  判定: NO_CAPTURE
+
+==============================================================================
+### まとめ
+  Gaumont-Guay2006         WHITE     GOT_PDF              20100630113316
+  CTRL_POS_Davidson1998    CTRL_POS  CDX_FAIL             
+  CTRL_NEG_nonexistent     CTRL_NEG  NO_CAPTURE           
+
+  【記録】出力を **/home/shion-nagamine/bakanposs/research/logs/step131_20260904_193216.txt** に保存しました。
