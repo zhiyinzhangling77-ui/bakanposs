@@ -6089,3 +6089,170 @@ Reichstein et al., 2002）と矛盾する」と書いている。** **model II�
 - **事前予測：14 回中 8 勝**（**一次確認の周は賭けの場ではない＝旗105 の作法どおり動かさない**）
 - **一次確認で全文に到達した文献：4 件**（Eldhose 2025・Zhang 2018・Wang 2014・**Wen 2006**）
   ／**全文に届かなかった文献：1 件**（**Gaumont-Guay 2006**・経路 7 本を上表に記録）
+
+---
+
+## 旗124：**Davidson 1998 に全文で届いた**——**「交絡」は1998年に題名で名指しされていた。だが先行の結論は「単一サイトでは分離は不可能かもしれない」であり、我々の差分はそこから作り直せる**
+
+- **この周の環境**：**`/mnt/hdd` は不可（実データ無し・D 分類はゲートのまま）／`.venv/bin/python` は可／
+  `WebSearch`・`WebFetch` は可。** 周の最初に叩いて確かめてから設計した（旗119 の作法）。
+- **整合性チェック**：**SESSION_STATE 最新旗＝旗123、FLAGS_LOG 最終旗＝旗123。ずれ無し。** 追跡ファイルもクリーン。
+- **やったこと＝旗123 が最優先に置いた ⚪ #1（Davidson, Belk & Boone 1998, GCB 4, 217–227）の全文一次確認。**
+  **新しい解析はしていない。数値・土俵分け・スコープは動かしていない。動かしたのは A-2 の新規性の記述と、
+  次周にやるべき自己点検の登録である。**
+
+### 1. 到達経路 — **旗121 と同じホストが二度目に効いた**
+
+| 手 | 結果 |
+|---|---|
+| Wiley (`onlinelibrary.wiley.com/doi/abs/…`) | 抄録ページのみ（本文は取らずに済んだ） |
+| OpenAlex `doi:10.1046/j.1365-2486.1998.00128.x` | **`is_oa: false`・OA ロケーション 0**（被引用 1955） |
+| Semantic Scholar Graph API | `openAccessPdf.url` 空・**抄録は publisher により elided** |
+| **Harvard Forest の刊行物索引 `harvardforest1.fas.harvard.edu/exist/apps/pubs/pb-id.html?id=hf194`** | **✅ PDF 直リンクを列挙している** |
+| **`harvardforest1.fas.harvard.edu/publications/pdfs/Davidson_GlobalChangeBiology_1998.pdf`** | **✅ `WebFetch` でローカル保存 → `Read pages` で本文 11 ページ全部** |
+
+**★申し送り**：**`WebFetch` は 1998 年のスキャン PDF を「PDF オブジェクトの生テキスト」として要約に失敗するが、
+`tool-results/` にはバイナリを保存してくれる。そこを `Read` の `pages` で読めば本文が読める**
+（旗121・旗122・旗123 と同じ手順が四度目も効いた）。
+**加えて、Harvard Forest の `pb-id.html?id=hfNNN` は「PDF 直リンクの索引」である。
+Harvard Forest 由来の文献は、まずこの索引を引くのが速い**（旗121 の Zhang 2018 も同じホストだった）。
+
+### 2. ★**🔴 の拡大 — 我々の差分 (ii) は、1998 年に題名で名乗られていた**
+
+**題名がそのまま問題の名前である**：*Soil water content and temperature as independent or confounded
+factors controlling soil respiration in a temperate mixed hardwood forest*。
+**本文 p. 223 には「Confounding of temperature and water content」という独立の節がある**（逐語）：
+
+> "Because soil water content and temperature covary across seasons (Fig. 6), it is possible that the
+> empirically derived Q10 temperature function is confounded with an effect of soil water content in
+> addition to the drought related matric potential effect already described. In other words, the Q10
+> effect may include within it and may mask a negative correlation between water content and soil
+> respiration at high water contents."
+
+**抄録は、高い Q10 とサイト間の Q10 のばらつきの候補説明の第一に「交絡」を挙げている**（逐語）：
+
+> "At moderate to high water contents, however, soil water content was negatively correlated with soil
+> temperature, which precluded distinguishing between the effects of these two confounded factors on
+> CO2 flux. Occurrence of high Q10 values and variation in Q10 values among sites may be related to:
+> **(i) confounding effects of high soil water content**; (ii) seasonal and diel patterns in root
+> respiration …; and (iii) variation in the depth where CO2 is produced."
+
+**＝旗44 が「前提の穴①」として自力で立てた温度エイリアシングの疑いは、1998 年の時点で
+問題として明示的に提起されている（被引用 1955）。「この交絡に気づいたこと」は我々の差分ではない。**
+**これは旗118→121→122→123 と続いた 🔴 の拡大の、五度目にして最も大きいものである。**
+
+### 3. ★**それでも差分は残る。ただし「先行がやらなかった」ではなく「先行が不可能だと結論した」形に変わる**
+
+**Davidson 1998 の結論は否定的である**（p. 223 逐語）：
+
+> "Statistically, it is very difficult, and perhaps impossible, to distinguish between the effect of
+> declining soil temperature and increasing water content on soil respiration as the soils become colder
+> and wetter in the autumn and winter. … When combined in a nonlinear model such as that of Bunnell
+> et al. (1977), the solutions for the best fit of the temperature and water functions are not unique.
+> We were able to obtain similarly good fits for our data either by letting the fitting program find a
+> high Q10 value for the temperature function that accounted for most of the variation, in which case
+> the nonlinear water content functions contributed little to the reduction in sums of squares, or by
+> forcing a lower Q10 value of 2.4 and letting the nonlinear fitting program assign parameters to the
+> water content function that compensated for the poorer Q10 fit."
+
+**＝彼らは分離を試み、単一サイトの同時当てはめでは解が一意でないことを実演して、分離を断念した。**
+
+| 差分 | 旗123 の状態 | **旗124 の状態** |
+|---|---|---|
+| **(i) 多サイト性** | 残る | **残る**（Davidson 1998 も単一サイト＝Harvard Forest 内の 6 区画・36 チャンバー・1 年） |
+| **(ii) 温度エイリアシングの分離** | ⚠ 保留 | **⚠ 保留のまま。ただし書き方が定まった（下記）** |
+
+**【確定】A-2 の差分の書き方（旗122 の「分数」を保ったまま、根拠が強くなった）**：
+- **✗「先行はこの交絡に気づいていない」＝偽**（Davidson 1998 の題名そのもの）。
+- **✗「先行は分離していない」＝一般化として偽**（旗123・Wen 2006）。
+- **✓「この交絡は Davidson et al. (1998) が題名で提起し、単一サイトのデータでは
+  『統計的に非常に困難で、おそらく不可能』と結論した問題である。本研究は、単一サイトでは
+  原理的に出せない量——多サイトの陽性・陰性の分布、すなわち生の陽性 25/37 のうち何本が
+  交絡の産物で何本が残るか（11 対 18/36）——を出す。」**
+  **＝先行の否定的結論は我々の障害ではなく、我々が多サイトへ出た理由そのものである。この形で引く。**
+
+### 4. ★★**自分への点検が 1 件増えた（次周の最優先・データ不要・Python だけで済む）**
+
+**Davidson 1998 の非同定性は、Bunnell 型の乗法モデルにおける「Q10（温度の主効果）と水分関数（水分の主効果）」
+の交換可能性についての主張である。** **旗44 が判定に使っているのは主効果ではなく交互作用項 d**
+（`ln R = a + b·Tc + e·Tc² + c·θz + d·(Tc·θz)`）**であり、Lloyd–Taylor 曲率は `e·Tc²` として
+明示的にモデルに入っている。パラメタの組が違うので、Davidson の非同定性がそのまま我々に当たるとは言えない。**
+
+**だが当たらないとも言えない。** **θ と T が強く共変動するサイトでは `Tc²` と `Tc·θz` も強く共線でありうる。
+旗44 は「d が拾えること」を合成で確かめたが（▲エイリアスのみ d→0.0000 と ★真の依存 d=+0.047 の分離）、
+`e` と `d` の識別可能性そのものは一度も確かめていない。**
+
+**＝新しい合成検証（事前登録の対象）**：
+**θ–T 相関を −0.5 / −0.7 / −0.85 / −0.95 と振り、水分が感度に一切効かない（真の d=0）合成で
+`e` と `d` の推定値の相関と d の被覆率を測る。共線が強いときに d の CI が名目被覆を割るなら、
+旗44 の 18/36 は共線の強いサイトで水増しされている可能性がある。**
+**旗44 が「θ-T 相関 −0.85 の JASSAL でも生存」と書いた 1 サイトの逸話は、この検証の代わりにならない。**
+**この検証はデータ不要・Python だけで走る＝GATE を増やさない。次周の最優先に置く。**
+**★結果を見てから旗44 の判定規則を変えない。変えるのは次の事前登録から（旗102 の作法）。**
+
+### 5. 副産物：**旗44 の前提に、二つ目の文献側の実測が付いた**
+
+**旗122 は Lloyd–Taylor 側（`Q10 = −0.42×Ts + 12.4, R²=0.86`・Wang 2014）を見つけた。**
+**今周は θ–T 共変動そのものの実測が付いた**——**Davidson 1998 Fig. 6（温帯混交広葉樹林・6 排水階級・154 自由度）**：
+
+> "The fitted linear regression is: water content = 0.56 − (0.02 × temperature); R² = 0.23,
+> which is significant at α = 0.01 (d.f. = 154)."
+
+**＝旗44 が前提に置いた「温帯冷温帯林では 湿ビン＝春秋（低温）／乾ビン＝真夏（高温）にエイリアスする」は、
+温帯林の実測で直接支持される。合成でしか確かめていなかった前提が、二つとも文献側の実測に接続した。**
+
+**もう一つ（Fig. 7・二峰性）**：**通年では θ と Rs は負相関**（`flux = 201 − 198×水分`, R²=0.22, d.f.=131）、
+**干ばつのピーク（8–9 月・θ<0.12）では正相関**（`flux = −128 + 2852×水分`, R²=0.48, d.f.=21）。
+**同一サイト・同一年の中で θ–Rs の符号が反転する。** **我々が θ を通年プールでビンに切るとき、
+この二峰性が混ざりうるという指摘として記録する**（旗42/44 の留保「全月プールの Q10–θ は季節的 T–θ 共変動を
+完全分離できない」と同じ穴を、文献側が別の量で示している）。
+
+### 6. 方向の照合（**記録のみ・主張には上げない**）
+
+**Davidson 1998 は、Q10 と水分の関係について同一論文内で符号の違う二つの証拠を並べている**：
+- **年をまたぐ比較（Dörr & Münnich 1987 Tellus 39B, 114–121 の引用）**：**Q10 は 1.4〜3.1 で、
+  低い値は主に湿った年、高い値は主に乾いた年**＝**乾→高 Q10**。
+- **単一年内のサイト間比較（彼ら自身の Table 1）**：**最も低い Q10 は排水良好サイト、より高い値は湿ったサイト**
+  （3.4〜5.6・ただし最高値 5.6 は冷涼で日陰の Hemlock 林＝温度と交絡）＝**湿→高 Q10**。
+
+**後者は我々の優勢な符号（旗44：有意 24 中 正 18・負 6・p=0.011）と同じ向きだが、
+Davidson 自身がそれを「交絡かもしれない」の候補として挙げている**（最高 Q10 のサイトが最も低温）。
+**＝我々の符号と同じ向きの先行があることは、我々の支持にならない。むしろ我々が温度域を統制する理由になる。**
+**旗48/61 の「符号の規則は未解明」に、文献側でも符号が一定しないという状況証拠が二本目として付いた**
+（一本目は旗123 の Wen 2006）。**量の組が違うので説明には使わない。**
+
+### 7. 新しい ⚪（**今周の本文から拾った・題名が我々の差分に近い順**）
+
+1. **★Wildung, R.E., Garland, T.R., Buschbom, R.L. (1975), *The interdependent effects of soil temperature
+   and water content on soil respiration rate and plant root decomposition in arid grassland soils*,
+   Soil Biology and Biochemistry 7, 373–378.**
+   **Davidson が「重回帰で主効果ではなく温度×水分の交互作用項に有意に相関した」として引いている
+   ＝旗44 の `d`（交互作用）に量の組まで最も近い先行。1975 年。** **これが最優先の ⚪ に入る。**
+   （**この記述は Davidson 経由の二次情報。一次で確かめるまで「交互作用の先行がある」と断定しない。**）
+2. **Dörr, H., Münnich, K.O. (1987), Tellus 39B, 114–121**——**年ごとの Q10 が 1.4〜3.1 で乾湿と対応
+   ＝「水分が見かけ Q10 を動かす」の経験的先行としては現時点で最も古い候補。**
+3. **Bunnell, F.L., Tait, D.E.N., Flanagan, P.W., Van Cleve, K. (1977), Soil Biol. Biochem. 9, 33–40**
+   ——**Davidson が非同定性を実演したときの乗法モデルの出典。**
+4. 以下は旗123 から据え置き：Gaumont-Guay 2006（新しい当てが要る）・Xu & Qi 2001・
+   Tucker & Reed 2016・Suseela 2012。
+
+### 作法に加わったもの（旗124）
+
+- **相手が「できなかった」と書いている論文は、自分の差分の敵ではなく根拠になりうる。**
+  **先行の否定的結論（＝単一サイトでは不可能かもしれない）を引けば、
+  「なぜ多サイトへ出たか」を自分の思いつきでなく文献の未解決問題として書ける。**
+- **相手の非同定性の主張が、自分のモデルの「どのパラメタの組」についてのものかを確かめる。**
+  **主効果の交換可能性と交互作用の識別可能性は別の問題であり、混同すると
+  「当たらない」とも「当たる」とも間違える。** **そして、当たらないと判断したなら、
+  自分の側の識別可能性を代わりに確かめる義務が生じる**（＝上の第 4 節）。
+- **一次確認は「相手を潰す」作業ではない。** **今周は 🔴 が最も広がった周であると同時に、
+  自分の前提に二つ目の実測の裏付けが付き、自分の道具への点検が 1 件増えた周でもある。**
+
+### 数え上げ（旗124 時点）
+
+- **道具の欠陥：43 件**（**今周は道具を走らせていないので増減なし。ただし第 4 節の点検が未検証の疑いとして 1 件立った
+  ——合成を走らせるまで欠陥として番号を振らない**）
+- **事前登録：24 件**（**今周は検定をしていない。第 4 節が次の事前登録の候補**）
+- **事前予測：14 回中 8 勝**（**一次確認の周は賭けの場ではない＝旗105 の作法どおり動かさない**）
+- **一次確認で全文に到達した文献：5 件**（Eldhose 2025・Zhang 2018・Wang 2014・Wen 2006・**Davidson 1998**）
+  ／**全文に届かなかった文献：1 件**（Gaumont-Guay 2006）

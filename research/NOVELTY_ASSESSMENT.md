@@ -449,3 +449,104 @@ Global Change Biology 4, 217–227.**（Wen 2006 の参考文献から拾った�
 5. Suseela et al. 2012, GCB 18, 336–348（Purdue/CSU）。
 6. A-1 の残差同期（空間スケール）——旗119 で主張の水準を落としたので優先度は低い。
 7. Stoy 2007——結論に効かない・低優先。
+
+---
+
+## 【旗124】**Davidson 1998 を全文で一次確認した — 交絡は 1998 年に題名で名指しされていた。差分は「先行がやらなかったこと」から「先行が不可能だと結論したこと」へ書き換える**
+
+**Davidson, E.A., Belk, E., Boone, R.D. (1998), *Soil water content and temperature as independent or
+confounded factors controlling soil respiration in a temperate mixed hardwood forest*,
+Global Change Biology 4, 217–227.**
+**到達**：Wiley は抄録のみ・OpenAlex `is_oa:false`・S2 は抄録 elided →
+**Harvard Forest の刊行物索引（`pb-id.html?id=hf194`）が PDF 直リンクを持っていた**
+→ `WebFetch` でローカル保存 → `Read pages` で**本文 11 ページ全部**。
+
+**素性**：**単一サイト**（Harvard Forest・排水階級の違う 6 区画・PVC リング 36 本）・
+**量の組は `Rs–Ts`（動的チャンバーの土壌呼吸 対 10 cm 深土壌温度）＝我々の A-2 と同じ組**・
+**1995–1996 の通年 1 サイクル**（1995 年夏の干ばつを含む）。**被引用 1955。**
+
+### A-2 への影響①：**🔴 の拡大（過去 5 周で最大）**
+
+**旗44 が「前提の穴①」として自力で立てた温度エイリアシングの疑いは、1998 年に問題として明示されている。**
+
+> "Because soil water content and temperature covary across seasons (Fig. 6), it is possible that the
+> empirically derived Q10 temperature function is confounded with an effect of soil water content …
+> the Q10 effect may include within it and may mask a negative correlation between water content and
+> soil respiration at high water contents."（p. 223「Confounding of temperature and water content」節）
+
+**抄録は、高 Q10 とサイト間の Q10 のばらつきの候補説明の第一に「(i) confounding effects of high soil
+water content」を挙げている。** **＝「この交絡に気づいたこと」は我々の差分ではない。**
+
+### A-2 への影響②：**差分は残る。ただし根拠が「先行の沈黙」から「先行の否定的結論」に変わる**
+
+**Davidson 1998 は分離を試みて断念している**（p. 223 逐語）：
+
+> "Statistically, it is very difficult, and perhaps impossible, to distinguish between the effect of
+> declining soil temperature and increasing water content … the solutions for the best fit of the
+> temperature and water functions are not unique. We were able to obtain similarly good fits for our
+> data either by letting the fitting program find a high Q10 value … or by forcing a lower Q10 value
+> of 2.4 and letting the nonlinear fitting program assign parameters to the water content function that
+> compensated for the poorer Q10 fit."
+
+| 差分 | 旗123 | **旗124** |
+|---|---|---|
+| **(i) 多サイト性** | 残る | **残る**（Davidson 1998 も単一サイト・1 年） |
+| **(ii) 温度エイリアシングの分離** | ⚠ 保留 | **⚠ 保留のまま。ただし書き方が確定した（下記）** |
+
+**【確定】書いてよい形**：
+- **✗「先行はこの交絡に気づいていない」＝偽**（題名そのもの）。
+- **✗「先行は分離していない」＝一般化として偽**（旗123・Wen 2006）。
+- **✓「この交絡は Davidson et al. (1998) が題名で提起し、単一サイトのデータでは『統計的に非常に困難で、
+  おそらく不可能』と結論した問題である。本研究は、単一サイトでは原理的に出せない量——多サイトの
+  陽性・陰性の分布、すなわち生の陽性 25/37 のうち 11 本が交絡の産物で 18/36 が残るという分数——を出す。」**
+  **＝先行の否定的結論は障害ではなく、多サイトへ出た理由として引く。**
+
+### ★A-2 に付随する自己点検（**次周の最優先・データ不要**）
+
+**Davidson の非同定性は Bunnell 型乗法モデルの「主効果どうし」の交換可能性の話であり、
+旗44 が見ている交互作用 `d`（`ln R = a + b·Tc + e·Tc² + c·θz + d·(Tc·θz)`）とはパラメタの組が違う。
+そのまま当たるとは言えないが、当たらないとも言えない**——**θ–T が強く共変動すると `Tc²` と `Tc·θz` も
+共線でありうるのに、旗44 は `e` と `d` の識別可能性を確かめていない。**
+**合成で θ–T 相関を振り、真の d=0 のときの d の被覆率を測るまで、18/36 を「交絡から分離済み」と
+言い切る強さを一段落とす。**（**この点検の結果を見て旗44 の判定規則を変えない＝旗102 の作法。**）
+
+### 副産物：**旗44 の前提に文献側の実測が二つ目（一つ目は旗122 の Wang 2014）**
+
+> "The fitted linear regression is: water content = 0.56 − (0.02 × temperature); R² = 0.23,
+> which is significant at α = 0.01 (d.f. = 154)."（Fig. 6・温帯混交広葉樹林）
+
+**＝旗44 の前提「温帯冷温帯林では 湿ビン＝春秋（低温）／乾ビン＝真夏（高温）」が温帯林の実測で支持される。**
+**もう一点（Fig. 7）**：**通年では θ–Rs は負**（`flux = 201 − 198×水分`, R²=0.22）、
+**干ばつ期（θ<0.12）では正**（`flux = −128 + 2852×水分`, R²=0.48）＝**同一サイト同一年で符号が反転する。
+通年プールで θ をビンに切る我々の手続きに、この二峰性が混ざりうる**（旗42/44 の留保と同じ穴）。
+
+### 方向の照合（**記録のみ・主張には上げない**）
+
+**同一論文が符号の違う二つの証拠を並べている**——**年をまたぐと乾→高 Q10**（Dörr & Münnich 1987 の引用・
+Q10 1.4〜3.1）、**単一年内のサイト間では湿→高 Q10**（Table 1・3.4〜5.6、ただし最高値は冷涼な Hemlock 林で
+温度と交絡）。**後者は我々の優勢な符号と同じ向きだが、Davidson 自身が交絡候補として挙げている。
+＝同じ向きの先行があることは我々の支持にならない。**
+
+### 一次確認の記録に追加（2026-09-04・旗124）
+
+| 文献 | 確認方法 | 結果 |
+|---|---|---|
+| **Davidson, Belk & Boone 1998, GCB 4, 217–227** | **Harvard Forest の刊行物索引 `pb-id.html?id=hf194` → PDF 直リンク → `WebFetch` 保存 → `Read pages` で本文 11 ページ** | ✅ **本文まで一次確認。単一サイト・チャンバー `Rs–Ts`・通年 1 サイクル。A-2 の 🔴 を「交絡の提起そのもの」まで広げ、同時に差分の書き方を「先行が不可能と結論した問題」の形に確定させた** |
+
+**到達性の申し送り**：**Harvard Forest の `pb-id.html?id=hfNNN` は PDF 直リンクの索引である**
+（旗121 の Zhang 2018 も同ホスト＝**Harvard Forest 由来の文献はここを最初に引く**）。
+**1998 年のスキャン PDF は `WebFetch` の要約が失敗する（PDF オブジェクトの生テキストが返る）が、
+バイナリは `tool-results/` に保存されるので `Read` の `pages` で読める。**
+
+### 残る ⚪（優先順・**旗124 で更新**）
+
+1. ★**Wildung, Garland & Buschbom 1975, Soil Biol. Biochem. 7, 373–378**——**Davidson が
+   「重回帰で主効果ではなく温度×水分の交互作用項に有意に相関した」として引く＝旗44 の `d` に
+   量の組まで最も近い先行。1975 年。**（**Davidson 経由の二次情報。一次で確かめるまで断定しない。**）
+2. **Dörr & Münnich 1987, Tellus 39B, 114–121**——**乾湿年で Q10 が 1.4〜3.1＝「水分が見かけ Q10 を
+   動かす」の最も古い経験的候補。**
+3. **Bunnell et al. 1977, Soil Biol. Biochem. 9, 33–40**——**Davidson の非同定性実演の元モデル。**
+4. **Gaumont-Guay et al. 2006, AFM 140, 220–235**——経路 7 本が失敗。新しい当てが要る。
+5. **Xu & Qi 2001, GBC 15, 687–696**——`Q10 = a − bT + cS_w` の原型。
+6. Tucker & Reed 2016（`pubs.usgs.gov`）／Suseela et al. 2012（Purdue/CSU）。
+7. A-1 の残差同期（空間スケール）／Stoy 2007——低優先。
