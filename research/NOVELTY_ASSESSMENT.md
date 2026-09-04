@@ -635,3 +635,57 @@ Q10 1.4〜3.1）、**単一年内のサイト間では湿→高 Q10**（Table 1�
 2. **Xu & Qi 2001, GBC 15, 687–696**——`Q10 = a − bT + cS_w` の原型。**先に Unpaywall。**
 3. **Gaumont-Guay 2006・Tucker & Reed 2016・Suseela 2012**——経路が尽きている。**先に Unpaywall。**
 4. A-1 の残差同期（空間スケール）／Stoy 2007——低優先。
+
+---
+
+## 【旗128・2026-09-04】**到達性スクリーンの撤回**——`Unpaywall closed` を ⚪ の打ち切りに使わない
+
+**旗127 が上（`:626`）に書いた申し送りを撤回する。** 記録は書き換えず、ここに訂正として残す。
+
+**陽性の対照＝本文まで一次到達した実績のある 5 件に、同じ判定器を当てた**
+（道具 `research/oa_screen_calibration_step128.py`・出力 `research/logs/step128_oa_screen_20260904_143641.txt`）：
+
+| 文献 | 本文到達の実績 | `is_oa` | `has_repository_copy` | `oa_status` | 判定器 |
+|---|---|---|---|---|---|
+| Wang 2014, BG 11, 259–268 | ✅ 旗122 | true | true | gold | 通す |
+| Dörr & Münnich 1987, Tellus 39B | ✅ 旗127 | true | false | hybrid | 通す |
+| **Davidson 1998, GCB 4, 217–227** | ✅ 旗124 | false | false | closed | **偽陰性** |
+| **Zhang 2018, AFM 259, 184–195** | ✅ 旗121 | false | false | closed | **偽陰性** |
+| **Wen 2006, AFM 137, 166–175** | ✅ 旗123 | false | false | closed | **偽陰性** |
+
+**感度 2/5。出版社が有料の 3 件では 0/3**（通った 2 件は探すまでもない OA 誌）。
+**OpenAlex でも Davidson 1998 は `is_oa:false`・`best_oa_location:null`＝二つの索引が同じ偽陰性を出す。**
+
+**★置き換える申し送り**：
+- **`is_oa:true` は有用**（早い経路があると分かる）。**`closed` は情報を持たない**——
+  **⚪ を閉じる根拠にも、優先順位を下げる根拠にもしない。**
+- **実際に効いた経路は 3 件とも「著者の所属機関・研究室・学会の刊行物索引」**
+  （Harvard Forest の `pb-id.html`・UBC Biomet の刊行物一覧・`b.tellusjournals.se`）。
+  **これは Unpaywall にも OpenAlex にも見えない。⚪ の順位はここで付ける。**
+- **API は `.venv/bin/python` の `urllib.request` で直接引く**——
+  **旗127 までの Unpaywall・Crossref・S2 の値は `WebFetch` の要約モデル経由だった**
+  （本周に 3 件を生 JSON で読み直し、一致は確認した）。
+
+### Wildung 1975 の記述の訂正（`:623` の行に対して）
+
+**「『探し足りない』ではなく『OA コピーが存在しない』」は強すぎた。**
+**✓「7 経路を試して到達できていない。未到達であって、不在の証明ではない。」**
+**BNWL-1950(Pt.2) のスキャンは実在し未着手＝経路は尽きていない。** 結論（未到達）は変わらない。
+
+### Tucker & Reed 2016 の水準（**⚪ のまま・本文未到達**）
+
+**Tucker, C.L. & Reed, S.C. (2016), *Low soil moisture during hot periods drives apparent negative
+temperature sensitivity of soil respiration in a dryland ecosystem: a multi-model comparison*,
+Biogeochemistry 128, 155–169, doi:10.1007/s10533-016-0200-1。**
+
+- **到達**：`www.usgs.gov/publications/<slug>`（USGS Publications Warehouse 70169003）で**抄録**まで。
+  **`pubs.usgs.gov` は 403／Springer は 303 で認証へ／`scholar.archive.org` 0 件／S2 は抄録 elided。**
+- **★水準**：**抄録であり、しかも `WebFetch` の要約モデルが言い直したもの。verbatim は 1 文のみ**——
+  "apparent negative temperature sensitivity of Rs at high Ts reflects the control of water content,
+  not high temperatures."
+- **A-2 の色は動かさない**（🔴 は既に 1987 年まで遡る）。
+  **本文に届くまで、差分の文言にこの論文を使わない。**
+- **旗127 が「経路が尽きている」と書いたのは誤り**——**著者の所属（USGS）から引く手を試していなかった
+  （欠陥 #52）。** **残る ⚪ も同じ手で引き直す**：Gaumont-Guay 2006＝UBC Biomet／
+  Xu & Qi 2001＝LBNL（`escholarship.org` 未着手）／Suseela 2012＝Purdue・CSU・MBL（Dukes 研）／
+  Bunnell 1977＝UBC。

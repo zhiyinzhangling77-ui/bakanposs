@@ -1,0 +1,125 @@
+  【記録】この実行の出力は **/home/shion-nagamine/bakanposs/research/logs/step128_oa_screen_20260904_143641.txt** にも残ります（**ターミナルを遡らなくてよい**）。
+
+旗128：到達性スクリーン（Unpaywall）の較正
+  判定器 : is_oa==False かつ has_repository_copy==False なら「機関ミラー探しは無駄」（旗127 の申し送り）
+  対照   : **本文まで一次到達した実績のある 5 件**。ここで「打ち切れ」が出たら、それは偽陰性。
+  注意   : この判定器が測るのは「Unpaywall が OA コピーを索引しているか」であって
+           「到達できるか」ではない。**索引していない ≠ 存在しない。**
+
+
+==============================================================================
+【門①・陽性の対照】本文へ一次到達した実績のある 5 件
+==============================================================================
+
+  Wang 2014, Biogeosciences 11, 259–268
+    doi           : 10.5194/bg-11-259-2014
+    備考          : 旗122・Copernicus が直接 OA
+    is_oa         : True
+    has_repo_copy : True
+    oa_status     : gold
+    oa_locations  : 2 件
+        - publisher / publishedVersion / https://bg.copernicus.org/articles/11/259/2014/bg-11-259-2014.pdf
+        - repository / submittedVersion / https://doaj.org/article/abafdc99c43e412b81b016290bab6ea8
+    **判定器の出力**: 通す（OA）
+
+  Dörr & Münnich 1987, Tellus 39B, 114–121
+    doi           : 10.3402/tellusb.v39i1-2.15329
+    備考          : 旗127・b.tellusjournals.se → GCS の PDF を Read pages
+    is_oa         : True
+    has_repo_copy : False
+    oa_status     : hybrid
+    oa_locations  : 1 件
+        - publisher / publishedVersion / https://doi.org/10.3402/tellusb.v39i1-2.15329
+    **判定器の出力**: 通す（OA）
+
+  Davidson, Belk & Boone 1998, GCB 4, 217–227
+    doi           : 10.1046/j.1365-2486.1998.00128.x
+    備考          : 旗124・harvardforest1.fas.harvard.edu の刊行物索引から PDF 直リンク
+    is_oa         : False
+    has_repo_copy : False
+    oa_status     : closed
+    oa_locations  : 0 件
+    **判定器の出力**: 打ち切れと言う
+
+  Zhang 2018, AFM 259, 184–195
+    doi           : 10.1016/j.agrformet.2018.05.005
+    備考          : 旗121・Elsevier 本体ではない機関ミラー
+    is_oa         : False
+    has_repo_copy : False
+    oa_status     : closed
+    oa_locations  : 0 件
+    **判定器の出力**: 打ち切れと言う
+
+  Wen 2006, AFM 137, 166–175
+    doi           : 10.1016/j.agrformet.2006.02.005
+    備考          : 旗123・全文到達
+    is_oa         : False
+    has_repo_copy : False
+    oa_status     : closed
+    oa_locations  : 0 件
+    **判定器の出力**: 打ち切れと言う
+
+==============================================================================
+【本題】残る ⚪ 5 件
+==============================================================================
+
+  Bunnell et al. 1977, Soil Biol. Biochem. 9, 33–40
+    doi           : 10.1016/0038-0717(77)90058-X
+    備考          : Davidson 1998 の非同定性実演の元モデル
+    is_oa         : False
+    has_repo_copy : False
+    oa_status     : closed
+    oa_locations  : 0 件
+    **判定器の出力**: 打ち切れと言う
+
+  Xu & Qi 2001, GBC 15, 687–696
+    doi           : 10.1029/2000GB001365
+    備考          : `Q10 = a − bT + cS_w` の原型
+    is_oa         : False
+    has_repo_copy : False
+    oa_status     : closed
+    oa_locations  : 0 件
+    **判定器の出力**: 打ち切れと言う
+
+  Gaumont-Guay 2006, AFM 140, 220–235
+    doi           : 10.1016/j.agrformet.2006.08.003
+    備考          : 水分と温度の依存の解釈・UBC Biomet
+    is_oa         : False
+    has_repo_copy : False
+    oa_status     : closed
+    oa_locations  : 0 件
+    **判定器の出力**: 打ち切れと言う
+
+  Tucker & Reed 2016, Biogeochemistry 128, 155–169
+    doi           : 10.1007/s10533-016-0200-1
+    備考          : 題名が『見かけの負の温度感度は水分の支配』＝A-2 に最も近い
+    is_oa         : False
+    has_repo_copy : False
+    oa_status     : closed
+    oa_locations  : 0 件
+    **判定器の出力**: 打ち切れと言う
+
+  Suseela et al. 2012, GCB 18, 336–348
+    doi           : 10.1111/j.1365-2486.2011.02516.x
+    備考          : 温度感度への水分効果が季節で変わる
+    is_oa         : False
+    has_repo_copy : False
+    oa_status     : closed
+    oa_locations  : 0 件
+    **判定器の出力**: 打ち切れと言う
+
+==============================================================================
+総括
+==============================================================================
+  対照 5 件のうち、判定器が **打ち切れと言った件＝偽陰性** : **3 件**
+      - Davidson, Belk & Boone 1998, GCB 4, 217–227
+      - Zhang 2018, AFM 259, 184–195
+      - Wen 2006, AFM 137, 166–175
+
+  **＝旗127 の申し送り『closed なら機関ミラー探しは無駄』は成り立たない。**
+  **偽陰性の件は、実際には機関ミラー（Harvard Forest 索引など）で本文に届いている。**
+  **⚪ を Unpaywall の closed だけで閉じてはならない。**
+
+  本題側で『打ち切れと言う』となった ⚪ : **5 / 5 件**（**上の較正により、これは到達不能の根拠にならない**）
+
+  【記録】出力を **/home/shion-nagamine/bakanposs/research/logs/step128_oa_screen_20260904_143641.txt** に保存しました。
