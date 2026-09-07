@@ -1618,3 +1618,11 @@ OA の兄弟論文の対照が止めた**）／**事前登録 26 件（増えな
 **本周に書いたファイル**：`research/usgs_pubs_step132.py`・`research/cdx_tucker_step132.py`・
 `research/springer_html_step132.py`・`research/openaire_step132.py`・`research/logs/step132_*.txt`。
 **取得した HTML 抽出テキストは `research/tmp_pdfs/` に置き、版管理しない（生成物）。**
+
+## 【旗133・対話セッションが実行】しきい値感度＝Walnut Gulch はロバスト・Santa Rita の or は効果量で不変
+- **対話セッション（`/mnt/hdd` が見える）で実行**（自走ループの非対話プロセスは実データを触れないため）。
+- 旗107 の判定規則を変えず、雨のしきい値を (2,5)/(3,7)/(4,10) に振った。**Walnut Gulch＝全しきい値で rain_only（ロバスト）**。
+  **Santa Rita＝(4,10) で型ラベルが or→rain_only に揺れるが、θ→γH の Δ は −0.38→−0.30 で不変（秋110→61日で CI が広がっただけ＝旗59 の二値化の罠）／θ→γLE は全しきい値で有意**。
+  ＝**Santa Rita の or は効果量ではロバスト。手B（旗116）の「測定量で季節依存を説明できない」結論はしきい値の任意性で崩れない。**
+- **作法追加**：感度は二値ラベルでなく点推定＋CI 幅（日数）で読む／感度解析は元の判定を下した道具で回す。
+- 道具 `research/threshold_sensitivity_step133.py`。**GATE-05 の ★率直接測定はまだ（新規の重い構築＝別パスで）。**
