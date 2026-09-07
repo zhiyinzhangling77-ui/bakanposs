@@ -87,6 +87,10 @@ for f in research/SESSION_STATE.md research/HUMAN_GATES.md research/LOOP_PROTOCO
 done
 
 CLAUDE_ARGS=( -p --model "$MODEL" --output-format stream-json --verbose )
+# 実データ /mnt/hdd をツールのサンドボックスに限定的に許可する（あるときだけ）。
+# 非対話プロセスは既定で作業ディレクトリしか読めず、実データ解析ができなかった（旗119/120）。
+# 全面バイパス（--yolo）ではなく、このディレクトリだけを開ける（ユーザー承認 2026-09-07）。
+[[ -d /mnt/hdd ]] && CLAUDE_ARGS+=( --add-dir /mnt/hdd )
 if [[ "$PERM_MODE" == "__yolo__" ]]; then
   CLAUDE_ARGS+=( --dangerously-skip-permissions )
 else
