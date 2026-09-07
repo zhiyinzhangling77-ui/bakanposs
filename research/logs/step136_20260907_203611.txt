@@ -1,0 +1,115 @@
+  【記録】この実行の出力は **/home/shion-nagamine/bakanposs/research/logs/step136_20260907_203611.txt** にも残ります（**ターミナルを遡らなくてよい**）。
+=== 旗136：旗85 の総当たりを AmeriFlux の外へ広げる（下調べ・検定はしない）===
+  **★も相関も一致率も計算しない**——事前登録の前に答えを見ないため（旗94/98/108 の作法）。
+  出すのは **距離・地温列の有無・日数・年数・タワー側の年範囲** だけ。
+
+  COSORE：座標のあるデータセット **88 件**／うち時系列 csv があるのは **82 件**（**6 件は description にだけ在って csv が無い**）
+      csv の無い登録：['d20190526_MINIONS_BNZ', 'd20190619_GU', 'd20200109_KISHIMOTO-MO', 'd20200228_RENCHON', 'd20200304_GALVAGNO', 'd20200304_ZANCHI']
+  **旗85 の母集団は後者（csv のある分）である。門①はそちらで比べる。**
+
+--- タワー側の登録簿 ---
+  [AmeriFlux] BADM 候補 154 件 → 座標を含んだ 27 件・開けなかった 1 件
+      開けない：citations_for_site_data_BIF_20260828.csv — ParserError
+  [JapanFlux BADM] xlsx 82 件 → 座標が取れた 81 件・落ちた 1 件
+      落ちた：JP-Tdf_BADM-Site_General_Info.xlsx — SITE_ID か座標が無い
+  [JapanFlux BADM_corrected] zip 83 件 → 座標が取れた 82 件・落ちた 1 件
+      落ちた：BADM_JP-Tdf_JapanFLUX2024.zip — JP-Tdf_BADM-Site_General_Info.xlsx: 座標が無い
+  [KoFlux BADM] xlsx 22 件 → 座標が取れた 22 件・落ちた 0 件
+
+--- 2 系統の突き合わせ（旗86 追記② の作法）---
+  **JapanFlux BADM 対 BADM_corrected**：共通 81 サイト／0.05km を超えて食い違う 0 件（最大 0.000 km）
+
+  **[ChinaFlux] サイト 65 件があるが、座標を持つファイルが手元に無い。**
+      各サイトにあるのは `data description(en/zh).docx`（変数辞書）と年別 xlsx だけで、
+      **緯度経度は入っていない**（本周に中身を確認した）。
+      → **ChinaFlux は総当たりに入れられない。穴として記録し、GATE に積む。**
+
+  **総当たりに使う登録簿：940 サイト**（AmeriFlux 837 ＋ JapanFlux 81 ＋ KoFlux 22／重複を除いた後）
+
+--- 門①（対照）：AmeriFlux だけで旗85 を再現する ---
+  10km 以内にタワーを持つチャンバー：**45 件**（旗85 は **45 件**）
+  → **一致。門①合格。距離の計算と BADM の読み方は旗85 と同じである。**
+
+--- 全登録簿での総当たり ---
+  10km 以内：**52 件**（AmeriFlux だけなら 45 件＝**7 件増えた**）
+  そのうち **旗66/86 で既に対にしていない、かつ AmeriFlux では届かなかった** もの：**3 件**
+
+  | チャンバー | 生態系 | タワー | 登録簿 | km | AmeriFlux 最近傍 km |
+  |---|---|---|---|---|---|
+  | d20200109_HIRANO_PDB | Evergreen broadleaf forest | ID-PaB | ID-PaB_BADM-Site_General_Info.xlsx | 0.00 | 9847 |
+  | d20200109_HIRANO_PDF | Evergreen broadleaf forest | ID-PaD | ID-PaD_BADM-Site_General_Info.xlsx | 0.00 | 9847 |
+  | d20200109_HIRANO_PUF | Evergreen broadleaf forest | ID-Pag | ID-Pag_BADM-Site_General_Info.xlsx | 0.44 | 9852 |
+
+--- 新しい候補の実行可能性（**★は出さない**）---
+  | チャンバー | 地温列 | 水分列 | 日数 | チャンバー年 | タワー年 | 重なる年 |
+  |---|---|---|---|---|---|---|
+  | d20200109_HIRANO_PDB | CSR_T5 | CSR_SM30 | 356 | 2004–2005 | 2004–2018 | 2004–2005 |
+  | d20200109_HIRANO_PDF | CSR_T5 | CSR_SM30 | 522 | 2004–2006 | 2001–2018 | 2004–2006 |
+  | d20200109_HIRANO_PUF | CSR_T5 | CSR_SM15 | 616 | 2004–2006 | 2004–2020 | 2004–2006 |
+
+--- 非米州のチャンバーで、どの登録簿にも届かなかったもの ---
+  **「登録簿を広げれば届く」わけではないことを、残りの距離で示す。**
+  | チャンバー | 生態系 | 最近傍タワー | km |
+  |---|---|---|---|
+  | d20200108_HE | Grassland | CN-HaM | 17 |
+  | d20190830_LIANG | Evergreen broadleaf forest | JP-Khw | 153 |
+  | d20191214_PANG | Grassland | CN-In3 | 488 |
+  | d20190821_LIU | Open shrubland | CN-HaM | 519 |
+  | d20200407_WANG | Grassland | CN-HaM | 546 |
+  | d20200120_CHANG | Evergreen needleleaf forest | JP-Ynf | 722 |
+  | d20190409_ZOU | Evergreen needleleaf forest | CA-RPn | 3586 |
+  | d20200331_PEICHL | Wetland | CA-Mtk | 3627 |
+  | d20190919_MIGLIAVACCA | Savannas | CA-RPn | 4236 |
+  | d20190722_GORRES | Deciduous broadleaf plantation | CA-IQT | 4281 |
+  | d20200423_SANCHEZ-CANETE | Open shrubland | CA-RPn | 4637 |
+  | d20200423_OYONARTE | Grassland | CA-RPn | 4689 |
+  | d20190607_RUEHR | Mixed forests | CA-IQT | 4800 |
+  **13 件**。**手元に ICOS（欧州）・OzFlux（豪）・AsiaFlux・ChinaFlux の座標が無い**ことが、そのまま残っている。
+
+--- タワー側が読めるか（旗86 の教訓：**列が在ることと中身が在ることは別**）---
+  ━━ ID-PaB ━━
+    HH 1 件：FLX_ID-PaB_JapanFLUX2024_ALLVARS_HH_2004-2018_1-4.csv
+    **写像した列が無い**：{'Ts': 'TS_F_MDS', 'th': 'SWC_F_MDS'}
+       Ts（TS_F_MDS）の代案：[]
+       th（SWC_F_MDS）の代案：[]
+/home/shion-nagamine/bakanposs/japanflux_pn/preprocess.py:310: RuntimeWarning: ID-PaB: 変数 Ts の写像先 'TS_F_MDS' が FLX_ID-PaB_JapanFLUX2024_ALLVARS_HH_2004-2018_1-4.csv に無い＝**この変数は全 NaN**（他の変数は読める）
+  return read_corevars_raw(path, site, config)   # japanflux / base (csv)
+/home/shion-nagamine/bakanposs/japanflux_pn/preprocess.py:310: RuntimeWarning: ID-PaB: 変数 th の写像先 'SWC_F_MDS' が FLX_ID-PaB_JapanFLUX2024_ALLVARS_HH_2004-2018_1-4.csv に無い＝**この変数は全 NaN**（他の変数は読める）
+  return read_corevars_raw(path, site, config)   # japanflux / base (csv)
+    読み込み成功：245,472 行／2004-01〜2017-12／有効数 {'GER': 227952, 'Ts': 0, 'th': 0}
+    ※**Ts は有効値 0**／ヘッダ中で `TS|TEMP|SOIL` に当たる列：**一つも無い**
+    ※**th は有効値 0**／ヘッダ中で `SWC|VWC|MOIST|WATER|WTD` に当たる列：['WTD_1_1_1']
+    → **ID-PaB は旗66 の検出器に掛けられない**（`var_overrides` で救えるのは名前違いのときだけ）。
+  ━━ ID-PaD ━━
+    HH 1 件：FLX_ID-PaD_JapanFLUX2024_ALLVARS_HH_2001-2018_1-4.csv
+    **写像した列が無い**：{'Ts': 'TS_F_MDS', 'th': 'SWC_F_MDS'}
+       Ts（TS_F_MDS）の代案：[]
+       th（SWC_F_MDS）の代案：[]
+/home/shion-nagamine/bakanposs/japanflux_pn/preprocess.py:310: RuntimeWarning: ID-PaD: 変数 Ts の写像先 'TS_F_MDS' が FLX_ID-PaD_JapanFLUX2024_ALLVARS_HH_2001-2018_1-4.csv に無い＝**この変数は全 NaN**（他の変数は読める）
+  return read_corevars_raw(path, site, config)   # japanflux / base (csv)
+/home/shion-nagamine/bakanposs/japanflux_pn/preprocess.py:310: RuntimeWarning: ID-PaD: 変数 th の写像先 'SWC_F_MDS' が FLX_ID-PaD_JapanFLUX2024_ALLVARS_HH_2001-2018_1-4.csv に無い＝**この変数は全 NaN**（他の変数は読める）
+  return read_corevars_raw(path, site, config)   # japanflux / base (csv)
+    読み込み成功：298,032 行／2001-01〜2017-12／有効数 {'GER': 245424, 'Ts': 0, 'th': 0}
+    ※**Ts は有効値 0**／ヘッダ中で `TS|TEMP|SOIL` に当たる列：**一つも無い**
+    ※**th は有効値 0**／ヘッダ中で `SWC|VWC|MOIST|WATER|WTD` に当たる列：['WTD_1_1_1']
+    → **ID-PaD は旗66 の検出器に掛けられない**（`var_overrides` で救えるのは名前違いのときだけ）。
+  ━━ ID-Pag ━━
+    HH 1 件：FLX_ID-Pag_JapanFLUX2024_ALLVARS_HH_2004-2020_1-4.csv
+    **写像した列が無い**：{'Ts': 'TS_F_MDS', 'th': 'SWC_F_MDS'}
+       Ts（TS_F_MDS）の代案：[]
+       th（SWC_F_MDS）の代案：[]
+/home/shion-nagamine/bakanposs/japanflux_pn/preprocess.py:310: RuntimeWarning: ID-Pag: 変数 Ts の写像先 'TS_F_MDS' が FLX_ID-Pag_JapanFLUX2024_ALLVARS_HH_2004-2020_1-4.csv に無い＝**この変数は全 NaN**（他の変数は読める）
+  return read_corevars_raw(path, site, config)   # japanflux / base (csv)
+/home/shion-nagamine/bakanposs/japanflux_pn/preprocess.py:310: RuntimeWarning: ID-Pag: 変数 th の写像先 'SWC_F_MDS' が FLX_ID-Pag_JapanFLUX2024_ALLVARS_HH_2004-2020_1-4.csv に無い＝**この変数は全 NaN**（他の変数は読める）
+  return read_corevars_raw(path, site, config)   # japanflux / base (csv)
+    読み込み成功：280,512 行／2004-01〜2019-12／有効数 {'GER': 227952, 'Ts': 0, 'th': 0}
+    ※**Ts は有効値 0**／ヘッダ中で `TS|TEMP|SOIL` に当たる列：**一つも無い**
+    ※**th は有効値 0**／ヘッダ中で `SWC|VWC|MOIST|WATER|WTD` に当たる列：['WTD_1_1_1']
+    → **ID-Pag は旗66 の検出器に掛けられない**（`var_overrides` で救えるのは名前違いのときだけ）。
+
+  **チャンバー側が実行可能な候補：3 件**（地温あり・60 日以上・タワーと年が重なる）
+  **そのうちタワー側も同じ検出器に掛けられるもの：0 件** []
+  **＝旗86 の『★で選ばない群 n=8（地温だけなら 6）』に足せるのは 0 件。**
+  **★率も一致率もここでは出さない。事前登録してから測る。**
+
+  【記録】出力を **/home/shion-nagamine/bakanposs/research/logs/step136_20260907_203611.txt** に保存しました。
