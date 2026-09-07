@@ -26,3 +26,6 @@ env/
 node_modules/
 *.egg-info/
 .ipynb_checkpoints/
+
+# 図書館アクセスで取得した PDF（著作権・版管理しない）
+research/tmp_pdfs/
