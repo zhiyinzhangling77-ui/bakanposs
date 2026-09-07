@@ -1,0 +1,62 @@
+  【記録】この実行の出力は **/home/shion-nagamine/bakanposs/research/logs/step126_acf_20260907_201618.txt** にも残ります（**ターミナルを遡らなくてよい**）。
+=== 旗126 の宿題：実データの自己相関（forest）===
+  **下調べであって検定ではない。旗44 の判定は一切呼んでいない。**
+  dataset                                n       刻み    残差ACF1     回帰子ACF1    θのACF1  corr(θ,T)
+  d20190424_ZHANG_maple            SKIP ValueError: operands could not be broadcast together
+  d20190424_ZHANG_oak              SKIP ValueError: operands could not be broadcast together
+  d20190430_DESAI                  SKIP ValueError: operands could not be broadcast together
+  d20190504_SAVAGE_hf006-03        SKIP ValueError: operands could not be broadcast together
+  d20190504_SAVAGE_hf006-05        SKIP ValueError: operands could not be broadcast together
+  d20190526_PENNINGTON             SKIP ValueError: operands could not be broadcast together
+  d20190526_RAICH_diel             SKIP 点不足/θ が一定
+  d20190526_RAICH_survey           SKIP ValueError: operands could not be broadcast together
+  d20190610_SIHI_H1                SKIP ValueError: operands could not be broadcast together
+  d20190610_SIHI_H2                SKIP ValueError: operands could not be broadcast together
+  d20190626_VARGAS                   19998     60分     0.835       0.989     0.996      -0.01
+  d20200108_JASSAL                  784622      0分     0.996       1.000     1.000      -0.85
+  d20200109_HIRANO_PDB             SKIP ValueError: operands could not be broadcast together
+  d20200109_HIRANO_PDF             SKIP ValueError: operands could not be broadcast together
+  d20200109_HIRANO_PUF             SKIP ValueError: operands could not be broadcast together
+  d20200114_CARBONE_JAMES          SKIP ValueError: operands could not be broadcast together
+  d20200114_CARBONE_SC_EMBUDO      SKIP ValueError: operands could not be broadcast together
+  d20200114_CARBONE_SC_SAUCE       SKIP ValueError: operands could not be broadcast together
+  d20200120_CHANG                    12681     30分     0.891       0.997     0.998       0.05
+  d20200122_BLACK                  SKIP ValueError: operands could not be broadcast together
+  d20200207_GUTIERREZ_DEL_ARROYO   SKIP ValueError: operands could not be broadcast together
+  d20200212_ATAKA                  SKIP ValueError: operands could not be broadcast together
+  d20200212_KAYE_LNE               SKIP ValueError: operands could not be broadcast together
+  d20200212_KAYE_LNW               SKIP ValueError: operands could not be broadcast together
+  d20200212_KAYE_LSE               SKIP ValueError: operands could not be broadcast together
+  d20200212_KAYE_LSW               SKIP ValueError: operands could not be broadcast together
+  d20200212_KAYE_UNE               SKIP ValueError: operands could not be broadcast together
+  d20200212_KAYE_UNW               SKIP ValueError: operands could not be broadcast together
+  d20200212_KAYE_USE               SKIP ValueError: operands could not be broadcast together
+  d20200212_KAYE_USW               SKIP ValueError: operands could not be broadcast together
+  d20200305_VARGAS                 SKIP ValueError: operands could not be broadcast together
+  d20200328_UEYAMA_FAIRBANKS       SKIP ValueError: operands could not be broadcast together
+  d20200328_UEYAMA_HOKUROKU        SKIP ValueError: operands could not be broadcast together
+  d20200328_UEYAMA_TESHIO          SKIP ValueError: operands could not be broadcast together
+  d20200328_UEYAMA_YAMASHIRO       SKIP ValueError: operands could not be broadcast together
+  d20200417_ARAIN_TP39             SKIP ValueError: operands could not be broadcast together
+  d20200417_ARAIN_TP74             SKIP ValueError: operands could not be broadcast together
+  d20200417_ARAIN_TPD              SKIP ValueError: operands could not be broadcast together
+
+  === 分布（n=3 本）===
+    残差の ACF1               中央値 +0.891  四分位 [+0.863, +0.943]  最小 +0.835  最大 +0.996  n=3
+    回帰子 Tc·θz の ACF1       中央値 +0.997  四分位 [+0.993, +0.998]  最小 +0.989  最大 +1.000  n=3
+    θ の ACF1               中央値 +0.998  四分位 [+0.997, +0.999]  最小 +0.996  最大 +1.000  n=3
+    corr(θ,T)              中央値 -0.015  四分位 [-0.434, +0.017]  最小 -0.853  最大 +0.050  n=3
+
+  === 旗126 の水準への振り分け（残差の ACF1）===
+    ほぼ白(φ<0.25)          0 本
+    中(0.25–0.7)          0 本
+    強(0.7–0.95)          2 本
+    極強(≥0.95)            1 本
+    **旗126 が試したのは φ=0/0.5/0.9/0.98。** 上の分布がその範囲の外なら、
+    **旗126 の結論はそのままでは当てはまらない**（水準を足して測り直すこと）。
+
+  === GATE-21 の分（corr(θ,T) が −0.85 より強い負相関の側にある本数）===
+    corr(θ,T) ≤ −0.85 のサイト：1 本 / 3 本
+      d20200108_JASSAL  corr(θ,T)=-0.85
+
+  【記録】出力を **/home/shion-nagamine/bakanposs/research/logs/step126_acf_20260907_201618.txt** に保存しました。
