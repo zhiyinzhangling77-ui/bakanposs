@@ -49,6 +49,20 @@
   ・**G4**：**季節ラベルを年内で無作為に付け替えた偽データ 200 本のうち、
     Δ(θ→γH) の CI が 0 を跨ぐ割合 ≥ 0.90**（**旗139a の帰無で断定が 6% 出たので、10% を許容幅にする**）。
     **seed 0 の 1 本が跨ぐことも併せて印字する**
+
+## ★追補 D（**旗140・門①を走らせた後・実データの Δ̂ を見る前に書いた**）
+**G4 が落ちた**（0.795 < 0.90）ので、**「有意」の決め方だけを置換検定に差し替える**
+（`PREREGISTRATION_step139_amendment2.md`）。**判定表の 4 行・主判定・下限・予測 H1 は変えない。**
+  ・**Δ の帰無**：**年ごとに MAM+SON をプールし、季節の枚数を保ったまま札を振り直す**（G4 と同じ作り方）。
+    **両側 p = (1 + #{|Δ*| ≥ |Δ̂|}) / (nperm+1)**
+  ・**単季の帰無**：**その季節の中で θ を年ごとに 7 日ブロックの巡回シフトで回す**（`gH`・`Rg` は動かさない）。
+    **巡回シフトは自己相関を保存する。片側 p = (1 + #{r* ≤ r̂}) / (nperm+1)**
+  ・**使う前に合成 3 種で較正する**（追補 D-3・**実行前に固定**）：
+    **`none` の Δ 偽陽性 ≤ 0.07**／**`phase_driven` の ★到達 ≥ 0.80**／**`calendar_driven` の ▲到達 ≥ 0.80**。
+    **`none` が 0.07 を超えたら置換検定も使わない**——**`ES-FcO` は「この標本では判定できない」で閉じる。**
+
+    python research/phase_asymmetry_step139.py --permcheck   # 高速経路が partial_spearman と一致するか
+    python research/phase_asymmetry_step139.py --permcal     # 追補 D-3 の較正（**実データより先**）
 """
 from __future__ import annotations
 
@@ -61,7 +75,7 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from moisture_control_atlas_step31 import partial_spearman, _boot_ci
+from moisture_control_atlas_step31 import partial_spearman, _boot_ci, _rank
 from downsample_autumn_step91 import diff_boot
 from soiltemp_match_step90 import SPRING, AUTUMN
 from stratified_bowen_step89 import MIN_DAYS, MIN_YEARS
@@ -450,6 +464,307 @@ def cidiag(kinds, reps: int, b: int) -> None:
                   f"（片側なら位置のずれ・両側なら幅の不足）")
 
 
+# ------------------------------------------------------------------ 追補 D：置換検定
+NPERM = 2000          # **追補 D-2 が固定した本数**
+BLOCK_DAYS = 7        # **単季の巡回シフトのブロック長（追補 D-2 が固定）**
+ALPHA = 0.05          # **有意水準（元の事前登録と同じ）**
+
+
+def _prep(y: np.ndarray, ctrl: np.ndarray):
+    """**偏 Spearman の高速経路の下ごしらえ**——`partial_spearman` と数値的に同じものを返す。
+
+    `partial_spearman` は「順位化 → controls の順位で線形除去 → 残差の相関」である。
+    **置換の中では `y`（`gH`/`gLE`）と control（`Rg`）は動かない**ので、
+    **順位化と除去を一度だけやって直交基底 `Q` と残差 `yr` を持ち回れる**。
+    残差は切片を含む除去なので平均 0 → 相関は内積 ÷ ノルム積で書ける。
+    **これは近似ではない**（`--permcheck` で `partial_spearman` と突き合わせる）。
+    """
+    ry = _rank(y)
+    Z = np.column_stack([_rank(ctrl), np.ones(len(ry))])
+    Q, _ = np.linalg.qr(Z)
+    yr = ry - Q @ (Q.T @ ry)
+    return Q, yr, float(np.linalg.norm(yr))
+
+
+def _fast_r(pre, rx: np.ndarray) -> float:
+    """**下ごしらえ済みの季節で、順位化済みの `x`（θ）に対する偏 Spearman を出す。**"""
+    Q, yr, nyr = pre
+    xr = rx - Q @ (Q.T @ rx)
+    nxr = float(np.linalg.norm(xr))
+    if nxr == 0 or nyr == 0:
+        return np.nan
+    return float(xr @ yr / (nxr * nyr))
+
+
+def _pool_arrays(d: pd.DataFrame):
+    """**年ごとに MAM+SON をプールし、季節の枚数を控える**（G4 と同じ作り方・追補 D-2 の 1）。"""
+    m = np.isin(d.index.month, SPRING) | np.isin(d.index.month, AUTUMN)
+    p = d[m].sort_index()
+    yrs = p.index.year.to_numpy()
+    cols = {c: p[c].to_numpy(float) for c in ("th", "Rg", "gH", "gLE")}
+    blocks = []
+    for y in np.unique(yrs):
+        idx = np.where(yrs == y)[0]
+        k = int(np.isin(p.index.month[idx], SPRING).sum())
+        blocks.append((idx, k))
+    return cols, blocks
+
+
+def _delta_from_idx(cols, i_sp, i_au) -> dict:
+    """**与えられた春・秋の行番号で Δ = r_SON − r_MAM を出す**（θ→γH・θ→γLE）。"""
+    out = {}
+    r = {}
+    for nm, idx in (("sp", i_sp), ("au", i_au)):
+        pre_h = _prep(cols["gH"][idx], cols["Rg"][idx])
+        pre_l = _prep(cols["gLE"][idx], cols["Rg"][idx])
+        rx = _rank(cols["th"][idx])
+        r[nm] = {"h": _fast_r(pre_h, rx), "le": _fast_r(pre_l, rx)}
+    for k in ("h", "le"):
+        out[k] = (r["sp"][k], r["au"][k], r["au"][k] - r["sp"][k])
+    return out
+
+
+def perm_delta_p(d: pd.DataFrame, nperm: int = NPERM, seed: int = 0) -> dict:
+    """**Δ の帰無＝季節ラベルの置換**（追補 D-2 の 1）。
+
+    **年ごとに MAM+SON の日をプールし、季節の枚数を保ったまま札を振り直す。**
+    **日数の非対称（春 175・秋 131）はそのまま残り、季節の中身だけが消える。**
+    **両側 p = (1 + #{|Δ*| ≥ |Δ̂|}) / (nperm+1)。** 観測値は `partial_spearman` で出す
+    （**事前登録の実装をそのまま使う**）。**null は高速経路（同値・`--permcheck`）で回す。**
+    """
+    cols, blocks = _pool_arrays(d)
+    obs = _delta_hat(d)                    # ★観測は事前登録の実装（partial_spearman）
+    rng = np.random.default_rng(seed)
+    ge = {"h": 0, "le": 0}
+    n_ok = 0
+    for _ in range(nperm):
+        sp_parts, au_parts = [], []
+        for idx, k in blocks:
+            perm = rng.permutation(idx)
+            sp_parts.append(perm[:k])
+            au_parts.append(perm[k:])
+        i_sp = np.sort(np.concatenate(sp_parts))
+        i_au = np.sort(np.concatenate(au_parts))
+        star = _delta_from_idx(cols, i_sp, i_au)
+        if not all(np.isfinite(star[k][2]) for k in ("h", "le")):
+            continue
+        n_ok += 1
+        for k in ("h", "le"):
+            ge[k] += int(abs(star[k][2]) >= abs(obs[k][2]))
+    return {k: {"delta": obs[k][2], "r_sp": obs[k][0], "r_au": obs[k][1],
+                "p": (1 + ge[k]) / (n_ok + 1), "nperm": n_ok} for k in ("h", "le")}
+
+
+def _shift_index(n_block: int, rng) -> int:
+    """**7 日ブロックの巡回シフト量を 1 つ引く**（0 を含む＝観測そのものも帰無の 1 本）。"""
+    return int(rng.integers(0, max(n_block // BLOCK_DAYS, 1) + 1)) * BLOCK_DAYS
+
+
+def shift_season_p(sub: pd.DataFrame, nperm: int = NPERM, seed: int = 0) -> dict:
+    """**単季の帰無＝θ の年内 7 日ブロック巡回シフト**（追補 D-2 の 2）。
+
+    **`gH`・`Rg` の行は動かさない。θ だけを年ごとに 7 日単位で回す。**
+    **巡回シフトは θ の自己相関を保存する**——**日次を素朴に並べ替えると自己相関が消えて
+    偽陽性が増える**（旗126 が残した穴と同じ問題）。
+    **片側 p = (1 + #{r* ≤ r̂}) / (nperm+1)**（**「反転あり」は r<0 側なので下側を数える**）。
+
+    **年ごとに使えるシフトは高々 `n_year // 7 + 1` 通り**——**それも印字する**
+    （**参照分布の粒度が p の下限を決めるから**）。
+    """
+    s = sub.sort_index()
+    yrs = s.index.year.to_numpy()
+    blocks = [np.where(yrs == y)[0] for y in np.unique(yrs)]
+    n_shift = [len(b) // BLOCK_DAYS + 1 for b in blocks]
+    rth = _rank(s["th"].to_numpy(float))
+    rg = s["Rg"].to_numpy(float)
+    pre = {"h": _prep(s["gH"].to_numpy(float), rg), "le": _prep(s["gLE"].to_numpy(float), rg)}
+    obs = {}
+    for k, col in (("h", "gH"), ("le", "gLE")):
+        obs[k] = float(partial_spearman(s[col].to_numpy(float), s["th"].to_numpy(float),
+                                        [rg])[0])
+    rng = np.random.default_rng(seed)
+    le_cnt = {"h": 0, "le": 0}
+    n_ok = 0
+    for _ in range(nperm):
+        rx = rth.copy()
+        for b in blocks:
+            rx[b] = np.roll(rth[b], _shift_index(len(b), rng))
+        vals = {k: _fast_r(pre[k], rx) for k in ("h", "le")}
+        if not all(np.isfinite(v) for v in vals.values()):
+            continue
+        n_ok += 1
+        for k in ("h", "le"):
+            le_cnt[k] += int(vals[k] <= obs[k])
+    return {k: {"r": obs[k], "p": (1 + le_cnt[k]) / (n_ok + 1), "nperm": n_ok,
+                "n_shift": int(np.prod(n_shift))} for k in ("h", "le")}
+
+
+def perm_result(d: pd.DataFrame, nperm: int = NPERM, seed: int = 0) -> dict | None:
+    """**追補 D の 3 本（Δ・MAM・SON）を一度に出す。下限は元の事前登録のまま。**"""
+    sp = d[np.isin(d.index.month, SPRING)]
+    au = d[np.isin(d.index.month, AUTUMN)]
+    if (len(sp) < MIN_DAYS or len(au) < MIN_DAYS
+            or sp.index.year.nunique() < MIN_YEARS or au.index.year.nunique() < MIN_YEARS):
+        return None
+    dl = perm_delta_p(d, nperm, seed)
+    ps = shift_season_p(sp, nperm, seed + 1)
+    pa = shift_season_p(au, nperm, seed + 2)
+    return {k: {"delta": dl[k]["delta"], "p_delta": dl[k]["p"],
+                "r_sp": ps[k]["r"], "p_sp": ps[k]["p"],
+                "r_au": pa[k]["r"], "p_au": pa[k]["p"],
+                "n_shift_sp": ps[k]["n_shift"], "n_shift_au": pa[k]["n_shift"]}
+            for k in ("h", "le")}
+
+
+def verdict_perm(res: dict | None) -> tuple[str, str]:
+    """**追補 D-2 の判定表**——**元の `verdict` と 4 行とも同じ。有意の決め方だけが違う。**
+
+    元：`_neg`（CI が 0 を跨がず r<0）／`cross`（Δ の CI が 0 を跨ぐ）
+    今：**p_sp/p_au < 0.05 かつ r<0**／**p_delta ≥ 0.05 なら Δ は判定しない**
+    """
+    if res is None or res.get("h") is None:
+        return "判定しない", "下限未満"
+    h = res["h"]
+    rev_sp = bool(h["p_sp"] < ALPHA and h["r_sp"] < 0)
+    rev_au = bool(h["p_au"] < ALPHA and h["r_au"] < 0)
+    if not rev_sp and not rev_au:
+        return "判定しない", "どちらの季節でも r(θ→γH) が有意に負でない＝この地点に反転が無い"
+    if h["p_delta"] >= ALPHA:
+        which = "MAM" if rev_sp else "SON"
+        return "○弱い証拠", f"Δ は有意でない（p={h['p_delta']:.3f}）。反転があったのは {which} だけ"
+    if h["delta"] > 0 and rev_sp:
+        return "★植生起因と整合", "Δ>0 かつ春に反転＝位相を逆にしたら非対称も逆になった"
+    if h["delta"] < 0 and rev_au:
+        return "▲植生起因ではない", "Δ<0 かつ秋に反転＝位相を逆にしても非対称は暦のまま"
+    return "判定しない", f"Δ の符号（{h['delta']:+.2f}）と反転の季節が表のどの行にも当たらない"
+
+
+def permcheck() -> bool:
+    """**高速経路が `partial_spearman` と同じ数を返すか**（**較正より先に確かめる**）。
+
+    **速さのために別実装を書いたのだから、まず同値を示す**——
+    **旗140 の欠陥 #67 は「同じ生ファイルを二つの道具で読んで片方が壊れていた」ことだった。
+    同じ量を二つの経路で出すなら、突き合わせてから使う。**
+    """
+    print("\n  【自己点検】**高速経路 `_prep`+`_fast_r` は `partial_spearman` と同じ数を返すか**")
+    worst = 0.0
+    n = 0
+    for kind in ("phase_driven", "calendar_driven", "none"):
+        for i in range(5):
+            d = synth(kind, years=3, seed=500 + i, thin=True)
+            for nm, months in (("MAM", SPRING), ("SON", AUTUMN)):
+                s = d[np.isin(d.index.month, months)]
+                rg = s["Rg"].to_numpy(float)
+                rx = _rank(s["th"].to_numpy(float))
+                for k, col in (("h", "gH"), ("le", "gLE")):
+                    fast = _fast_r(_prep(s[col].to_numpy(float), rg), rx)
+                    slow = float(partial_spearman(s[col].to_numpy(float),
+                                                  s["th"].to_numpy(float), [rg])[0])
+                    worst = max(worst, abs(fast - slow))
+                    n += 1
+    ok = worst < 1e-10
+    print(f"    {n} 対で比べた最大差 = {worst:.3e} → {'○一致' if ok else '**×食い違う**'}"
+          f"（許容 1e-10）")
+    print("\n  【自己点検】**巡回シフトの帰無が θ の自己相関を保存しているか**")
+    d = synth("none", years=3, seed=0, thin=True)
+    s = d[np.isin(d.index.month, SPRING)].sort_index()
+    th = s["th"].to_numpy(float)
+    yrs = s.index.year.to_numpy()
+    blocks = [np.where(yrs == y)[0] for y in np.unique(yrs)]
+    lag1 = lambda a: float(np.corrcoef(a[:-1], a[1:])[0, 1])
+    rng = np.random.default_rng(7)
+    sh, pm = [], []
+    for _ in range(200):
+        x = th.copy()
+        for b in blocks:
+            x[b] = np.roll(th[b], _shift_index(len(b), rng))
+        sh.append(np.mean([lag1(x[b]) for b in blocks]))
+        y = th.copy()
+        for b in blocks:
+            y[b] = rng.permutation(th[b])
+        pm.append(np.mean([lag1(y[b]) for b in blocks]))
+    obs = np.mean([lag1(th[b]) for b in blocks])
+    print(f"    θ の年内 lag-1 自己相関：**観測 {obs:+.3f}**"
+          f" ／ 巡回シフト 中央 {np.median(sh):+.3f}"
+          f" ／ 素朴な並べ替え 中央 {np.median(pm):+.3f}")
+    ok2 = abs(np.median(sh) - obs) < 0.10 and abs(np.median(pm)) < 0.15
+    print(f"    → {'○巡回シフトは保存し、素朴な並べ替えは壊す' if ok2 else '**×期待どおりでない**'}"
+          "（**追補 D-2 が巡回シフトを選んだ理由がこれである**）")
+    print(f"\n  **自己点検は {'○通った' if ok and ok2 else '**×通らない**'}**")
+    return ok and ok2
+
+
+# **追補 D-3 の合否（実行前に固定・`PREREGISTRATION_step139_amendment2.md` の表）**
+PERMCAL_REQ = {"none": ("Δ の p<0.05 が出る割合", 0.07, "le"),
+               "phase_driven": ("★植生起因と整合 に到達する割合", 0.80, "ge"),
+               "calendar_driven": ("▲植生起因ではない に到達する割合", 0.80, "ge")}
+
+
+def permcal(reps: int, nperm: int) -> bool:
+    """**追補 D-3：置換検定そのものを合成 3 種で較正する**（**通らなければ実データに当てない**）。
+
+    **`none` の Δ 偽陽性 ≤ 0.07／`phase_driven` の ★到達 ≥ 0.80／`calendar_driven` の ▲到達 ≥ 0.80。**
+    **しきい値は `PREREGISTRATION_step139_amendment2.md` に走らせる前から書いてある。**
+    """
+    print("\n  【追補 D-3：置換検定の較正】**合成 3 種・実データの日数（春 175・秋 131・3 年）**")
+    print(f"  **replicate {reps} 回 × 置換 {nperm} 本**"
+          "（**合否は事前登録の追補 D-3 で固定済み**）")
+    got = {}
+    for kind in ("none", "phase_driven", "calendar_driven"):
+        tr = _truth(kind)
+        print(f"\n  ===== `{kind}` =====")
+        print(f"    真値（60 年の大標本）：θ→γH  MAM {tr['h'][0]:+.3f} / SON {tr['h'][1]:+.3f}"
+              f" / **Δ {tr['h'][2]:+.3f}**")
+        sig = {"h": 0, "le": 0}
+        rev = {"sp": 0, "au": 0}
+        verd = {}
+        pmin = {"delta": [], "sp": [], "au": []}
+        n = 0
+        for i in range(reps):
+            d = synth(kind, years=3, seed=1000 + i, thin=True)
+            res = perm_result(d, nperm=nperm, seed=1000 + i)
+            if res is None:
+                continue
+            n += 1
+            h = res["h"]
+            for k in ("h", "le"):
+                sig[k] += int(res[k]["p_delta"] < ALPHA)
+            rev["sp"] += int(h["p_sp"] < ALPHA and h["r_sp"] < 0)
+            rev["au"] += int(h["p_au"] < ALPHA and h["r_au"] < 0)
+            pmin["delta"].append(h["p_delta"])
+            pmin["sp"].append(h["p_sp"])
+            pmin["au"].append(h["p_au"])
+            v, _ = verdict_perm(res)
+            verd[v] = verd.get(v, 0) + 1
+        if not n:
+            print("    一度も判定できなかった")
+            got[kind] = 0.0
+            continue
+        print(f"    **Δ が有意（p<0.05）になった割合：θ→γH {sig['h']/n:.3f}"
+              f"（{sig['h']}/{n}）／θ→γLE {sig['le']/n:.3f}**")
+        print(f"    θ→γH で「反転あり」（片側 p<0.05 かつ r<0）：MAM {rev['sp']/n:.3f}"
+              f" ／ SON {rev['au']/n:.3f}")
+        print(f"    p の中央値：Δ {np.median(pmin['delta']):.3f}"
+              f" ／ MAM {np.median(pmin['sp']):.3f} ／ SON {np.median(pmin['au']):.3f}")
+        print("    **判定表が返した結論の分布**：" +
+              " ／ ".join(f"{k} {c}/{n}" for k, c in sorted(verd.items(), key=lambda x: -x[1])))
+        label, thr, side = PERMCAL_REQ[kind]
+        val = sig["h"] / n if kind == "none" else verd.get(
+            "★植生起因と整合" if kind == "phase_driven" else "▲植生起因ではない", 0) / n
+        got[kind] = val
+    print("\n  === 追補 D-3 の合否（**しきい値は実行前に固定**）===")
+    allok = True
+    for kind, (label, thr, side) in PERMCAL_REQ.items():
+        v = got.get(kind, 0.0)
+        ok = (v <= thr) if side == "le" else (v >= thr)
+        allok &= ok
+        sym = "≤" if side == "le" else "≥"
+        print(f"    {kind:<16}{label:<28}{v:.3f} （要求 {sym} {thr:.2f}）"
+              f" {'○' if ok else '**×**'}")
+    print(f"\n  **{'○＝置換検定を `ES-FcO` の実データに当ててよい' if allok else '**×＝置換検定も使わない。`ES-FcO` は「この標本では判定できない」で閉じ、量は記述としてのみ残す**'}**")
+    return allok
+
+
 # ------------------------------------------------------------------ 実データ
 def load_oran_daily() -> pd.DataFrame:
     """`ES-FcO` の 30 分を日次に落とす（**事前登録の手順 1〜2 をそのまま**）。
@@ -673,6 +988,11 @@ def main() -> int:
     ap.add_argument("--coverage", action="store_true", help="diff_boot の被覆を測る")
     ap.add_argument("--bias", action="store_true", help="被覆が落ちた原因の切り分け（間引き か 3 年か）")
     ap.add_argument("--cidiag", action="store_true", help="CI の位置と幅を測る（偏りでは説明できない残り）")
+    ap.add_argument("--permcheck", action="store_true",
+                    help="追補 D：高速経路が partial_spearman と一致するかの自己点検")
+    ap.add_argument("--permcal", action="store_true",
+                    help="追補 D-3：置換検定を合成 3 種で較正する（**実データより先**）")
+    ap.add_argument("--nperm", type=int, default=NPERM, help="置換の本数（追補 D-2 は 2000）")
     ap.add_argument("--reps", type=int, default=200)
     ap.add_argument("--boot", type=int, default=600)
     a = ap.parse_args()
@@ -683,6 +1003,15 @@ def main() -> int:
     print("  事前登録の『旗88 と同じ Pearson』は事実誤り。旗88 の事前登録も実装も Spearman である。")
     print("  **主判定は θ→γH の Δ = r_SON − r_MAM。セルで切らない（旗138 の事実③）。**")
 
+    if a.permcheck:
+        permcheck()
+        return 0
+    if a.permcal:
+        if not permcheck():
+            print("\n  **自己点検が通らないので較正しない**")
+            return 0
+        permcal(a.reps, a.nperm)
+        return 0
     if a.gates:
         run_gates(a.gate_reps, a.boot)
         return 0
