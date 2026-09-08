@@ -1,0 +1,106 @@
+==============================================================================
+旗138 前提の事実確認：**位相が逆であることを測る**（A-3 の量は計算しない）
+==============================================================================
+
+########## Oran（ES-FcO） ##########
+[在庫] Oran 30分 FC_mass: 全 52606 行 / 有効 41373 本 / 平均 -0.0200 最小 -65.8608 最大 108.7296 合計 -829.34
+[在庫] FC_QC の分布: {1.0: 16092, 2.0: 1177, 3.0: 10714, 4.0: 1329, 5.0: 828, 6.0: 342, 7.0: 3851, 8.0: 3056, 9.0: 4284, nan: 2416}
+[在庫] FC_QC<=3 かつ値あり: 27795 本（全体の 52.8%）
+[在庫] 日平均に落ちた日数: 665 日（48本中24本以上の規則・落とした日 252）
+
+[C0] Oran タワー FC_mass（負が吸収） 月別平均: 01:+0.00(n=36)  02:+0.02(n=20)  03:-0.08(n=48)  04:-0.16(n=69)  05:-0.15(n=74)  06:-0.00(n=82)  07:-0.00(n=52)  08:-0.01(n=68)  09:+0.01(n=66)  10:+0.03(n=54)  11:-0.00(n=56)  12:+0.03(n=40)
+     最小（最も吸収側）= -0.162 @ 04月 / 最大 = +0.032 @ 12月
+
+--- Oran タワー CO2 フラックス : 年×季節 ---
+  2018  MAM=  -0.058 (n=66)   SON=   0.029 (n=53)   Δ=SON-MAM=   0.087
+  2019  MAM=  -0.096 (n=66)   SON=  -0.011 (n=66)   Δ=SON-MAM=   0.085
+  2020  MAM=  -0.277 (n=59)   SON=   0.022 (n=57)   Δ=SON-MAM=   0.300
+  合計日数 MAM=191 / SON=176   両季節が揃う年=3
+  **Δ の年またぎ中央値 = 0.087**   [0.087, 0.085, 0.300]
+  C3（60 日・3 年）: ○満たす
+[在庫] MOD13Q1 Oran: 全 162 点 / pixel_reliability==0 は 153 点 / 期間 2017-12-19..2024-12-18 / NDVI 最小 0.195 最大 0.704
+
+[C0] Oran MOD13Q1 NDVI（大きいほど緑） 月別平均: 01:+0.32(n=12)  02:+0.37(n=12)  03:+0.39(n=13)  04:+0.48(n=14)  05:+0.44(n=13)  06:+0.28(n=14)  07:+0.24(n=14)  08:+0.25(n=14)  09:+0.29(n=14)  10:+0.29(n=8)  11:+0.31(n=10)  12:+0.32(n=15)
+     最小（最も吸収側）= +0.236 @ 07月 / 最大 = +0.477 @ 04月
+
+--- Oran MOD13Q1 NDVI : 年×季節 ---
+  2018  MAM=   0.359 (n=5)   SON=   0.298 (n=4)   Δ=SON-MAM=  -0.061
+  2019  MAM=   0.452 (n=6)   SON=   0.358 (n=5)   Δ=SON-MAM=  -0.093
+  2020  MAM=   0.601 (n=6)   SON=   0.232 (n=4)   Δ=SON-MAM=  -0.370
+  2021  MAM=   0.521 (n=6)   SON=   0.314 (n=5)   Δ=SON-MAM=  -0.207
+  2022  MAM=   0.498 (n=6)   SON=   0.274 (n=4)   Δ=SON-MAM=  -0.224
+  2023  MAM=   0.328 (n=6)   SON=   0.278 (n=5)   Δ=SON-MAM=  -0.050
+  2024  MAM=   0.253 (n=5)   SON=   0.304 (n=5)   Δ=SON-MAM=   0.052
+  合計日数 MAM=40 / SON=32   両季節が揃う年=7
+  **Δ の年またぎ中央値 = -0.093**   [-0.061, -0.093, -0.370, -0.207, -0.224, -0.050, 0.052]
+  C3（60 日・3 年）: ×満たさない
+[在庫] 日次マスタ NDVI_csm: 74 日 / 最小 0.120 最大 0.730
+
+--- Oran 日次マスタ NDVI_csm（派生量・参考） : 年×季節 ---
+  2018  MAM=   0.233 (n=12)   SON=   0.307 (n=7)   Δ=SON-MAM=   0.074
+  2019  MAM=   0.297 (n=9)   SON=   0.356 (n=7)   Δ=SON-MAM=   0.059
+  2020  MAM=   0.617 (n=3)   SON=   0.465 (n=4)   Δ=SON-MAM=  -0.152
+  合計日数 MAM=24 / SON=18   両季節が揃う年=3
+  **Δ の年またぎ中央値 = 0.059**   [0.074, 0.059, -0.152]
+  C3（60 日・3 年）: ×満たさない
+
+########## A-3 の北米クラスタ ##########
+[在庫] US-Wkg: 全 8036 日 / NEE 有効 7926 / 平均 -0.023 最小 -4.084 最大 2.580 / 期間 2004-01-01..2025-12-31
+       QC の分布（>=0.5 が採用）: 有効 7926 / 中央値 0.98 / >=0.5 は 7901 日
+
+[C0] US-Wkg NEE_VUT_REF（負が吸収） 月別平均: 01:+0.12(n=650)  02:+0.10(n=593)  03:+0.00(n=651)  04:-0.21(n=630)  05:-0.03(n=677)  06:+0.38(n=660)  07:+0.30(n=682)  08:-0.70(n=678)  09:-0.30(n=660)  10:-0.08(n=678)  11:+0.07(n=660)  12:+0.12(n=682)
+     最小（最も吸収側）= -0.696 @ 08月 / 最大 = +0.383 @ 06月
+
+--- US-Wkg NEE_VUT_REF : 年×季節 ---
+  2004  MAM=  -0.468 (n=26)   SON=   0.052 (n=91)   Δ=SON-MAM=   0.520
+  2005  MAM=  -0.082 (n=92)   SON=   0.143 (n=91)   Δ=SON-MAM=   0.224
+  2006  MAM=   0.016 (n=92)   SON=  -0.617 (n=91)   Δ=SON-MAM=  -0.633
+  2007  MAM=  -0.162 (n=92)   SON=   0.043 (n=91)   Δ=SON-MAM=   0.205
+  2008  MAM=  -0.006 (n=92)   SON=  -0.255 (n=91)   Δ=SON-MAM=  -0.249
+  2009  MAM=   0.009 (n=92)   SON=  -0.139 (n=91)   Δ=SON-MAM=  -0.149
+  2010  MAM=  -0.554 (n=92)   SON=  -0.145 (n=91)   Δ=SON-MAM=   0.408
+  2011  MAM=   0.235 (n=92)   SON=   0.049 (n=91)   Δ=SON-MAM=  -0.186
+  2012  MAM=   0.235 (n=92)   SON=  -0.178 (n=91)   Δ=SON-MAM=  -0.413
+  2013  MAM=   0.166 (n=92)   SON=   0.184 (n=91)   Δ=SON-MAM=   0.019
+  2014  MAM=   0.220 (n=92)   SON=  -0.660 (n=88)   Δ=SON-MAM=  -0.880
+  2015  MAM=  -0.665 (n=92)   SON=  -0.167 (n=91)   Δ=SON-MAM=   0.498
+  2016  MAM=  -0.010 (n=92)   SON=  -0.219 (n=91)   Δ=SON-MAM=  -0.209
+  2017  MAM=   0.034 (n=92)   SON=  -0.093 (n=91)   Δ=SON-MAM=  -0.127
+  2018  MAM=   0.084 (n=92)   SON=  -0.144 (n=91)   Δ=SON-MAM=  -0.228
+  2019  MAM=  -0.371 (n=92)   SON=  -0.141 (n=91)   Δ=SON-MAM=   0.229
+  2020  MAM=  -0.431 (n=92)   SON=   0.289 (n=91)   Δ=SON-MAM=   0.720
+  2021  MAM=   0.250 (n=92)   SON=  -0.031 (n=90)   Δ=SON-MAM=  -0.281
+  2022  MAM=   0.060 (n=92)   SON=  -0.273 (n=91)   Δ=SON-MAM=  -0.333
+  2023  MAM=  -0.494 (n=92)   SON=  -0.069 (n=91)   Δ=SON-MAM=   0.425
+  2024  MAM=  -0.268 (n=92)   SON=   0.231 (n=91)   Δ=SON-MAM=   0.499
+  2025  MAM=   0.194 (n=92)   SON=  -0.143 (n=91)   Δ=SON-MAM=  -0.337
+  合計日数 MAM=1958 / SON=1998   両季節が揃う年=22
+  **Δ の年またぎ中央値 = -0.138**   [0.520, 0.224, -0.633, 0.205, -0.249, -0.149, 0.408, -0.186, -0.413, 0.019, -0.880, 0.498, -0.209, -0.127, -0.228, 0.229, 0.720, -0.281, -0.333, 0.425, 0.499, -0.337]
+  C3（60 日・3 年）: ○満たす
+Traceback (most recent call last):
+  File "/home/shion-nagamine/bakanposs/research/premise_phase_step138.py", line 299, in <module>
+    sys.exit(main())
+             ^^^^^^
+  File "/home/shion-nagamine/bakanposs/research/premise_phase_step138.py", line 241, in main
+    d = load_amf_nee(site, folder)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/shion-nagamine/bakanposs/research/premise_phase_step138.py", line 204, in load_amf_nee
+    d = pd.read_csv(cands[0], usecols=["TIMESTAMP", "NEE_VUT_REF", "NEE_VUT_REF_QC"], low_memory=False)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/shion-nagamine/bakanposs/.venv/lib/python3.12/site-packages/pandas/io/parsers/readers.py", line 1026, in read_csv
+    return _read(filepath_or_buffer, kwds)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/shion-nagamine/bakanposs/.venv/lib/python3.12/site-packages/pandas/io/parsers/readers.py", line 620, in _read
+    parser = TextFileReader(filepath_or_buffer, **kwds)
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/shion-nagamine/bakanposs/.venv/lib/python3.12/site-packages/pandas/io/parsers/readers.py", line 1620, in __init__
+    self._engine = self._make_engine(f, self.engine)
+                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/shion-nagamine/bakanposs/.venv/lib/python3.12/site-packages/pandas/io/parsers/readers.py", line 1898, in _make_engine
+    return mapping[engine](f, **self.options)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/shion-nagamine/bakanposs/.venv/lib/python3.12/site-packages/pandas/io/parsers/c_parser_wrapper.py", line 140, in __init__
+    self._validate_usecols_names(usecols, self.orig_names)
+  File "/home/shion-nagamine/bakanposs/.venv/lib/python3.12/site-packages/pandas/io/parsers/base_parser.py", line 988, in _validate_usecols_names
+    raise ValueError(
+ValueError: Usecols do not match columns, columns expected but not found: ['NEE_VUT_REF', 'NEE_VUT_REF_QC']
