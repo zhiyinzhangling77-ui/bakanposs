@@ -33,7 +33,22 @@
     python research/phase_asymmetry_step139.py                # 合成 3 種（既定）
     python research/phase_asymmetry_step139.py --coverage     # diff_boot の被覆（実データの日数で）
     python research/phase_asymmetry_step139.py --bias         # 被覆が落ちた原因の切り分け（間引き か 3 年か）
+    python research/phase_asymmetry_step139.py --gates        # 門① G1〜G4（**実データの判定より先に走らせる**）
     python research/phase_asymmetry_step139.py --real         # 実データ（**旗139a では走らせない**）
+
+## ★門①の合否しきい値（**旗139b・G1〜G4 を一度も走らせる前に書いた**）
+事前登録は G1〜G4 が何を見るかを固定したが、**「どこまで合えば合格か」は数で書いていなかった**。
+**実行前にここで固定する。結果を見てから動かさない。**
+  ・**G1**：**旗88 の秋（9–10 月）の US-SRM** で θ→γLE = +0.81・θ→γH = −0.56 を、**符号一致かつ ±0.02 以内**
+    （旗88 の記録が小数第 2 位までなので、丸め幅を許容にする）。**SON（9–11 月）も参考に印字するが合否に使わない**
+    ——**旗88 の「秋」は 9–10 月であり、本検定の SON（9–11 月）とは月が違う**（**この食い違いは
+    事前登録が見落としていた。合否は旗88 と同じ月で取る**）
+  ・**G2**：**日中（10–14 時）の H の中央値が正**、**夜間（0–4 時）の H の中央値が負**、**日中の LE の中央値が正**
+  ・**G3**：**2018/2019/2020 の 3 年とも** タワー `FC_mass` の Δ=SON−MAM **> 0**、
+    かつ MOD13Q1 NDVI の Δ **< 0**（**旗138 は 7 年/3 年で測った。ここは本検定の 3 年に限って確かめる**）
+  ・**G4**：**季節ラベルを年内で無作為に付け替えた偽データ 200 本のうち、
+    Δ(θ→γH) の CI が 0 を跨ぐ割合 ≥ 0.90**（**旗139a の帰無で断定が 6% 出たので、10% を許容幅にする**）。
+    **seed 0 の 1 本が跨ぐことも併せて印字する**
 """
 from __future__ import annotations
 
@@ -444,11 +459,17 @@ def load_oran_daily() -> pd.DataFrame:
     """
     use = ["TIMESTAMP", "SWC_1_1_1", "SW_IN", "H", "H_QC", "LE", "LE_QC"]
     d = pd.read_csv(ORAN_HH, usecols=use, low_memory=False)
-    d["ts"] = pd.to_datetime(d["TIMESTAMP"], errors="coerce")
+    # ★欠陥 #67（旗139b で G4 が捕まえた）：`format` を渡さないと pandas は先頭行の
+    # `2018/01/01`（時刻なし）から `%Y/%m/%d` を推定し、**時刻つきの 30 分値を全部 NaT にする**
+    # ——52,606 本中 921 本（真夜中だけ）しか残らなかった。**旗138 の実装は `format="mixed"` で正しい。**
+    d["ts"] = pd.to_datetime(d["TIMESTAMP"], format="mixed", errors="coerce")
     for c in use[1:]:
         d[c] = pd.to_numeric(d[c], errors="coerce")
+    n_file = len(d)
     d = d[d["ts"].notna()]
     n_raw = len(d)
+    print(f"    [在庫] ファイル {n_file:,} 行 → 時刻が読めた {n_raw:,} 本"
+          f"（読めなかった {n_file - n_raw:,} 本は **TIMESTAMP が空**）")
     good = d[(d["H_QC"] <= QC_MAX) & d["H"].between(FLUX_LO, FLUX_HI)
              & (d["LE_QC"] <= QC_MAX) & d["LE"].between(FLUX_LO, FLUX_HI)
              & d["SWC_1_1_1"].notna() & d["SW_IN"].notna()].copy()
@@ -461,6 +482,173 @@ def load_oran_daily() -> pd.DataFrame:
     day = day[day["n"] >= HALFHOUR_MIN]
     print(f"    [在庫] 日 {n_day_all} → 48 本中 {HALFHOUR_MIN} 本以上: {len(day)} 日")
     return day.drop(columns="n")
+
+
+# ------------------------------------------------------------------ 門①（対照）
+G88_SRM_AUTUMN = {"le": +0.81, "h": -0.56}      # 旗88 の記録（US-SRM・秋 9–10 月）
+G1_TOL = 0.02                                    # 丸め幅（**実行前に固定**）
+G4_CROSS_MIN = 0.90                              # 偽の季節で CI が 0 を跨ぐ割合の下限（**実行前に固定**）
+
+
+def gate_g1() -> bool:
+    """**G1（検出器の健全性）**：同じ実装を US-SRM の秋に当て、旗88 の値を再現する。
+
+    **旗88 の「秋」は 9–10 月である**（`FLAGS_LOG.md` 旗88 の表）。
+    **本検定の SON は 9–11 月**なので**月が違う**。**合否は旗88 と同じ 9–10 月で取り、
+    SON は参考として印字する**（**この食い違いは事前登録が見落としていた**）。
+    """
+    from evaporation_regime_step36 import daily_energy
+    ok = None
+    for months, label, judge in (((9, 10), "旗88 の秋（9–10 月）", True),
+                                 (list(AUTUMN), "SON（9–11 月・本検定の季節）", False)):
+        try:
+            d, nyr = daily_energy("US-SRM", list(months), None)
+        except Exception as e:                                   # noqa: BLE001
+            print(f"    G1 {label}: 読み込み失敗 {type(e).__name__}: {str(e)[:120]}")
+            if judge:
+                ok = False
+            continue
+        yr = d.index.year.to_numpy()
+        got = {}
+        for k, col in (("le", "gLE"), ("h", "gH")):
+            got[k] = _boot_ci(d[col].to_numpy(), d["th"].to_numpy(),
+                              [d["Rg"].to_numpy()], blocks=yr)
+        print(f"    G1 {label}: {len(d)} 日／{d.index.year.nunique()} 年（健全年 {nyr}）")
+        for k, nm, ref in (("le", "θ→γLE", G88_SRM_AUTUMN["le"]),
+                           ("h", "θ→γH", G88_SRM_AUTUMN["h"])):
+            r, ci, n = got[k]
+            cis = f"[{ci[0]:+.2f},{ci[1]:+.2f}]" if ci else "[CI 出ず]"
+            mark = ""
+            if judge:
+                hit = np.isfinite(r) and np.sign(r) == np.sign(ref) and abs(r - ref) <= G1_TOL
+                ok = hit if ok is None else (ok and hit)
+                mark = f"  旗88 = {ref:+.2f}／差 {r - ref:+.3f} → {'○' if hit else '**×**'}"
+            print(f"      {nm} = {r:+.3f} {cis}{mark}")
+    print(f"    → G1 は {'○合格' if ok else '**×不合格**'}"
+          f"（許容 ±{G1_TOL:.2f}・符号一致・**実行前に固定**）")
+    return bool(ok)
+
+
+def gate_g2() -> bool:
+    """**G2（符号と単位）**：`H`・`LE` は上向き正の W m-2 か。**日中の H が正・夜間が負**。"""
+    use = ["TIMESTAMP", "H", "H_QC", "LE", "LE_QC"]
+    d = pd.read_csv(ORAN_HH, usecols=use, low_memory=False)
+    ts = pd.to_datetime(d["TIMESTAMP"], format="mixed", errors="coerce")
+    for c in ("H", "H_QC", "LE", "LE_QC"):
+        d[c] = pd.to_numeric(d[c], errors="coerce")
+    d["hour"] = ts.dt.hour
+    g = d[(d["H_QC"] <= QC_MAX) & d["H"].between(FLUX_LO, FLUX_HI)
+          & (d["LE_QC"] <= QC_MAX) & d["LE"].between(FLUX_LO, FLUX_HI)]
+    day = g[g["hour"].between(10, 13)]
+    night = g[g["hour"].between(0, 3)]
+    mh_d, mh_n = float(np.median(day["H"])), float(np.median(night["H"]))
+    ml_d, ml_n = float(np.median(day["LE"])), float(np.median(night["LE"]))
+    print(f"    G2 日中 10–14 時（n={len(day):,}）: H 中央 {mh_d:+.1f} ／ LE 中央 {ml_d:+.1f} W m-2")
+    print(f"    G2 夜間 0–4 時 （n={len(night):,}）: H 中央 {mh_n:+.1f} ／ LE 中央 {ml_n:+.1f} W m-2")
+    hourly = g.groupby("hour")["H"].median()
+    print("      H の時刻別中央値: "
+          + " ".join(f"{int(h):02d}:{v:+.0f}" for h, v in hourly.items()))
+    ok = mh_d > 0 and mh_n < 0 and ml_d > 0
+    print(f"    → G2 は {'○合格' if ok else '**×不合格**'}（日中 H>0・夜間 H<0・日中 LE>0）")
+    return bool(ok)
+
+
+def gate_g3() -> bool:
+    """**G3（位相の前提）**：旗138 の事実①が本検定の 3 年（2018-2020）で成り立つか。
+
+    **タワー `FC_mass` は 3 年とも Δ=SON−MAM>0（春の吸収が強い）**、
+    **MOD13Q1 NDVI は 3 年とも Δ<0（春が緑）**。**旗138 は 7 年/3 年で測った。ここは 3 年に絞る。**
+    """
+    from premise_phase_step138 import load_oran_flux, load_oran_ndvi_mod13
+
+    def _per_year(df, col, years=(2018, 2019, 2020)):
+        d = df[df["year"].isin(years)].copy()
+        d["season"] = np.where(np.isin(d["month"], SPRING), "MAM",
+                               np.where(np.isin(d["month"], AUTUMN), "SON", None))
+        d = d[d["season"].isin(("MAM", "SON"))]
+        out = {}
+        for y, g in d.groupby("year"):
+            m = g[g["season"] == "MAM"][col]
+            s = g[g["season"] == "SON"][col]
+            out[int(y)] = (float(s.mean() - m.mean()) if len(m) and len(s) else np.nan,
+                           len(m), len(s))
+        return out
+
+    fc = _per_year(load_oran_flux(), "fc")
+    nd = _per_year(load_oran_ndvi_mod13(), "ndvi")
+    ok_fc = bool(fc) and all(np.isfinite(v[0]) and v[0] > 0 for v in fc.values())
+    ok_nd = bool(nd) and all(np.isfinite(v[0]) and v[0] < 0 for v in nd.values())
+    for nm, tab, want in (("タワー FC_mass（Δ>0 を要求）", fc, ">0"),
+                          ("MOD13Q1 NDVI（Δ<0 を要求）", nd, "<0")):
+        s = " ／ ".join(f"{y}: Δ={v[0]:+.3f}(n={v[1]}/{v[2]})" for y, v in sorted(tab.items()))
+        print(f"    G3 {nm}: {s}")
+    ok = ok_fc and ok_nd
+    print(f"    → G3 は {'○合格' if ok else '**×不合格**'}"
+          f"（FC 3/3 {'○' if ok_fc else '×'}・NDVI 3/3 {'○' if ok_nd else '×'}）")
+    return bool(ok)
+
+
+def gate_g4(d: pd.DataFrame, reps: int, b: int) -> bool:
+    """**G4（偽の季節）**：季節ラベルを年内で無作為に付け替えた偽データで Δ の CI が 0 を跨ぐか。
+
+    **同じ年の MAM+SON の日をプールし、季節の枚数を保ったまま札を振り直す**
+    ——**日数の非対称（春 175・秋 131）はそのまま残り、季節の中身だけが消える。**
+    **跨がなければ、Δ は季節ではなく日数の非対称を拾っている。**
+    """
+    pool = d[np.isin(d.index.month, SPRING) | np.isin(d.index.month, AUTUMN)]
+    n_sp = {y: int(np.isin(g.index.month, SPRING).sum()) for y, g in pool.groupby(pool.index.year)}
+    cross = n = 0
+    first = None
+    for i in range(reps):
+        rng = np.random.default_rng(20000 + i)
+        sp_parts, au_parts = [], []
+        for y, g in pool.groupby(pool.index.year):
+            perm = rng.permutation(len(g))
+            k = n_sp[y]
+            sp_parts.append(g.iloc[perm[:k]])
+            au_parts.append(g.iloc[perm[k:]])
+        sp, au = pd.concat(sp_parts).sort_index(), pd.concat(au_parts).sort_index()
+        res = compute(sp, au, b=b, seed=20000 + i)
+        if res is None or res["h"] is None:
+            continue
+        n += 1
+        cross += int(res["h"]["cross"])
+        if first is None:
+            first = res["h"]
+    if not n:
+        print("    G4: CI が一度も出なかった → **×不合格**")
+        return False
+    frac = cross / n
+    print(f"    G4 偽の季節 {n} 本（要求どおり年内で付け替え）："
+          f"**Δ(θ→γH) の CI が 0 を跨いだ割合 {frac:.3f}**（{cross}/{n}）")
+    print(f"      1 本目（seed 20000）：Δ = {first['delta']:+.3f} "
+          f"[{first['ci_d'][0]:+.3f},{first['ci_d'][1]:+.3f}] → "
+          f"{'**0 を跨ぐ**' if first['cross'] else '**跨がない**'}")
+    ok = frac >= G4_CROSS_MIN
+    print(f"    → G4 は {'○合格' if ok else '**×不合格**'}"
+          f"（下限 {G4_CROSS_MIN:.2f}・**実行前に固定**）")
+    return bool(ok)
+
+
+def run_gates(reps: int, b: int) -> bool:
+    """**門① G1〜G4 を全部走らせる。ここで落ちたら実データの判定は読まない。**"""
+    print("\n  【門①（対照）】**事前登録が実データの前に宣言した 4 本**"
+          "——**合否のしきい値は走らせる前に docstring へ固定した**")
+    print("\n  ===== G1（検出器の健全性）=====")
+    g1 = gate_g1()
+    print("\n  ===== G2（符号と単位）=====")
+    g2 = gate_g2()
+    print("\n  ===== G3（位相の前提が 2018-2020 で成り立つか）=====")
+    g3 = gate_g3()
+    print("\n  ===== G4（偽の季節）=====")
+    d = load_oran_daily()
+    g4 = gate_g4(d, reps, b)
+    allok = g1 and g2 and g3 and g4
+    print("\n  === 門①のまとめ ===")
+    for nm, v in (("G1 検出器", g1), ("G2 符号と単位", g2), ("G3 位相の前提", g3), ("G4 偽の季節", g4)):
+        print(f"    {nm:<14}{'○合格' if v else '**×不合格**'}")
+    print(f"\n  **4 本とも通ったか：{'○＝実データの判定を読んでよい' if allok else '**×＝読まない**'}**")
+    return allok
 
 
 def run_real() -> None:
@@ -480,6 +668,8 @@ def run_real() -> None:
 def main() -> int:
     ap = argparse.ArgumentParser(description="旗139：春秋の非対称は植生の季節進行が作っているのか")
     ap.add_argument("--real", action="store_true", help="実データ（旗139b で使う）")
+    ap.add_argument("--gates", action="store_true", help="門① G1〜G4（実データの判定より先に走らせる）")
+    ap.add_argument("--gate-reps", type=int, default=200, help="G4 の偽の季節の本数")
     ap.add_argument("--coverage", action="store_true", help="diff_boot の被覆を測る")
     ap.add_argument("--bias", action="store_true", help="被覆が落ちた原因の切り分け（間引き か 3 年か）")
     ap.add_argument("--cidiag", action="store_true", help="CI の位置と幅を測る（偏りでは説明できない残り）")
@@ -493,6 +683,9 @@ def main() -> int:
     print("  事前登録の『旗88 と同じ Pearson』は事実誤り。旗88 の事前登録も実装も Spearman である。")
     print("  **主判定は θ→γH の Δ = r_SON − r_MAM。セルで切らない（旗138 の事実③）。**")
 
+    if a.gates:
+        run_gates(a.gate_reps, a.boot)
+        return 0
     if a.real:
         run_real()
         return 0
