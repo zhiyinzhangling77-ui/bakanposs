@@ -63,6 +63,16 @@
 
     python research/phase_asymmetry_step139.py --permcheck   # 高速経路が partial_spearman と一致するか
     python research/phase_asymmetry_step139.py --permcal     # 追補 D-3 の較正（**実データより先**）
+
+## ★旗141（**較正の結果・実データの Δ̂ を見る前に確定させた**）
+**追補 D-3 は 3 条件とも通った**（200 replicate × 2000 置換）：
+**`none` 0.030 ≤ 0.07**／**`phase_driven` ★ 1.000 ≥ 0.80**／**`calendar_driven` ▲ 1.000 ≥ 0.80**。
+**＝置換検定を `ES-FcO` の実データに当ててよい。`--real` は `verdict_perm`（置換版）を呼ぶ。**
+**CI 版の `verdict` は判定に使わない**（G4 が落ちたため。`--real` は参考として印字するだけ）。
+
+**★ただし G4 は追補 D の下では対照として働かない**——**G4 の偽データの作り方と、
+追補 D-2 の Δ の帰無の作り方が同一だからである。** **置換検定の下では G4 の合格は構成上ほぼ自明で、
+証拠にならない。** **較正の荷は `none`（自己相関と季節構造を持つ合成）と G1〜G3 が負う。**
 """
 from __future__ import annotations
 
@@ -966,17 +976,46 @@ def run_gates(reps: int, b: int) -> bool:
     return allok
 
 
-def run_real() -> None:
+def run_real(nperm: int = NPERM) -> None:
+    """**実データの判定は追補 D の置換検定で行う**（**CI 判定は G4 が落ちたので使わない**）。
+
+    **旗140 の門① G4（0.795 < 0.90）で `diff_boot` の CI はこの標本では意味を持たない**
+    ——**だから `verdict`（CI 版）ではなく `verdict_perm`（置換版）を呼ぶ。**
+    **CI は参考としてのみ印字し、判定には一切使わない**（**欠陥 #67 と同型の事故を避ける**：
+    無効化された経路を残しておくと、次に走らせた者がそれを読んでしまう）。
+    """
     print("\n  【実データ】`ES-FcO`（Finca Oran・2018-2020）")
+    print("  **判定は追補 D-2 の置換検定で行う**"
+          "（**門① G4 が落ちたので `diff_boot` の CI は判定に使わない**）。")
+    print("  **置換検定は追補 D-3 の較正を通っている**"
+          "（旗141：`none` 0.030 ≤ 0.07・`phase_driven` 1.000・`calendar_driven` 1.000）。")
     d = load_oran_daily()
     sp = d[np.isin(d.index.month, SPRING)]
     au = d[np.isin(d.index.month, AUTUMN)]
-    res = show_delta("層なし（GATE-26 待ち）", sp, au)
-    v, why = verdict(res)
+
+    print("\n    ----- 参考（**判定には使わない**）：CI 版の量 -----")
+    show_delta("層なし（GATE-26 待ち）", sp, au)
+
+    print(f"\n    ----- **判定：追補 D の置換検定（{nperm} 本）** -----")
+    res = perm_result(d, nperm=nperm, seed=0)
+    if res is None:
+        print("    **下限未満＝判定しない**")
+    else:
+        for k, nm in (("h", "θ→γH（主判定）"), ("le", "θ→γLE（併記）")):
+            r = res[k]
+            print(f"    {nm}：MAM {r['r_sp']:+.3f}（片側 p={r['p_sp']:.4f}）"
+                  f" / SON {r['r_au']:+.3f}（片側 p={r['p_au']:.4f}）")
+            print(f"      **Δ = SON − MAM = {r['delta']:+.3f}（両側 p={r['p_delta']:.4f}）**"
+                  f"／巡回シフトの通り数 MAM {r['n_shift_sp']}・SON {r['n_shift_au']}")
+    v, why = verdict_perm(res)
     print(f"\n    → **{v}**（{why}）")
-    print("\n    **これは層で揃えていない春秋の差である。旗107 が示したとおり、この差は")
-    print("    雨からの日数で説明されうる。層で揃えた判定は GATE-26（`ES-FcO` の雨）が")
-    print("    解けてから行う。**")
+
+    print("\n    **必ず併記する三つ（事前登録・旗139/140 で先に決めてある）**：")
+    print("    1. **層で揃えていない春秋の差である。旗107 が示したとおり、この差は雨からの")
+    print("       日数で説明されうる。層で揃えた判定は GATE-26（`ES-FcO` の雨）が解けてから行う。**")
+    print("    2. **追補 C**：`ES-FcO` は CRO であり、A-3 の 4 クラスタとは土俵が違う。")
+    print("    3. **帰無でも 6% は断定が出る**（旗139a）。**追補 D-3 の `none` は 0.030 だが、")
+    print("       判定表全体としての誤断定はゼロではない**（`none` で ★ が 1/200 出ている）。")
 
 
 # ------------------------------------------------------------------ main
@@ -1016,7 +1055,7 @@ def main() -> int:
         run_gates(a.gate_reps, a.boot)
         return 0
     if a.real:
-        run_real()
+        run_real(a.nperm)
         return 0
 
     want = {"phase_driven": "**Δ>0・春に反転 → ★植生起因と整合**",
