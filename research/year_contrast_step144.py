@@ -278,6 +278,51 @@ def klassC(res):
     return "偶然"
 
 
+def klassD(res):
+    """**追補 D の判定**（`PREREGISTRATION_step144_amendment4.md`）。
+
+    **追補 C から替わるのは反転ルートの前段だけ**——`p < 0.05` の側は一字も動かさない。
+
+      ・`k < 6` 年                                          → **判定しない**（#75）
+      ・`p < 0.05` かつ `|r_between| ≥ 0.15`                 → **骨格**（触らない）
+      ・`p < 0.05` かつ `< 0.15`                            → **効く**（触らない）
+      ・**反転（`t_obs > 0`）かつ `p_within ≥ 0.05`**        → **判定しない**（★ここが新しい）
+      ・反転 かつ `p_within < 0.05` かつ `p_flip < 0.05`     → **骨格**（追補 C の道）
+      ・反転 かつ `p_within < 0.05` かつ `p_flip ≥ 0.05`     → **偶然**（追補 C のまま）
+      ・それ以外                                            → **偶然の水準と区別できない**
+
+    **★「偶然」ではなく「判定しない」に落とす理由**（欠陥 #78）：`p_within ≥ 0.05` は
+    **「年内の連関が無い」ではなく「反転の向きの基準が決まらない」**である。
+    **向きが決まらないセルについて、反転が偶然かどうかを追補 D は何も言わない**
+    ——**言えないものを「偶然と区別できない」と書くと、測ったふりになる。**
+    """
+    v, p, k = res.get("between", np.nan), res.get("p", np.nan), res.get("k", 0)
+    t, pf = res.get("t_obs", np.nan), res.get("p_flip", np.nan)
+    pw = res.get("p_within", np.nan)
+    if not np.isfinite(v) or k < K_MIN_SWAP or not np.isfinite(p):
+        return "判定しない"
+    if p < 0.05:
+        return "骨格" if abs(v) >= BIG else "効く"
+    if np.isfinite(t) and t > 0:
+        if not np.isfinite(pw) or pw >= 0.05:
+            return "判定しない"
+        if np.isfinite(pf) and pf < 0.05:
+            return "骨格"
+    return "偶然"
+
+
+def share_between(res):
+    """**設計の穴 #80**（旗147）：分解の項と測り直した相関を同じ行に出すなら、比も出す。
+
+    `寄与率 = |r_between| / (|r_between| + |r_within|)`——**`年除去 r` とは作り方が違う。**
+    **印字だけの量であり、判定にはどこでも使わない。**
+    """
+    v, w = res.get("between", np.nan), res.get("within", np.nan)
+    if not np.isfinite(v) or not np.isfinite(w) or (abs(v) + abs(w)) == 0:
+        return np.nan
+    return abs(v) / (abs(v) + abs(w))
+
+
 def klass(v):
     """事前登録の 3 段階。**追補 A 以降、当てるのは `r_between`**（`d` ではない）。
 
@@ -326,6 +371,15 @@ class Tally:
             c[klassC(r)] += 1
         return c
 
+    def countsD(self):
+        """**追補 D の集計**。Δ の行は数えない（欠陥 #77 は塞がっていない）。"""
+        c = {"偶然": 0, "効く": 0, "骨格": 0, "判定しない": 0}
+        for r in self.rows:
+            if r["season"] == "Δ":
+                continue
+            c[klassD(r)] += 1
+        return c
+
 
 def measure_pair(tal, arena, site, season, sub):
     """1 つの部分集合（サイト×季節）について LE と H の両方を測って印字する。"""
@@ -339,7 +393,8 @@ def measure_pair(tal, arena, site, season, sub):
         res = r_set(sub[col].to_numpy(), sub["th"].to_numpy(),
                     sub["Rg"].to_numpy(), sub.index.year.to_numpy(),
                     # **決め打ちの種**（`hash()` は走行ごとに変わるので使わない＝再現できなくなる）
-                    swap=True, seed=sum(ord(c) for c in f"{site}{season}{k}") % 10_000)
+                    swap=True, within=True,
+                    seed=sum(ord(c) for c in f"{site}{season}{k}") % 10_000)
         # **追補 A**：符号反転の判定は `r_within` と `r_raw` の間で見る（`r_yr` ではない）。
         flip = (np.isfinite(res["raw"]) and np.isfinite(res["within"])
                 and np.sign(res["raw"]) != np.sign(res["within"]))
@@ -355,12 +410,21 @@ def measure_pair(tal, arena, site, season, sub):
               f"／vshare {res['vshare']:.3f}／p {pv}"
               f"（{res['mode']}・k={res['k']} 年）"
               f"   〔追補 A の固定境なら {klass(res['between'])}〕")
+        # **追補 D：`p_within` と寄与率は全セルで印字する**（判定を変えるのは反転ルートだけ）
+        # ——**欠陥 #78 は「`|r_within|` を判定の隣に出していなかった」ことから生まれた**（#80 も同じ穴）。
+        pw = "—" if not np.isfinite(res["p_within"]) else f"{res['p_within']:.4f}"
+        sb = share_between(res)
+        print(f"          └ |r_within| {abs(res['within']):.3f}／p_within {pw}"
+              f"（年内 {WITHIN_PERM} 通り）"
+              f"／寄与率 |between|/(|between|+|within|) "
+              f"{'—' if not np.isfinite(sb) else f'{sb:.3f}'}")
         # **追補 C：反転ルートは `t` と `p_flip` を必ず並べる**（反転の有無だけで読まないため）
         if flip:
             pf = "—" if not np.isfinite(res["p_flip"]) else f"{res['p_flip']:.4f}"
             print(f"          └ **反転** t {res['t_obs']:+.3f}／p_flip {pf}"
                   f"／|r_within| {abs(res['within']):.3f}"
-                  f"   →〔追補 C の判定 **{klassC(res)}**〕")
+                  f"   →〔追補 C の判定 **{klassC(res)}**"
+                  f"／**追補 D の判定 {klassD(res)}**〕")
     return out
 
 
@@ -816,6 +880,120 @@ def gatesC():
     return all(ok.values())
 
 
+# ------------------------------------------------- 門①（追補 D・G1''''〜G4''''）
+def _within_rate(gen, seed0, reps=REPS, two_stage=False):
+    """**追補 D の率**を数える。`gen(seed)` は `(th, y, Rg, g)` を返す。
+
+    返すもの：`pw`＝**前段 `p_within < 0.05` の割合**（G1''''・G2'''' が見る量）／
+    `two`＝**反転かつ `p_within<0.05` かつ `p_flip<0.05`**＝追補 D で骨格に落ちる割合
+    （G3''''・G4'''' が見る量）／`win`＝`|r_within|` の中央／`vshare`＝平均。
+
+    **`two_stage=False` のときは `year_swap` を呼ばない**——前段だけを較正する門では
+    `p_flip` を使わないので、要らない計算を回して結果が変わる余地を作らない。
+    """
+    pw, two, ws, vs = [], [], [], []
+    for i in range(reps):
+        th, y, Rg, g = gen(seed0 + i)
+        wi = within_shuffle(y, th, Rg, g, seed=i)
+        dec = decompose(y, th, Rg, g)
+        if wi is None or dec is None:
+            continue
+        w_sig = wi["p_within"] < 0.05
+        pw.append(bool(w_sig))
+        ws.append(abs(dec[1])); vs.append(dec[2])
+        if two_stage:
+            sw = year_swap(y, th, Rg, g, seed=i)
+            if sw is None or not np.isfinite(sw.get("p", np.nan)):
+                two.append(False)
+            else:
+                two.append(bool(sw["flip"] and w_sig
+                                and np.isfinite(sw["p_flip"]) and sw["p_flip"] < 0.05))
+    return dict(n=len(pw), pw=float(np.mean(pw)),
+                two=float(np.mean(two)) if two else np.nan,
+                win=float(np.median(ws)), vshare=float(np.mean(vs)))
+
+
+def gatesD():
+    """門①（追補 D の G1''''〜G4''''）。**合格条件は実データを測り直す前に固定済み**
+
+    （`PREREGISTRATION_step144_amendment4.md`）：
+      ・**G1''''**（前段の偽陽性）`beta_w = 0.0`・`s_y` 3 水準 —— **すべて `p_within<0.05` ≤ 0.10**
+      ・**G2''''**（前段の検出）`beta_w = −0.2`・`s_y = 0.7` —— **`p_within<0.05` ≥ 0.80**
+      ・**G3''''**（二段の偽陽性）追補 C の G1''' と同じ 9 条件 —— **すべて ≤ 0.10**
+      ・**G4''''（★本丸）**`synth_flip`（反転が本物） —— **≥ 0.80**
+
+    **本丸は G4''''** である。追補 D は偽陽性を下げるための追補ではない
+    ——**「意味が定義できない道を骨格と数えない」ための追補**なので、
+    **問うべきは「前段を足したせいで本物の反転を殺していないか」**である（追補 D の宣言）。
+    **G4'''' が落ちたら追補 D は採らない**——旗146 の骨格 13 をそのまま残して GATE にする。
+    """
+    print("=== 旗148 門①（合成・**追補 D の G1''''〜G4''''**）——**実データより先に走らせる** ===")
+    print(f"  反復 {REPS}・20 年・年あたり 100 日・年内の並べ替えは {WITHIN_PERM} 通り"
+          f"（年の並べ替えは最大 {MAX_PERM} 通り）。")
+    print("  **前段の当てる量は `p_within`**＝`yw` を年の中だけで並べ替えた両側置換 `p`。")
+    ok = {}
+
+    print("\n  G1'''' **前段の偽陽性**（`beta_w = 0.0`＝年内に真の連関なし）：")
+    print(f"    {'s_y':>5} {'vshare':>7} {'|r_within|中央':>14} {'p_within<0.05 の率':>19} 判定")
+    c1 = True
+    for s_y in (0.35, 0.7, 1.0):
+        g1 = _within_rate(lambda s, v=s_y: synth_share(20, v, seed=s, beta_w=0.0), 11000)
+        c = g1["pw"] <= 0.10
+        c1 = c1 and c
+        print(f"    {s_y:>5.2f} {g1['vshare']:>7.3f} {g1['win']:>14.3f} {g1['pw']:>19.3f} "
+              f"{'合格' if c else '**不合格**'}")
+    ok["G1''''"] = c1
+
+    g2 = _within_rate(lambda s: synth_share(20, 0.7, seed=s, beta_w=-0.2), 12000)
+    c2 = g2["pw"] >= 0.80
+    ok["G2''''"] = c2
+    print(f"\n  G2'''' **前段の検出**（`beta_w = −0.2`・s_y 0.70）："
+          f"`p_within<0.05` の率 {g2['pw']:.3f}（≥ 0.80 が条件・{g2['n']} 反復）"
+          f"／|r_within| 中央 {g2['win']:.3f}／vshare {g2['vshare']:.3f}"
+          f" → {'合格' if c2 else '**不合格**'}")
+
+    # **参考（合否には使わない・事前登録で先に出すと決めた）**
+    gref = _within_rate(lambda s: synth_share(20, 0.7, seed=s, beta_w=-0.1), 13000)
+    print(f"    〔参考・合否に使わない〕`beta_w = −0.1`（|r_within| 中央 {gref['win']:.3f}）の"
+          f"前段の検出率 {gref['pw']:.3f}。**実データの反転セルはこの帯にいる公算が高い**"
+          "——「前段が通らないのは検出力が無いからだ」と後から言い訳しないために先に出す。")
+
+    print("\n  G3'''' **二段の偽陽性**（追補 C の G1''' と同じ 9 条件・年平均は独立）：")
+    print(f"    {'beta_w':>7} {'s_y':>5} {'vshare':>7} {'|r_within|中央':>14}"
+          f" {'前段 p_within<0.05':>19} {'二段で骨格':>11} 判定")
+    c3 = True
+    for beta_w in (-0.2, -0.1, 0.0):
+        for s_y in (0.35, 0.7, 1.0):
+            g3 = _within_rate(lambda s, b=beta_w, v=s_y:
+                              synth_share(20, v, seed=s, beta_w=b), 7000, two_stage=True)
+            c = g3["two"] <= 0.10
+            c3 = c3 and c
+            print(f"    {beta_w:>7.2f} {s_y:>5.2f} {g3['vshare']:>7.3f} {g3['win']:>14.3f}"
+                  f" {g3['pw']:>19.3f} {g3['two']:>11.3f} "
+                  f"{'合格' if c else '**不合格**'}")
+    ok["G3''''"] = c3
+    print("    **追補 C の G1''' は同じ 9 条件で 0.000〜0.050 だった。**"
+          "**追補 D はここを改善するための追補ではない**（下がっても目的ではない）。")
+
+    g4 = _within_rate(lambda s: synth_flip(20, 0.7, seed=s), 3000, two_stage=True)
+    c4 = g4["two"] >= 0.80
+    ok["G4''''"] = c4
+    print(f"\n  G4'''' **★本丸・反転が本物**（年内 −0.2・年平均どうしは正で完全結合・s_y 0.70）："
+          f"二段で骨格の率 {g4['two']:.3f}（≥ 0.80 が条件・{g4['n']} 反復）"
+          f"／前段 `p_within<0.05` {g4['pw']:.3f}／|r_within| 中央 {g4['win']:.3f}"
+          f" → {'合格' if c4 else '**不合格**'}")
+    print("    **追補 C の G2''' は同じ作りで 0.985 だった。ここが落ちれば前段が本物を殺している。**")
+
+    print(f"\n  === 門①（追補 D）のまとめ：{ok} ===")
+    if all(ok.values()):
+        print("  **4 本とも合格＝実データを追補 D で数え直してよい**（`--real`）。")
+    else:
+        print("  **落ちた門がある＝実データに進まない**（旗52 の作法）。")
+        print("  **G4'''' が落ちたら追補 D は採らない**——"
+              "「欠陥 #78 は前段では塞げない」と書き、旗146 の骨格 13 を残して GATE にする。")
+    return all(ok.values())
+
+
 # ------------------------------------------------------------- 実データ
 def real(sites, qc_max=None):
     tal = Tally()
@@ -913,6 +1091,49 @@ def real(sites, qc_max=None):
     print("    **H10〜H12 は盲の予測ではない**——旗145 のログで 15 セルの"
           "`r_raw`・`r_within`・`vshare`・`p` が見えていた。**通算に足すときは必ずそう書く。**")
 
+    # -------------------------------------------------- 追補 D（反転の向きの基準を先に問う）
+    print("\n  === 数え直し（**追補 D の規則**・反転ルートに前段 `p_within` を足す）===")
+    print("    **`p < 0.05` の 12 セルには触っていない**（追補 D の宣言）。"
+          "**門①（G1''''〜G4''''）は `--gatesD` のログを見よ。**")
+    cd = tal.countsD()
+    print(f"    セル（Δ を除く）：偶然と区別できない {cd['偶然']}・効く {cd['効く']}"
+          f"・**骨格 {cd['骨格']}**・判定しない {cd['判定しない']}")
+    print(f"    ［比較］追補 C（旗146 の記録・**書き換えない**）："
+          f"偶然 {cc['偶然']}・効く {cc['効く']}・骨格 {cc['骨格']}"
+          f"・判定しない {cc['判定しない']}")
+    pw6 = [r for r in fl6 if np.isfinite(r.get("p_within", np.nan))]
+    pass_w = [r for r in pw6 if r["p_within"] < 0.05]
+    print(f"    反転かつ k ≥ {K_MIN_SWAP} の {len(fl6)} セルについて、"
+          f"**前段（年内の連関が 0 と区別できるか）**：")
+    for r in sorted(pw6, key=lambda r: r["p_within"]):
+        print(f"      {r['arena']:<8}{r['site']:<8}{r['season']:<3}{r['half']:<3}"
+              f" |r_within| {abs(r['within']):.3f}／p_within {r['p_within']:.4f}"
+              f"／p_flip {r['p_flip']:.4f}／寄与率 {share_between(r):.3f}"
+              f" → **{klassD(r)}**")
+    keepD = [r for r in pass_w if r["p_flip"] < 0.05]
+    namesD = "／".join("{} {} {} {}".format(r["arena"], r["site"], r["season"], r["half"])
+                       for r in keepD) or "なし"
+    print(f"    **前段を通ったのは {len(pass_w)}/{len(pw6)} セル**。"
+          f"**反転ルートで骨格に残ったのは {len(keepD)} セル**（{namesD}）。")
+    print(f"    **前段で落ちた {len(pw6) - len(pass_w)} セルは「偶然」ではなく「判定しない」**"
+          "——`p_within ≥ 0.05` は「年内の連関が無い」ではなく"
+          "**「反転の向きの基準が決まらない」**である（追補 D の宣言）。")
+
+    # ★事前予測（追補 D・**半盲**＝旗146 のログで |r_within| と p_flip が見えていた）
+    keepC = {(r["arena"], r["site"], r["season"], r["half"]) for r in keep}
+    surv = [r for r in pw6 if (r["arena"], r["site"], r["season"], r["half"]) in keepC]
+    n14 = sum(1 for r in surv if r["p_within"] < 0.05)
+    h14 = n14 <= 1
+    h15 = len(pass_w) <= 3
+    print(f"\n    ★事前予測（**半盲**・追補 D）：H13（門① 4 本とも合格）"
+          f"＝`--gatesD` のログで採点する（ここでは判定しない）")
+    print(f"    ★事前予測（**半盲**・追補 D）：H14（旗146 の生き残り {len(surv)} セルのうち"
+          f" `p_within<0.05` は 0 か 1：{n14}）＝{'当たり' if h14 else '外れ'}")
+    print(f"    ★事前予測（**半盲**・追補 D）：H15（反転 k ≥ {K_MIN_SWAP} の"
+          f" {len(pw6)} セルで前段通過は 3 以下：{len(pass_w)}）＝{'当たり' if h15 else '外れ'}")
+    print("    **H13〜H15 は盲の予測ではない**——旗146 のログで 2 セルの"
+          "`|r_within|` と `p_flip` が見えていた。**通算に足すときは必ずそう書く。**")
+
     # 事前予測の採点
     na88 = [r for r in tal.rows if r["arena"] == "旗88" and r["site"] in NA3
             and r["season"] in ("春", "秋")]
@@ -994,6 +1215,8 @@ def main():
                     help="符号反転ルートの偽陽性率（探索・合成のみ・穴 #74）")
     ap.add_argument("--gatesC", action="store_true",
                     help="門①（追補 C の G1'''〜G3'''・反転ルートの較正）")
+    ap.add_argument("--gatesD", action="store_true",
+                    help="門①（追補 D の G1''''〜G4''''・反転の向きの基準の較正）")
     ap.add_argument("--sites", nargs="+", default=list(NA3) + list(MN3))
     ap.add_argument("--qc-max", type=int, default=None)
     a = ap.parse_args()
@@ -1006,6 +1229,9 @@ def main():
         return 0
     if a.gatesC:
         gatesC()
+        return 0
+    if a.gatesD:
+        gatesD()
         return 0
     if a.flipsweep:
         flip_sweep()

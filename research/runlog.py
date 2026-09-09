@@ -62,11 +62,25 @@ def tee_stdout(tag: str, quiet: bool = False) -> Path | None:
     """**標準出力と標準エラーを、画面とファイルの両方へ流す。**
 
     戻り値はログのパス（**開けなければ None**）。**開けなくても走行は止めない。**
+
+    **道具の欠陥 #81（旗148 で踏んだ）**：名前は秒までしか無いので、
+    **同じ秒に 2 つ走ると 2 つのプロセスが同じファイルを `"w"` で開き、互いの行を潰し合う。**
+    旗148 では `--gatesB` と `--gatesD` の出力が 1 つのログに混ざり、
+    **どちらのログも証拠として使えなくなった**（判定そのものは無事）。
+    **`"x"`（排他作成）にして、埋まっていたら `_2`・`_3` と後ろに足す。**
     """
     try:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
-        path = LOG_DIR / f"{tag}_{datetime.now():%Y%m%d_%H%M%S}.txt"
-        fh = open(path, "w", encoding="utf-8", buffering=1)   # 行バッファ＝途中で止めても残る
+        stem = f"{tag}_{datetime.now():%Y%m%d_%H%M%S}"
+        fh, path, i = None, None, 1
+        while fh is None:
+            path = LOG_DIR / (f"{stem}.txt" if i == 1 else f"{stem}_{i}.txt")
+            try:                                              # 行バッファ＝途中で止めても残る
+                fh = open(path, "x", encoding="utf-8", buffering=1)
+            except FileExistsError:
+                i += 1
+                if i > 99:                                    # ここまで来たら名前の付け方が壊れている
+                    raise
     except Exception as e:                                    # 書けない環境でも解析は続ける
         print(f"  （**記録を残せない**：{type(e).__name__}: {str(e)[:60]}）")
         return None
