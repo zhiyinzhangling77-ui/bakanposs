@@ -570,7 +570,8 @@ def _shift_index(n_block: int, rng) -> int:
     return int(rng.integers(0, max(n_block // BLOCK_DAYS, 1) + 1)) * BLOCK_DAYS
 
 
-def shift_season_p(sub: pd.DataFrame, nperm: int = NPERM, seed: int = 0) -> dict:
+def shift_season_p(sub: pd.DataFrame, nperm: int = NPERM, seed: int = 0,
+                   keep_null: bool = False) -> dict:
     """**単季の帰無＝θ の年内 7 日ブロック巡回シフト**（追補 D-2 の 2）。
 
     **`gH`・`Rg` の行は動かさない。θ だけを年ごとに 7 日単位で回す。**
@@ -594,6 +595,7 @@ def shift_season_p(sub: pd.DataFrame, nperm: int = NPERM, seed: int = 0) -> dict
                                         [rg])[0])
     rng = np.random.default_rng(seed)
     le_cnt = {"h": 0, "le": 0}
+    null = {"h": [], "le": []}
     n_ok = 0
     for _ in range(nperm):
         rx = rth.copy()
@@ -605,8 +607,14 @@ def shift_season_p(sub: pd.DataFrame, nperm: int = NPERM, seed: int = 0) -> dict
         n_ok += 1
         for k in ("h", "le"):
             le_cnt[k] += int(vals[k] <= obs[k])
-    return {k: {"r": obs[k], "p": (1 + le_cnt[k]) / (n_ok + 1), "nperm": n_ok,
-                "n_shift": int(np.prod(n_shift))} for k in ("h", "le")}
+            if keep_null:
+                null[k].append(vals[k])
+    out = {k: {"r": obs[k], "p": (1 + le_cnt[k]) / (n_ok + 1), "nperm": n_ok,
+               "n_shift": int(np.prod(n_shift))} for k in ("h", "le")}
+    if keep_null:                       # **追補 E：判定に使ったのと同じ帰無をそのまま取り出す**
+        for k in ("h", "le"):
+            out[k]["null"] = np.asarray(null[k], float)
+    return out
 
 
 def perm_result(d: pd.DataFrame, nperm: int = NPERM, seed: int = 0) -> dict | None:
@@ -1018,6 +1026,201 @@ def run_real(nperm: int = NPERM) -> None:
     print("       判定表全体としての誤断定はゼロではない**（`none` で ★ が 1/200 出ている）。")
 
 
+def _theta_acf1(sub: pd.DataFrame) -> tuple[float, int]:
+    """**θ の年内 lag-1 自己相関**（追補 E-4）。**同一年かつ暦日差 1 日の対だけ**を使う。
+
+    **間引き（QC 落ち）で日が飛んでいるので、行の隣どうしは 1 日隣とは限らない。**
+    **暦で 1 日隣の対に限る**——ここを行番号でやると自己相関を過小に見積もる。
+    """
+    s = sub.sort_index()
+    t = s.index.to_numpy("datetime64[D]")
+    v = s["th"].to_numpy(float)
+    ok = ((t[1:] - t[:-1]) == np.timedelta64(1, "D")) & (s.index.year.to_numpy()[1:]
+                                                         == s.index.year.to_numpy()[:-1])
+    if ok.sum() < 3:
+        return float("nan"), int(ok.sum())
+    a, b = v[:-1][ok], v[1:][ok]
+    return float(np.corrcoef(a, b)[0, 1]), int(ok.sum())
+
+
+def _row_span_days(sub: pd.DataFrame) -> float:
+    """**連続 `BLOCK_DAYS` 行が暦で何日ぶんに当たるかの中央値**（追補 E-5・記録のみ）。
+
+    **巡回シフトは「行」を回している。行と暦日がずれる度合いを数字にして残す。**
+    """
+    s = sub.sort_index()
+    spans = []
+    for y in np.unique(s.index.year):
+        t = s.index[s.index.year == y].to_numpy("datetime64[D]")
+        if len(t) <= BLOCK_DAYS:
+            continue
+        d = (t[BLOCK_DAYS:] - t[:-BLOCK_DAYS]) / np.timedelta64(1, "D")
+        spans.append(np.asarray(d, float))
+    return float(np.median(np.concatenate(spans))) if spans else float("nan")
+
+
+def nulldiag(nperm: int = NPERM) -> None:
+    """**追補 E：旗142 の見立て（差は r ではなく帰無分布から来る）を検定する。**
+
+    **旗142 の判定（○弱い証拠）は変えない。これは事後診断である。**
+    **帰無は `shift_season_p` から取り出す**——**新しい実装で作り直さない**
+    （**旗140 の欠陥 #67：同じ量を二つの経路で作ると片方だけ壊れる**）。
+    **種は `perm_result(seed=0)` と同じ**（sp は seed+1・au は seed+2）＝**旗142 の数そのもの。**
+    """
+    print("\n  【追補 E】**旗142 の見立ての検定**——"
+          "**「秋だけ反転」は r の差か、帰無分布の差か**")
+    print("  **旗142 の判定（○弱い証拠）は変えない。事後診断である。**")
+    print("  **読み方は実行前に固定済み**（`PREREGISTRATION_step139_amendment2.md` 追補 E）：")
+    print("    E-1 幅 `s_MAM/s_SON ≥ 1.3`／E-2 位置 `m_MAM − m_SON ≤ −0.05`／")
+    print("    **E-3 交換（主）`p(r̂_MAM | SON 帰無) < 0.05` かつ `p(r̂_SON | MAM 帰無) ≥ 0.05`**／")
+    print("    E-4 機構 `acf1_MAM > acf1_SON`")
+
+    d = load_oran_daily()
+    sp = d[np.isin(d.index.month, SPRING)]
+    au = d[np.isin(d.index.month, AUTUMN)]
+    print(f"\n    在庫：MAM {len(sp)} 日（{sp.index.year.nunique()} 年）"
+          f"／SON {len(au)} 日（{au.index.year.nunique()} 年）"
+          f"——**旗138/140/142 と一致するか目視すること**")
+    res = {"MAM": shift_season_p(sp, nperm, 0 + 1, keep_null=True),
+           "SON": shift_season_p(au, nperm, 0 + 2, keep_null=True)}
+
+    # ---- 自己点検：保存した帰無から p を数え直す（一致しなければ読まない）
+    print("\n    ----- **自己点検：保存した帰無から p を数え直す** -----")
+    ok = True
+    for nm in ("MAM", "SON"):
+        for k in ("h", "le"):
+            r = res[nm][k]
+            again = (1 + int((r["null"] <= r["r"]).sum())) / (len(r["null"]) + 1)
+            same = abs(again - r["p"]) < 1e-12
+            ok &= same
+            print(f"      {nm} {k}: 返り値 p={r['p']:.4f} / 数え直し p={again:.4f}"
+                  f"  {'○' if same else '**×**'}")
+    if not ok:
+        print("      **×＝診断を読まない**")
+        return
+    print("      **○＝保存した帰無は判定に使った帰無と同一。診断を読んでよい。**")
+
+    # ---- 帰無分布の形（主判定 θ→γH）
+    print("\n    ----- **帰無分布の形（θ→γH・主判定）** -----")
+    st = {}
+    for nm in ("MAM", "SON"):
+        n = res[nm]["h"]["null"]
+        st[nm] = {"m": float(np.median(n)), "s": float(np.std(n, ddof=1)),
+                  "q05": float(np.quantile(n, 0.05)), "q95": float(np.quantile(n, 0.95)),
+                  "r": res[nm]["h"]["r"], "p": res[nm]["h"]["p"],
+                  "nshift": res[nm]["h"]["n_shift"], "n": len(n)}
+        v = st[nm]
+        print(f"      {nm}：観測 r̂ {v['r']:+.3f}（片側 p={v['p']:.4f}）"
+              f"／帰無 中央値 {v['m']:+.3f}・SD {v['s']:.3f}"
+              f"・5% {v['q05']:+.3f}・95% {v['q95']:+.3f}"
+              f"／通り数 {v['nshift']}・有効本数 {v['n']}")
+        print(f"        標準化位置 z=(r̂−中央値)/SD = {(v['r'] - v['m']) / v['s']:+.2f}")
+
+    ratio = st["MAM"]["s"] / st["SON"]["s"]
+    dloc = st["MAM"]["m"] - st["SON"]["m"]
+    print(f"\n      **E-1 幅**：s_MAM/s_SON = {ratio:.2f}"
+          f"（要求 ≥ 1.30）→ **{'支持' if ratio >= 1.30 else '不支持'}**")
+    print(f"      **E-2 位置**：m_MAM − m_SON = {dloc:+.3f}"
+          f"（要求 ≤ −0.05）→ **{'支持' if dloc <= -0.05 else '不支持'}**")
+
+    # ---- E-3 交換（主）
+    print("\n    ----- **E-3 交換検定（主・観測 r をもう一方の帰無に当てる）** -----")
+    def _p_in(null, r):
+        return (1 + int((null <= r).sum())) / (len(null) + 1)
+    p_mam_in_son = _p_in(res["SON"]["h"]["null"], st["MAM"]["r"])
+    p_son_in_mam = _p_in(res["MAM"]["h"]["null"], st["SON"]["r"])
+    print(f"      r̂_MAM {st['MAM']['r']:+.3f} を **SON の帰無**に当てる：p={p_mam_in_son:.4f}"
+          f"（自分の帰無では {st['MAM']['p']:.4f}）")
+    print(f"      r̂_SON {st['SON']['r']:+.3f} を **MAM の帰無**に当てる：p={p_son_in_mam:.4f}"
+          f"（自分の帰無では {st['SON']['p']:.4f}）")
+    c1, c2 = p_mam_in_son < ALPHA, p_son_in_mam >= ALPHA
+    print(f"      条件① p(r̂_MAM|SON) < 0.05：{'○' if c1 else '**×**'}"
+          f"／条件② p(r̂_SON|MAM) ≥ 0.05：{'○' if c2 else '**×**'}")
+    e3 = "支持（見立てのとおり）" if (c1 and c2) else (
+        "部分的" if (c1 or c2) else "**外れ**")
+    print(f"      → **E-3：{e3}**")
+
+    # ---- E-4 機構
+    print("\n    ----- **E-4 機構：θ の年内 lag-1 自己相関（暦で 1 日隣の対のみ）** -----")
+    a_sp, n_sp = _theta_acf1(sp)
+    a_au, n_au = _theta_acf1(au)
+    print(f"      MAM acf1 = {a_sp:+.3f}（対 {n_sp}）／SON acf1 = {a_au:+.3f}（対 {n_au}）")
+    print(f"      要求 acf1_MAM > acf1_SON → **{'支持' if a_sp > a_au else '不支持'}**")
+
+    # ---- E-5 記録のみ
+    print("\n    ----- **E-5（記録のみ・合否に使わない）：巡回シフトは「行」を回している** -----")
+    print(f"      連続 {BLOCK_DAYS} 行が暦で何日ぶんか（中央値）："
+          f"MAM {_row_span_days(sp):.1f} 日・SON {_row_span_days(au):.1f} 日")
+    print("      **較正（追補 D-3）は実データと同じ間引きを入れた合成で通しているので、"
+          "合否には影響しない。ずれの大きさを数字で残すだけである。**")
+
+    print("\n    ----- **まとめ（旗142 の判定は変えない）** -----")
+    print(f"      **E-3（主）={e3}**／E-1 幅 {'支持' if ratio >= 1.30 else '不支持'}"
+          f"（{ratio:.2f}）／E-2 位置 {'支持' if dloc <= -0.05 else '不支持'}（{dloc:+.3f}）"
+          f"／E-4 機構 {'支持' if a_sp > a_au else '不支持'}")
+    print(f"      **★事前予測 H2（E-3 が両方成立）："
+          f"{'当たり' if (c1 and c2) else '**外れ**'}**")
+
+
+def nullwhy(nperm: int = NPERM) -> None:
+    """**探索（事前登録外・判定に一切使わない）**——**なぜ帰無の中央値が 0 でなく負なのか。**
+
+    **追補 E で分かったのは「帰無分布は 0 を中心にしていない」ことである**
+    （MAM 中央値 −0.188・SON −0.129）。**その理由の候補を一つだけ潰す**：
+    **巡回シフトは季節内の趨勢を壊さない**——θ も γH も季節内で単調に動いていれば、
+    **どこへ回しても相関は残る。** 素朴な並べ替え（自己相関を壊す）の帰無中央値と比べれば分かる。
+
+    **これは事前登録に無い。だから判定にも旗142 の結論にも使わない。記録として残す。**
+    """
+    print("\n  【探索・事前登録外】**帰無の中央値が 0 でない理由**"
+          "——**判定には使わない**")
+    d = load_oran_daily()
+    for nm, mon in (("MAM", SPRING), ("SON", AUTUMN)):
+        s = d[np.isin(d.index.month, mon)].sort_index()
+        yrs = s.index.year.to_numpy()
+        blocks = [np.where(yrs == y)[0] for y in np.unique(yrs)]
+        rth = _rank(s["th"].to_numpy(float))
+        rg = s["Rg"].to_numpy(float)
+        pre = _prep(s["gH"].to_numpy(float), rg)
+        rng = np.random.default_rng(7)
+        shift_v, naive_v = [], []
+        for _ in range(nperm):
+            rx = rth.copy()
+            for b in blocks:
+                rx[b] = np.roll(rth[b], _shift_index(len(b), rng))
+            shift_v.append(_fast_r(pre, rx))
+            rx = rth.copy()
+            for b in blocks:
+                rx[b] = rng.permutation(rth[b])
+            naive_v.append(_fast_r(pre, rx))
+        rng2 = np.random.default_rng(8)
+        glob_v = [_fast_r(pre, rng2.permutation(rth)) for _ in range(nperm)]
+        glob_v = np.asarray(glob_v, float)
+        # **年の効果を control に足したときの観測 r**（年ダミーを Rg と一緒に除去）
+        yd = [ (yrs == y).astype(float) for y in np.unique(yrs)[:-1] ]
+        r_obs = float(partial_spearman(s["gH"].to_numpy(float), s["th"].to_numpy(float),
+                                       [rg])[0])
+        r_obs_y = float(partial_spearman(s["gH"].to_numpy(float), s["th"].to_numpy(float),
+                                         [rg] + yd)[0])
+        shift_v = np.asarray(shift_v, float)
+        naive_v = np.asarray(naive_v, float)
+        # **季節内の趨勢**（暦日の通し番号との偏 Spearman・Rg を除去）
+        doy = s.index.dayofyear.to_numpy(float)
+        tr_th = float(partial_spearman(s["th"].to_numpy(float), doy, [rg])[0])
+        tr_gh = float(partial_spearman(s["gH"].to_numpy(float), doy, [rg])[0])
+        print(f"    {nm}：巡回シフト帰無 中央値 {np.median(shift_v):+.3f}"
+              f"（SD {np.std(shift_v, ddof=1):.3f}）"
+              f"／素朴な並べ替え帰無 中央値 {np.median(naive_v):+.3f}"
+              f"（SD {np.std(naive_v, ddof=1):.3f}）")
+        print(f"      季節内の趨勢（暦日との偏 Spearman｜Rg）：θ {tr_th:+.3f}・γH {tr_gh:+.3f}"
+              f"／積 {tr_th * tr_gh:+.3f}")
+        print(f"      **年をまたぐ並べ替え（年の対比も壊す）中央値 {np.median(glob_v):+.3f}"
+              f"（SD {np.std(glob_v, ddof=1):.3f}）**")
+        print(f"      **観測 r：年を除去しない {r_obs:+.3f} → 年ダミーも除去 {r_obs_y:+.3f}**")
+    print("    **読み方**：**年内でしか振らない帰無（巡回シフト・素朴）は年の対比を保存する。**")
+    print("    **年をまたいで振ると中央値が 0 に戻るなら、ずれは年の対比（3 点）から来ている。**")
+
+
 # ------------------------------------------------------------------ main
 def main() -> int:
     ap = argparse.ArgumentParser(description="旗139：春秋の非対称は植生の季節進行が作っているのか")
@@ -1031,6 +1234,10 @@ def main() -> int:
                     help="追補 D：高速経路が partial_spearman と一致するかの自己点検")
     ap.add_argument("--permcal", action="store_true",
                     help="追補 D-3：置換検定を合成 3 種で較正する（**実データより先**）")
+    ap.add_argument("--nulldiag", action="store_true",
+                    help="追補 E：季節ごとの帰無分布の形を測る（旗142 の見立ての検定・判定は変えない）")
+    ap.add_argument("--nullwhy", action="store_true",
+                    help="探索（事前登録外）：帰無の中央値が 0 でない理由を潰す。判定に使わない")
     ap.add_argument("--nperm", type=int, default=NPERM, help="置換の本数（追補 D-2 は 2000）")
     ap.add_argument("--reps", type=int, default=200)
     ap.add_argument("--boot", type=int, default=600)
@@ -1056,6 +1263,12 @@ def main() -> int:
         return 0
     if a.real:
         run_real(a.nperm)
+        return 0
+    if a.nulldiag:
+        nulldiag(a.nperm)
+        return 0
+    if a.nullwhy:
+        nullwhy(a.nperm)
         return 0
 
     want = {"phase_driven": "**Δ>0・春に反転 → ★植生起因と整合**",
