@@ -1221,6 +1221,229 @@ def nullwhy(nperm: int = NPERM) -> None:
     print("    **年をまたいで振ると中央値が 0 に戻るなら、ずれは年の対比（3 点）から来ている。**")
 
 
+# ------------------------------------------------------------------ 追補 F（旗150）
+# **実データ側の 4 つの数は旗143 で印字済み。ここでは測り直さない**（`--nulldiag` の出力そのもの）。
+REAL_NULL = {"m_MAM": -0.188, "m_SON": -0.129, "g_MAM": -0.004, "g_SON": 0.000}
+REAL_DM = REAL_NULL["m_MAM"] - REAL_NULL["m_SON"]      # = −0.059（旗143 の E-2）
+FAM_ALPHA = 0.10                                       # **族全体の誤り率**（追補 F・穴 #83）
+FAM_N = 3                                              # **族＝F-1・F-2a・F-2b の 3 件**
+
+
+def _global_null_h(sub: pd.DataFrame, nperm: int, seed: int) -> np.ndarray:
+    """**年をまたぐ並べ替えの帰無**（θ→γH のみ・F-3 専用）。
+
+    **`nullwhy` の `glob_v` と同じ作り方である**——**年の境を無視して θ の順位を全体で振る。**
+    **F-1/F-2 の巡回シフト帰無は `shift_season_p` をそのまま呼ぶので、二重実装はここだけ。**
+    **この経路は判定表にも p にも使わない**（中央値が 0 に戻るかを見るだけ）。
+    """
+    s = sub.sort_index()
+    rth = _rank(s["th"].to_numpy(float))
+    pre = _prep(s["gH"].to_numpy(float), s["Rg"].to_numpy(float))
+    rng = np.random.default_rng(seed)
+    v = [_fast_r(pre, rng.permutation(rth)) for _ in range(nperm)]
+    return np.asarray([x for x in v if np.isfinite(x)], float)
+
+
+def _year_demean(sub: pd.DataFrame) -> pd.DataFrame:
+    """**門① G5：各年で θ と γH から年平均を引く**（＝年の対比を消す）。"""
+    s = sub.sort_index().copy()
+    for c in ("th", "gH"):
+        s[c] = s[c] - s.groupby(s.index.year)[c].transform("mean")
+    return s
+
+
+def _year_offset(sub: pd.DataFrame, opposite: bool) -> pd.DataFrame:
+    """**門① G6：年ごとのオフセット `δ_y ∈ {−1,0,+1} × 0.5 SD` を足して年の対比を増幅する。**
+
+    **`opposite=True`（G6a）は θ に `+δ`・γH に `−δ`**＝**対比を負に増幅**。
+    **`opposite=False`（G6b）は両方に `+δ`**＝**対比を正に増幅**。
+    **SD はその季節の中で測る**（診断が季節ごとだから）。**δ は年の並び順で決まる決定論的な量。**
+    """
+    s = sub.sort_index().copy()
+    yrs = np.unique(s.index.year.to_numpy())
+    lev = {y: d for y, d in zip(yrs, np.linspace(-1.0, 1.0, len(yrs)))}
+    k = s.index.year.to_numpy()
+    dth = np.array([lev[y] for y in k]) * 0.5 * float(s["th"].std())
+    dgh = np.array([lev[y] for y in k]) * 0.5 * float(s["gH"].std())
+    s["th"] = s["th"] + dth
+    s["gH"] = s["gH"] + (-dgh if opposite else dgh)
+    return s
+
+
+def _mc(a: np.ndarray) -> tuple[float, float]:
+    """**中央値とそのモンテカルロ標準誤差 `1.253·SD/√R`**（設計の穴 #82 への対応）。"""
+    a = np.asarray(a, float)
+    return float(np.median(a)), float(1.2533 * np.std(a, ddof=1) / np.sqrt(len(a)))
+
+
+def _qci(a: np.ndarray, q: float, nboot: int = 1000, seed: int = 99) -> tuple[float, float]:
+    """**分位点と、その反復ブートストラップ標準誤差**（穴 #82：端点にも誤差を付ける）。"""
+    a = np.asarray(a, float)
+    rng = np.random.default_rng(seed)
+    bs = [np.quantile(rng.choice(a, size=len(a), replace=True), q) for _ in range(nboot)]
+    return float(np.quantile(a, q)), float(np.std(bs, ddof=1))
+
+
+def _inside(x: float, lo: float, hi: float, se_lo: float, se_hi: float) -> tuple[bool, str]:
+    """**区間包含の判定と、端点から 2 標準誤差以内かの注記**（追補 F の印字の要求）。"""
+    ok = bool(lo <= x <= hi)
+    near = min(abs(x - lo) / (se_lo + 1e-12), abs(x - hi) / (se_hi + 1e-12))
+    return ok, ("**端点から 2 MCSE 以内＝この判定は反復数に依存する**" if near < 2 else "")
+
+
+def _null_medians(kind_seeds, nperm: int, mode: str, prep=None):
+    """**合成 `none` を反復し、季節ごとの帰無中央値（θ→γH）を集める。**
+
+    `mode="shift"` は **`shift_season_p` をそのまま呼ぶ**——**二重実装をしない**
+    （旗140 の欠陥 #67：同じ量を二つの経路で作ると片方だけ壊れる）。
+    `mode="global"` は F-3 専用の `_global_null_h`。
+    `prep` は門①用の前処理（`None` なら素通し）。
+    """
+    out = {"MAM": [], "SON": []}
+    for i in kind_seeds:
+        d = synth("none", years=3, seed=1000 + i, thin=True)
+        for nm, mon, off in (("MAM", SPRING, 1), ("SON", AUTUMN, 2)):
+            sub = d[np.isin(d.index.month, mon)]
+            if prep is not None:
+                sub = prep(sub)
+            if mode == "shift":
+                null = shift_season_p(sub, nperm, 1000 + i + off, keep_null=True)["h"]["null"]
+            else:
+                null = _global_null_h(sub, nperm, 1000 + i + off)
+            if len(null):
+                out[nm].append(float(np.median(null)))
+    return {k: np.asarray(v, float) for k, v in out.items()}
+
+
+def nullsynth(reps: int, reps_ctrl: int, nperm: int) -> None:
+    """**追補 F（旗150）：較正合成 `none` は、実データの「帰無中央値のずれ」を再現していたか。**
+
+    **旗143 の宿題②。事後診断であり、旗141 の較正の合否も旗142 の判定も一つも書き換えない。**
+    **判定規則・門①・族の定義・予測は `PREREGISTRATION_step139_amendment2.md` 追補 F に
+    走らせる前から書いてある。**
+    """
+    per = FAM_ALPHA / FAM_N
+    qlo, qhi = per / 2, 1 - per / 2
+    print("\n  【追補 F（旗150）】**較正合成 `none` は実データの帰無中央値のずれを再現していたか**")
+    print("  **事後診断である。旗141 の較正の合否も旗142 の判定も予測 H1/H2 の勝敗も変えない。**")
+    print("  **判定規則は実行前に固定済み**（`PREREGISTRATION_step139_amendment2.md` 追補 F）：")
+    print(f"    **族＝F-1・F-2a・F-2b の 3 件／族の誤り率 {FAM_ALPHA:.2f} を Bonferroni で"
+          f" 1 件 {per:.4f}／中央 {100*(1-per):.2f}% 区間**（分位 {qlo:.5f}–{qhi:.5f}）")
+    print("    **F-3 と門① G5/G6 は裾確率で判定しないので補正の対象外（固定の大きさの要求）**")
+    print(f"  **実データ側の数は旗143 の `--nulldiag` の印字をそのまま使う（測り直さない）**："
+          f" m_MAM {REAL_NULL['m_MAM']:+.3f}／m_SON {REAL_NULL['m_SON']:+.3f}"
+          f"／**Δm {REAL_DM:+.3f}**／年をまたぐ並べ替え MAM {REAL_NULL['g_MAM']:+.3f}"
+          f"／SON {REAL_NULL['g_SON']:+.3f}")
+
+    # ---------------- 門①（対照）——**先に走らせる。落ちたら F を読まない**
+    print(f"\n    ===== **門①（対照）**——**F-1〜F-3 より先・{reps_ctrl} 反復 × {nperm} 置換** =====")
+    ctrl_seeds = range(reps_ctrl)
+    base = _null_medians(ctrl_seeds, nperm, "shift")
+    g5 = _null_medians(ctrl_seeds, nperm, "shift", prep=_year_demean)
+    g6a = _null_medians(ctrl_seeds, nperm, "shift", prep=lambda s: _year_offset(s, True))
+    g6b = _null_medians(ctrl_seeds, nperm, "shift", prep=lambda s: _year_offset(s, False))
+
+    bm = {k: _mc(v) for k, v in base.items()}
+    print(f"    ベースライン（素の合成 `none`・{reps_ctrl} 反復）：" +
+          " ／ ".join(f"{k} 中央値 {bm[k][0]:+.4f}（MCSE {bm[k][1]:.4f}）" for k in ("MAM", "SON")))
+
+    ok_g5 = True
+    print("\n    ----- **G5（陰性対照）：年平均を各年で引く＝年の対比を消す** -----")
+    for k in ("MAM", "SON"):
+        m, se = _mc(g5[k])
+        c = abs(m) <= 0.03
+        ok_g5 &= c
+        print(f"      {k}：帰無中央値 {m:+.4f}（MCSE {se:.4f}）"
+              f"  要求 |m| ≤ 0.030 → {'○' if c else '**×**'}")
+    print(f"      → **G5：{'合格' if ok_g5 else '**不合格**'}**"
+          + ("" if ok_g5 else "　**＝ずれは年の対比以外からも出る。F-3 の機構の読みは成り立たない**"))
+
+    ok_g6 = True
+    print("\n    ----- **G6（陽性対照）：年オフセット δ_y ∈ {−1,0,+1}×0.5SD で年の対比を増幅** -----")
+    for tag, got, want_sign in (("G6a 逆符号（負に増幅）", g6a, -1),
+                                ("G6b 同符号（正に増幅）", g6b, +1)):
+        for k in ("MAM", "SON"):
+            m, se = _mc(got[k])
+            shift = m - bm[k][0]
+            c = (shift <= -0.05) if want_sign < 0 else (shift >= 0.05)
+            ok_g6 &= c
+            print(f"      {tag} {k}：中央値 {m:+.4f}（MCSE {se:.4f}）"
+                  f"／ベースラインからの動き {shift:+.4f}"
+                  f"  要求 {'≤ −0.050' if want_sign < 0 else '≥ +0.050'} → {'○' if c else '**×**'}")
+    print(f"      → **G6：{'合格' if ok_g6 else '**不合格**'}**"
+          + ("" if ok_g6 else "　**＝診断に感度が無い。F-1・F-2 の「入る／外れる」は読めない**"))
+
+    if not (ok_g5 and ok_g6):
+        print("\n    **門①が落ちた。事前登録の指示どおり、F-1〜F-3 の数は印字するが判定として読まない。**")
+
+    # ---------------- F-1・F-2（**R=1000・裾の分位が要る**）
+    print(f"\n    ===== **F-1・F-2**——**{reps} 反復 × {nperm} 置換**"
+          "（**旗141 と同じ合成・同じ種**） =====")
+    main_seeds = range(reps)
+    med = _null_medians(main_seeds, nperm, "shift")
+    dm = med["MAM"] - med["SON"]
+
+    rows = [("F-1（主）", "Δm = m_MAM − m_SON", dm, REAL_DM),
+            ("F-2a", "m_MAM", med["MAM"], REAL_NULL["m_MAM"]),
+            ("F-2b", "m_SON", med["SON"], REAL_NULL["m_SON"])]
+    res_f = {}
+    for tag, name, arr, real in rows:
+        lo, se_lo = _qci(arr, qlo)
+        hi, se_hi = _qci(arr, qhi)
+        m, se_m = _mc(arr)
+        inside, note = _inside(real, lo, hi, se_lo, se_hi)
+        res_f[tag] = inside
+        print(f"\n      **{tag}：{name}**")
+        print(f"        合成 `none` の分布（R={len(arr)}）：中央値 {m:+.4f}（MCSE {se_m:.4f}）"
+              f"・SD {np.std(arr, ddof=1):.4f}")
+        print(f"        中央 {100*(1-per):.2f}% 区間：[{lo:+.4f}, {hi:+.4f}]"
+              f"（端点の MCSE {se_lo:.4f} / {se_hi:.4f}）")
+        print(f"        **実データ {real:+.3f} は {'区間に入る＝再現している' if inside else '**区間の外＝再現していない**'}**"
+              + (f"　{note}" if note else ""))
+
+    f2 = ("再現" if (res_f["F-2a"] and res_f["F-2b"]) else
+          ("部分的" if (res_f["F-2a"] or res_f["F-2b"]) else "再現していない"))
+    print(f"\n      **F-2 の総合：{f2}**")
+
+    # ---------------- F-3（機構）
+    print(f"\n    ===== **F-3（機構）：年をまたぐ並べ替えなら中央値は 0 に戻るか**"
+          f"——**{reps_ctrl} 反復 × {nperm} 置換** =====")
+    glob = _null_medians(ctrl_seeds, nperm, "global")
+    ok_f3 = True
+    for k in ("MAM", "SON"):
+        gm, gse = _mc(glob[k])
+        c1 = abs(gm) <= 0.03
+        c2 = (abs(bm[k][0]) - abs(gm)) >= 0.05
+        ok_f3 &= (c1 and c2)
+        print(f"      {k}：年内巡回シフト {bm[k][0]:+.4f}（MCSE {bm[k][1]:.4f}）"
+              f" → **年をまたぐ並べ替え {gm:+.4f}（MCSE {gse:.4f}）**")
+        print(f"        要求① |g| ≤ 0.030 → {'○' if c1 else '**×**'}"
+              f"／要求② |m|−|g| ≥ 0.050（得た値 {abs(bm[k][0]) - abs(gm):+.4f}）"
+              f" → {'○' if c2 else '**×**'}")
+    print(f"      → **F-3：{'支持' if ok_f3 else '**不支持**'}**"
+          f"（実データは MAM {REAL_NULL['g_MAM']:+.3f}・SON {REAL_NULL['g_SON']:+.3f} で 0 に戻った）")
+
+    # ---------------- まとめ（**読み方も実行前に固定済み**）
+    print("\n    ===== **まとめ（読み方は追補 F に実行前から書いてある）** =====")
+    print(f"      門① G5 {'合格' if ok_g5 else '**不合格**'}／G6 {'合格' if ok_g6 else '**不合格**'}"
+          f"／**F-1 {'入る' if res_f['F-1（主）'] else '外れる'}**"
+          f"／F-2 {f2}／F-3 {'支持' if ok_f3 else '不支持'}")
+    if res_f["F-1（主）"] and f2 == "再現":
+        print("      → **較正合成 `none` は実データの帰無中央値のずれを再現していた。**"
+              "**旗141 の 0.030 はこの構造込みの値である。留保は足さない。**")
+    else:
+        print("      → **再現していない。**"
+              "**旗141 の 0.030 は「年の対比が実データほど強くない世界」で測った偽陽性率である、"
+              "という留保を `LIMITATIONS.md` に足す。**")
+        print("      **旗141 の合否も旗142 の判定も書き換えない**"
+              "（**結果を見てから規則を差し替えるのは禁止事項の 2 番**）。")
+    if not ok_f3:
+        print("      **F-3 が不支持なので、合成のずれが実データと同じ機構から来ているとは書かない。**")
+    print(f"\n      **★事前予測 H16（F-1 は外れる）："
+          f"{'**当たり**' if not res_f['F-1（主）'] else '**外れ**'}**")
+    print(f"      **★事前予測 H17（F-3 は支持）：{'**当たり**' if ok_f3 else '**外れ**'}**")
+
+
 # ------------------------------------------------------------------ main
 def main() -> int:
     ap = argparse.ArgumentParser(description="旗139：春秋の非対称は植生の季節進行が作っているのか")
@@ -1238,6 +1461,10 @@ def main() -> int:
                     help="追補 E：季節ごとの帰無分布の形を測る（旗142 の見立ての検定・判定は変えない）")
     ap.add_argument("--nullwhy", action="store_true",
                     help="探索（事前登録外）：帰無の中央値が 0 でない理由を潰す。判定に使わない")
+    ap.add_argument("--nullsynth", action="store_true",
+                    help="追補 F：較正合成 `none` が実データの帰無中央値のずれを再現するか（旗143 の宿題②）")
+    ap.add_argument("--ns-reps", type=int, default=1000, help="追補 F の F-1/F-2 の反復数")
+    ap.add_argument("--ns-ctrl-reps", type=int, default=200, help="追補 F の門①・F-3 の反復数")
     ap.add_argument("--nperm", type=int, default=NPERM, help="置換の本数（追補 D-2 は 2000）")
     ap.add_argument("--reps", type=int, default=200)
     ap.add_argument("--boot", type=int, default=600)
@@ -1269,6 +1496,9 @@ def main() -> int:
         return 0
     if a.nullwhy:
         nullwhy(a.nperm)
+        return 0
+    if a.nullsynth:
+        nullsynth(a.ns_reps, a.ns_ctrl_reps, a.nperm)
         return 0
 
     want = {"phase_driven": "**Δ>0・春に反転 → ★植生起因と整合**",
