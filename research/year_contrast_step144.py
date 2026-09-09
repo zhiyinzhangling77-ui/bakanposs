@@ -167,10 +167,49 @@ def year_swap(y, x, rg, yr, seed=0, max_perm=MAX_PERM):
     return out
 
 
-def r_set(y, x, rg, yr, swap=False, seed=0):
+# --------------------------------------- 追補 D：`within_shuffle`（年内成分の帰無）
+WITHIN_PERM = 1000     # 日の並べ替えは年の並べ替えより桁違いに重い（追補 D に理由を書いた）
+
+
+def within_shuffle(y, x, rg, yr, seed=0, nperm=WITHIN_PERM):
+    """**追補 D**：`yw`（γ の年内成分）を**年の中だけで**並べ替えて `r_within` の帰無を作る。
+
+    **`yb` は動かないので `r_between` も `vshare` も不変。**
+    **分母 `sy = sqrt(mean(yb²) + mean(yw²))` も不変**（並べ替えは二乗平均を変えない）
+    ——**動くのは分子 `mean(xw·yw)` だけ**＝壊すのは「同じ日の θ と γ の結びつき」だけである。
+
+    **年内だけで混ぜる作り方**：年の通し番号（0,1,2,…）に `[0,1)` の一様乱数を足して
+    `argsort` する。**乱数は 1 未満なので年の境を跨げない**——年ごとに分けて回すより速い。
+
+    返すのは**両側 `p_within`**（年内の連関は向きを問わない
+    ——反転の向きの基準が「0 でない」ことだけを問う）。
+    """
+    p = _parts(y, x, rg, yr)
+    if p is None:
+        return None
+    xw, yw = p["xw"], p["yw"]
+    denom = p["sx"] * p["sy"]
+    obs = float(np.mean(xw * yw) / denom)
+    n = len(yw)
+    gi = np.unique(p["g"], return_inverse=True)[1].astype(float)
+    rng = np.random.default_rng(seed)
+    block = max(1, min(nperm, 2_000_000 // max(n, 1)))
+    cnt, done = 0, 0
+    while done < nperm:
+        m = min(block, nperm - done)
+        order = np.argsort(gi[None, :] + rng.random((m, n)), axis=1, kind="stable")
+        rw = (xw[None, :] * yw[order]).mean(axis=1) / denom
+        cnt += int(np.sum(np.abs(rw) >= abs(obs) - 1e-12))
+        done += m
+    return {"r_within_obs": obs, "p_within": float((1.0 + cnt) / (1.0 + nperm)),
+            "nperm_w": int(nperm)}
+
+
+def r_set(y, x, rg, yr, swap=False, seed=0, within=False):
     """`r_raw`・`r_yr`・分解を一度に返す。**判定はしない**（測るだけ）。
 
     `swap=True` のとき**追補 B の `year_swap` の `p`** も足す（実データ側で使う）。
+    `within=True` のとき**追補 D の `within_shuffle` の `p_within`** も足す。
     """
     y = np.asarray(y, float); x = np.asarray(x, float)
     rg = np.asarray(rg, float); yr = np.asarray(yr)
@@ -182,13 +221,17 @@ def r_set(y, x, rg, yr, swap=False, seed=0):
            "between": dec[0] if dec else np.nan,
            "within": dec[1] if dec else np.nan,
            "vshare": dec[2] if dec else np.nan,
-           "p": np.nan, "p_flip": np.nan, "t_obs": np.nan,
+           "p": np.nan, "p_flip": np.nan, "t_obs": np.nan, "p_within": np.nan,
            "k": int(np.unique(np.asarray(yr)).size), "mode": "未実施"}
     if swap:
         sw = year_swap(y, x, rg, yr, seed=seed)
         if sw is not None:
             res.update(p=sw["p"], k=sw["k"], mode=sw["mode"],
                        p_flip=sw.get("p_flip", np.nan), t_obs=sw.get("t_obs", np.nan))
+    if within:
+        wi = within_shuffle(y, x, rg, yr, seed=seed)
+        if wi is not None:
+            res.update(p_within=wi["p_within"])
     return res
 
 
