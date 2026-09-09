@@ -2543,3 +2543,12 @@ H1 の「外れ」も数え直さない。**
 `research/PREREGISTRATION_step144_amendment4.md`（中断周のものを初コミット）・
 `research/logs/step144_20260909_222016.txt`・`222325.txt`・`222328.txt`・`222347.txt`・`222427.txt`・
 `research/FLAGS_LOG.md`（旗148）・`research/SESSION_STATE.md`（本節）。
+
+> **【旗148 の追記・2026-09-09】この周は push できなかった（GATE-29）。**
+> **旗148 のコミット `805ce79` はローカルにあるが、リモートの先端は `47d1aa7` のまま。**
+> **原因は資格情報の不足ではなく、`credential.helper store` の保存先
+> `~/.git-credentials` がこの周のサンドボックスの許可ディレクトリの外にあること**
+> （許可は `/home/shion-nagamine/bakanposs` と `/mnt/hdd` の 2 つ）。
+> **次の周は、最初に `git log --oneline -1 origin/<branch>` を見て、
+> ローカルより遅れていたら push を試すこと**（環境によっては通る）。
+> **作業は失われていない。** 解き方 3 案は `HUMAN_GATES.md` の GATE-29 に書いた（推奨は 3）。
