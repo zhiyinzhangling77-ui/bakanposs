@@ -21,7 +21,9 @@
 from __future__ import annotations
 
 import argparse
+import itertools
 import sys
+from math import factorial
 from pathlib import Path
 
 import numpy as np
@@ -51,11 +53,11 @@ def _dummies(yr):
     return [(yr == y).astype(float) for y in u[:-1]]
 
 
-def decompose(y, x, rg, yr):
-    """`r_raw = r_between + r_within` を**厳密に**成り立たせて分解する。
+def _parts(y, x, rg, yr):
+    """Rg の順位を除いた残差を**年平均成分**と**年内成分**に分けた素材を返す。
 
-    Rg の順位を除去した残差 `xr`・`yr_` を、**年平均成分**と**年内成分**に分ける。
-    交差項は年内成分の年内平均が 0 なので**厳密に消える**——だから和は正確に一致する。
+    **`decompose`（追補 A）と `year_swap`（追補 B）の共通の土台**である。
+    ここを一箇所にしておかないと、置換の帰無と分解が別々の残差を見るという事故が起きる。
     """
     y = np.asarray(y, float); x = np.asarray(x, float); rg = np.asarray(rg, float)
     ok = np.isfinite(y) & np.isfinite(x) & np.isfinite(rg)
@@ -74,23 +76,121 @@ def decompose(y, x, rg, yr):
     sx, sy = xr.std(), yr_.std()
     if sx == 0 or sy == 0:
         return None
-    return (float(np.mean(xb * yb) / (sx * sy)),      # r_between
-            float(np.mean(xw * yw) / (sx * sy)),      # r_within
-            float(np.mean(xb ** 2) / (sx ** 2)))      # θ 側の年成分の分散比
+    return dict(xr=xr, yr=yr_, xb=xb, yb=yb, xw=xw, yw=yw,
+                sx=float(sx), sy=float(sy), g=g)
 
 
-def r_set(y, x, rg, yr):
-    """`r_raw`・`r_yr`・分解を一度に返す。**判定はしない**（測るだけ）。"""
+def decompose(y, x, rg, yr):
+    """`r_raw = r_between + r_within` を**厳密に**成り立たせて分解する。
+
+    Rg の順位を除去した残差 `xr`・`yr_` を、**年平均成分**と**年内成分**に分ける。
+    交差項は年内成分の年内平均が 0 なので**厳密に消える**——だから和は正確に一致する。
+    """
+    p = _parts(y, x, rg, yr)
+    if p is None:
+        return None
+    sx, sy = p["sx"], p["sy"]
+    return (float(np.mean(p["xb"] * p["yb"]) / (sx * sy)),   # r_between
+            float(np.mean(p["xw"] * p["yw"]) / (sx * sy)),   # r_within
+            float(np.mean(p["xb"] ** 2) / (sx ** 2)))        # θ 側の年成分の分散比
+
+
+# ------------------------------------------- 追補 B：`year_swap` の置換検定
+MAX_PERM = 5000        # 通り数がこれを超えたら無作為抽出（事前登録で固定）
+K_MIN_SWAP = 6         # `p` の下限が 1/k! なので、これ未満は「判定しない」
+
+
+def year_swap(y, x, rg, yr, seed=0, max_perm=MAX_PERM):
+    """**`yb`（γ の年平均成分）の年ラベルだけを並べ替えて、`r_between` の帰無を作る。**
+
+    `xb` は動かさず、`yw`（年内成分）は日にくっつけたまま動かさない
+    ——**年をまたぐ結びつきだけを壊し、`vshare` も年内の構造も保存する帰無**である（追補 B）。
+
+    **速さの要点**：`xb`・`yb` は年の中で定数なので、`r_between` は**年ごとの値と日数の重み**
+    だけで書ける（`Σ w_i xb_i yb_i`）。**日の配列を触る必要がない**ので 5000 通りが一瞬で回る。
+
+    **分母も並べ替えのたびに作り直す**（並べ替えた系列の SD で割る）
+    ——年ごとの日数が不揃いのとき、`Σ w yb²` は並べ替えで変わるからである。
+    """
+    p = _parts(y, x, rg, yr)
+    if p is None:
+        return None
+    g = p["g"]; u = np.unique(g); k = len(u)
+    xbv = np.array([p["xb"][g == uu][0] for uu in u], float)
+    ybv = np.array([p["yb"][g == uu][0] for uu in u], float)
+    w = np.array([(g == uu).sum() for uu in u], float)
+    w /= w.sum()
+    mw2 = float(np.mean(p["yw"] ** 2))
+    sx = p["sx"]
+
+    def rbet(perm):
+        """`perm`（m×k の並べ替え）ごとに `r_between` を返す。"""
+        YB = ybv[perm]
+        num = (w * xbv * YB).sum(axis=1)
+        sy = np.sqrt((w * YB ** 2).sum(axis=1) + mw2)
+        return num / (sx * sy)
+
+    ident = np.arange(k)
+    obs = float(rbet(ident[None, :])[0])
+    out = {"k": int(k), "r_between_swap": obs,
+           "gap": abs(obs - float(np.mean(p["xb"] * p["yb"]) / (sx * p["sy"])))}
+    if k < K_MIN_SWAP:
+        out.update(p=np.nan, nperm=0, mode=f"判定しない（k={k} < {K_MIN_SWAP}）")
+        return out
+    if factorial(k) <= max_perm:
+        perms = np.array(list(itertools.permutations(range(k))))
+        perms = perms[np.any(perms != ident, axis=1)]         # 恒等を除く
+        mode = f"全数 {len(perms)}"
+    else:
+        rng = np.random.default_rng(seed)
+        perms = np.array([rng.permutation(k) for _ in range(max_perm)])
+        perms = perms[np.any(perms != ident, axis=1)]
+        mode = f"無作為 {len(perms)}"
+    rs = rbet(perms)
+    pv = (1.0 + np.sum(np.abs(rs) >= abs(obs) - 1e-12)) / (1.0 + len(rs))
+    out.update(p=float(pv), nperm=int(len(rs)), mode=mode)
+    return out
+
+
+def r_set(y, x, rg, yr, swap=False, seed=0):
+    """`r_raw`・`r_yr`・分解を一度に返す。**判定はしない**（測るだけ）。
+
+    `swap=True` のとき**追補 B の `year_swap` の `p`** も足す（実データ側で使う）。
+    """
     y = np.asarray(y, float); x = np.asarray(x, float)
     rg = np.asarray(rg, float); yr = np.asarray(yr)
     r_raw, n = partial_spearman(y, x, [rg])
     r_yr, _ = partial_spearman(y, x, [rg] + _dummies(yr))
     dec = decompose(y, x, rg, yr)
-    return {"raw": float(r_raw), "yr": float(r_yr), "n": int(n),
-            "d": float(r_yr - r_raw) if np.isfinite(r_raw) and np.isfinite(r_yr) else np.nan,
-            "between": dec[0] if dec else np.nan,
-            "within": dec[1] if dec else np.nan,
-            "vshare": dec[2] if dec else np.nan}
+    res = {"raw": float(r_raw), "yr": float(r_yr), "n": int(n),
+           "d": float(r_yr - r_raw) if np.isfinite(r_raw) and np.isfinite(r_yr) else np.nan,
+           "between": dec[0] if dec else np.nan,
+           "within": dec[1] if dec else np.nan,
+           "vshare": dec[2] if dec else np.nan,
+           "p": np.nan, "k": int(np.unique(np.asarray(yr)).size), "mode": "未実施"}
+    if swap:
+        sw = year_swap(y, x, rg, yr, seed=seed)
+        if sw is not None:
+            res.update(p=sw["p"], k=sw["k"], mode=sw["mode"])
+    return res
+
+
+def klassB(res, flip):
+    """**追補 B の判定**（`year_swap` の `p` とセルごとの帰無に当てる）。
+
+      ・`p ≥ 0.05`                          → **偶然と区別できない**（年の対比を根拠に何も言わない）
+      ・`p < 0.05` かつ `|r_between| < 0.15` → **効く**（併記が要る）
+      ・`p < 0.05` かつ `≥ 0.15`、または符号反転 → **骨格**
+      ・`k < 6` 年（`p` の下限が 1/k!）      → **判定しない**
+    """
+    v, p = res.get("between", np.nan), res.get("p", np.nan)
+    if flip and np.isfinite(v):
+        return "骨格"
+    if not np.isfinite(v) or not np.isfinite(p):
+        return "判定しない"
+    if p >= 0.05:
+        return "偶然"
+    return "効く" if abs(v) < BIG else "骨格"
 
 
 def klass(v):
@@ -123,6 +223,15 @@ class Tally:
             c[k] += 1
         return c
 
+    def countsB(self):
+        """**追補 B の集計**。Δ の行は帰無を定義していないので数えない（下の注記を見よ）。"""
+        c = {"偶然": 0, "効く": 0, "骨格": 0, "判定しない": 0}
+        for r in self.rows:
+            if r["season"] == "Δ":
+                continue
+            c[klassB(r, r["flip"])] += 1
+        return c
+
 
 def measure_pair(tal, arena, site, season, sub):
     """1 つの部分集合（サイト×季節）について LE と H の両方を測って印字する。"""
@@ -134,19 +243,24 @@ def measure_pair(tal, arena, site, season, sub):
     print(f"      {season:<4} {n:>5} 日／{ny:>2} 年（年あたり {n / ny:.0f} 日）")
     for k, col, nm in (("le", "gLE", "θ→γLE|Rg"), ("h", "gH", "θ→γH|Rg")):
         res = r_set(sub[col].to_numpy(), sub["th"].to_numpy(),
-                    sub["Rg"].to_numpy(), sub.index.year.to_numpy())
+                    sub["Rg"].to_numpy(), sub.index.year.to_numpy(),
+                    # **決め打ちの種**（`hash()` は走行ごとに変わるので使わない＝再現できなくなる）
+                    swap=True, seed=sum(ord(c) for c in f"{site}{season}{k}") % 10_000)
         # **追補 A**：符号反転の判定は `r_within` と `r_raw` の間で見る（`r_yr` ではない）。
         flip = (np.isfinite(res["raw"]) and np.isfinite(res["within"])
                 and np.sign(res["raw"]) != np.sign(res["within"]))
         tal.add(arena, site, season, k, res, flip)
         out[k] = res
-        mark = klass(res["between"])
-        if flip and mark != "?":
-            mark = "骨格(符号反転)"
+        mark = klassB(res, flip) + ("(符号反転)" if flip else "")
+        pv = "—" if not np.isfinite(res["p"]) else f"{res['p']:.4f}"
         print(f"        {nm:<10} raw {res['raw']:+.3f} → 年除去 {res['yr']:+.3f}"
               f"  **d {res['d']:+.3f}**  [{mark}]"
-              f"   分解 between {res['between']:+.3f} + within {res['within']:+.3f}"
-              f"（θ 年成分の分散比 {res['vshare']:.2f}）")
+              f"   分解 between {res['between']:+.3f} + within {res['within']:+.3f}")
+        # **追補 B：`|r_between|`・`vshare`・`p` を必ず並べて印字する**（片方だけ見て読まないため）
+        print(f"          └ |r_between| {abs(res['between']):.3f}"
+              f"／vshare {res['vshare']:.3f}／p {pv}"
+              f"（{res['mode']}・k={res['k']} 年）"
+              f"   〔追補 A の固定境なら {klass(res['between'])}〕")
     return out
 
 
@@ -336,8 +450,11 @@ def gates():
 
 
 # ------------------------------------------------------------- G3' が落ちた理由の切り分け（合成のみ）
-def synth_share(years, s_y, seed, ndays=100):
-    """`no_between_signal` の**年分散の取り分だけ**を振る（他は同じ作り）。"""
+def synth_share(years, s_y, seed, ndays=100, beta_w=-0.8):
+    """`no_between_signal` の**年分散の取り分だけ**を振る（他は同じ作り）。
+
+    `beta_w` は**年内の真の連関の強さ**（既定 −0.8 は旗144 の設定・変えると g3_sweep が動くので触らない）。
+    """
     rng = np.random.default_rng(seed)
     n = years * ndays
     g = np.repeat(np.arange(years), ndays)
@@ -346,8 +463,45 @@ def synth_share(years, s_y, seed, ndays=100):
     th_w = rng.normal(0, 1, n)
     th = th_y[g] + th_w
     y_y = rng.normal(0, s_y, years)                 # θ と**独立**＝年の対比は偶然だけ
-    y = y_y[g] - 0.8 * th_w + rng.normal(0, 1, n) + 0.5 * Rg
+    y = y_y[g] + beta_w * th_w + rng.normal(0, 1, n) + 0.5 * Rg
     return th, y, Rg, g
+
+
+def flip_sweep(reps=REPS, years=20):
+    """**探索（事前登録外・合成のみ）**：`sign(r_within) ≠ sign(r_raw)`（符号反転）の**偽陽性率**。
+
+    **なぜ要るか**：実データ（旗145）で「骨格」に落ちた 26 セルのうち **15 は符号反転ルート**で
+    落ちている。**このルートだけは帰無で較正されていない**——追補 A も追補 B も、門①で当てたのは
+    `r_between`（と `p`）であって、**符号反転が偶然どれくらい起きるかは一度も測っていない**（穴 #74）。
+
+    **年の対比が偶然だけ**の合成で、**年内の連関の強さ `beta_w`** と **`vshare`** を振り、
+    **符号反転が起きる割合**を数える。`r_raw = r_between + r_within` なので、
+    **`|r_within|` が小さく `|r_between|` が偶然大きいと、符号は簡単にひっくり返る**——はずである。
+    """
+    print("\n=== 探索（事前登録外・合成のみ）：符号反転ルートの偽陽性率（穴 #74）===")
+    print("  **合否には使わない。次の事前登録の材料である。**")
+    print(f"  反復 {reps}・{years} 年・年あたり 100 日・**年の対比は偶然だけ**（θ と γ の年平均は独立）。")
+    print(f"  {'beta_w':>7} {'s_y':>5} {'vshare':>7} {'|r_within| 中央':>15}"
+          f" {'符号反転の率':>12} {'うち p<0.05':>11}")
+    for beta_w in (-0.8, -0.4, -0.2, -0.1, 0.0):
+        for s_y in (0.35, 0.7, 1.0):
+            fl, vs, ws, sig = [], [], [], []
+            for i in range(reps):
+                th, y, Rg, g = synth_share(years, s_y, seed=7000 + i, beta_w=beta_w)
+                dec = decompose(y, th, Rg, g)
+                if dec is None:
+                    continue
+                bet, win, vsh = dec
+                raw = bet + win
+                f = np.sign(raw) != np.sign(win)
+                fl.append(f); vs.append(vsh); ws.append(abs(win))
+                if f:
+                    sw = year_swap(y, th, Rg, g, seed=i)
+                    sig.append(sw is not None and np.isfinite(sw["p"]) and sw["p"] < 0.05)
+            print(f"  {beta_w:>7.2f} {s_y:>5.2f} {np.mean(vs):>7.3f} {np.median(ws):>15.3f}"
+                  f" {np.mean(fl):>12.3f} {(np.mean(sig) if sig else float('nan')):>11.3f}")
+    print("  **右端＝符号反転したセルのうち `year_swap` の `p` が 0.05 未満だった割合**"
+          "（＝置換で裏が取れた割合）。")
 
 
 def g3_sweep(reps=REPS):
@@ -379,13 +533,95 @@ def g3_sweep(reps=REPS):
           "（回帰確認）。")
 
 
+# ------------------------------------------------------------- 門①（追補 B・G1''〜G3''）
+def _swap_rate(kind, years, seed0, reps=REPS, s_y=None):
+    """`year_swap` の `p < 0.05` になる割合と、`vshare`・`|r_between|` の中央値を返す。"""
+    ps, vs, bs, gaps = [], [], [], []
+    for i in range(reps):
+        if s_y is None:
+            df, g = synth(kind, years, seed=seed0 + i)
+            y, th, Rg = df["y"].to_numpy(), df["th"].to_numpy(), df["Rg"].to_numpy()
+        else:
+            th, y, Rg, g = synth_share(years, s_y, seed=seed0 + i)
+        sw = year_swap(y, th, Rg, g, seed=i)
+        dec = decompose(y, th, Rg, g)
+        if sw is None or dec is None or not np.isfinite(sw["p"]):
+            continue
+        ps.append(sw["p"]); vs.append(dec[2]); bs.append(dec[0]); gaps.append(sw["gap"])
+    ps = np.asarray(ps, float)
+    return dict(n=len(ps), rate=float(np.mean(ps < 0.05)),
+                vshare=float(np.mean(vs)), bet_abs=float(np.median(np.abs(bs))),
+                gap=float(max(gaps)) if gaps else np.nan)
+
+
+def gatesB():
+    """門①（追補 B の G1''〜G3''）。**合格条件は実データを見る前に固定済み**
+
+    （`PREREGISTRATION_step144_amendment2.md`）：
+      ・**G1''** `within_only`(20 年)          —— `p < 0.05` の割合 **≤ 0.10**（偽陽性）
+      ・**G2''** `between_only`(20 年)         —— `p < 0.05` の割合 **≥ 0.80**（検出）
+      ・**G3''** `no_between_signal`(20 年)・`vshare` 3 水準 —— **3 水準すべて ≤ 0.10**
+
+    **G3'' が追補 A の G3' と違う点**：当てるのが「固定の 0.05 との比較」ではなく
+    **「そのセル自身の帰無との比較」**なので、**`vshare` が大きくても偽陽性が増えないはず**である
+    （欠陥 #72 の原因を直接に潰す作り）。**これが落ちたら `r_between` を判定に使う道は閉じる。**
+    """
+    print("=== 旗145 門①（合成・**追補 B の G1''〜G3''**）——**実データより先に走らせる** ===")
+    print(f"  反復 {REPS}・年あたり 100 日・置換は最大 {MAX_PERM} 通り（20 年なので無作為抽出）。")
+    print(f"  **当てる量は `year_swap` の両側 `p`**（`k < {K_MIN_SWAP}` 年のセルは判定しない）。")
+    ok = {}
+
+    g1 = _swap_rate("within_only", 20, 1000)
+    c1 = g1["rate"] <= 0.10
+    ok["G1''"] = c1
+    print(f"\n  G1'' `within_only`（20 年・年平均は独立＝帰無）："
+          f"p<0.05 の割合 {g1['rate']:.3f}（≤ 0.10 が条件・{g1['n']} 反復）"
+          f"／vshare 平均 {g1['vshare']:.3f}／|r_between| 中央 {g1['bet_abs']:.3f}"
+          f" → {'合格' if c1 else '**不合格**'}")
+
+    g2 = _swap_rate("between_only", 20, 1000)
+    c2 = g2["rate"] >= 0.80
+    ok["G2''"] = c2
+    print(f"\n  G2'' `between_only`（20 年・年平均どうしに真の関係）："
+          f"p<0.05 の割合 {g2['rate']:.3f}（≥ 0.80 が条件・{g2['n']} 反復）"
+          f"／vshare 平均 {g2['vshare']:.3f}／|r_between| 中央 {g2['bet_abs']:.3f}"
+          f" → {'合格' if c2 else '**不合格**'}")
+
+    print("\n  G3'' `no_between_signal`（20 年・年の対比は偶然だけ・`vshare` を 3 水準）：")
+    c3 = True
+    for s_y in (0.35, 0.7, 1.0):
+        g3 = _swap_rate(None, 20, 7000, s_y=s_y)
+        c = g3["rate"] <= 0.10
+        c3 = c3 and c
+        print(f"    s_y {s_y:.2f}（vshare {g3['vshare']:.3f}）："
+              f"p<0.05 の割合 {g3['rate']:.3f}（≤ 0.10）"
+              f"／|r_between| 中央 {g3['bet_abs']:.3f} → {'合格' if c else '**不合格**'}")
+    ok["G3''"] = c3
+    print("    **追補 A の G3' はここで落ちた**（|r_between| 中央が vshare とともに"
+          " 0.012→0.039→0.059 と増え、固定の 0.05 を越えた）。")
+
+    print(f"\n  回帰確認：`year_swap` の観測値と `decompose` の `r_between` の最大差"
+          f" {max(g1['gap'], g2['gap']):.2e}（**同じ量を測っている**）。")
+    print(f"\n  === 門①（追補 B）のまとめ：{ok} ===")
+    if all(ok.values()):
+        print("  **3 本とも合格＝実データに進んでよい**（`--real`）。")
+    else:
+        print("  **落ちた門がある＝実データに進まない**（旗52 の作法）。")
+        print("  **G3'' が落ちたら `r_between` を判定に使う道は閉じる**（追補 B の宣言）。")
+    return all(ok.values())
+
+
 # ------------------------------------------------------------- 実データ
 def real(sites, qc_max=None):
     tal = Tally()
     print("=== 旗144：骨格の r に年の対比はどれだけ混ざっているか（実データ）===")
     print("  **測るだけ。判定は差し替えない**（事前登録 step144・穴 #69 の規則）。")
-    print(f"  段階（**追補 A：当てるのは r_between**）：|r_between| < {SMALL} 無視／"
-          f"{SMALL} 以上 {BIG} 未満 効く／{BIG} 以上 または sign(r_within)≠sign(r_raw) 骨格")
+    print(f"  段階（**追補 B：`year_swap` の p とセルごとの帰無に当てる**）："
+          f"p ≥ 0.05 偶然と区別できない／p < 0.05 かつ |r_between| < {BIG} 効く／"
+          f"p < 0.05 かつ {BIG} 以上 または sign(r_within)≠sign(r_raw) 骨格／"
+          f"k < {K_MIN_SWAP} 年 判定しない")
+    print(f"  **門①（追補 B の G1''〜G3''）は 3 本とも合格済み**"
+          f"（`--gatesB`・ログ step144_20260909_171600.txt）。")
     for s in sites:
         print(f"\n  ━━ {s} ━━")
         try:
@@ -414,18 +650,27 @@ def real(sites, qc_max=None):
         elif P is not None:
             print(f"\n    ── 旗107 の土俵 ──\n      **降水 P が空**")
 
-    print("\n  === 集計（事前登録の規則に当てる）===")
+    print("\n  === 集計（**追補 B の規則**に当てる）===")
+    cb = tal.countsB()
+    print(f"    セル（Δ を除く）：偶然と区別できない {cb['偶然']}・効く {cb['効く']}"
+          f"・**骨格 {cb['骨格']}**（判定しない {cb['判定しない']}＝k<{K_MIN_SWAP} 年ほか）")
+    print(f"    **Δ の行は数えない**——`Δ_between` の置換の帰無を追補 B は定義していない"
+          f"（春秋で同じ並べ替えを当てる拡張は考えられるが、**事前登録していないので今周はやらない**）。")
+    print("\n  ［参考・合否外］追補 A の固定境（|r_between| に 0.05／0.15）で数えると：")
     c = tal.counts()
     print(f"    判定できたセル {sum(v for k, v in c.items() if k != '?')}"
-          f"／無視 {c['無視']}・効く {c['効く']}・**骨格 {c['骨格']}**（判定不能 {c['?']}）")
-    bad = [r for r in tal.rows if klass(r["between"]) in ("効く", "骨格") or r["flip"]]
+          f"／無視 {c['無視']}・効く {c['効く']}・骨格 {c['骨格']}（判定不能 {c['?']}）"
+          f"（**Δ を含む・欠陥 #72 のとおりこの境は偶然の水準を表さない**）")
+    bad = [r for r in tal.rows if r["season"] != "Δ"
+           and klassB(r, r["flip"]) in ("効く", "骨格")]
     if bad:
-        print(f"    **|r_between| ≥ {SMALL} だったセル（名指しで残す）**：")
+        print(f"    **偶然と区別できたセル（p < 0.05 か符号反転・名指しで残す）**：")
         for r in sorted(bad, key=lambda r: -(abs(r["between"])
                                              if np.isfinite(r["between"]) else np.inf)):
             print(f"      {r['arena']:<8}{r['site']:<8}{r['season']:<3}{r['half']:<3}"
                   f" raw {r['raw']:+.3f} = between {r['between']:+.3f}"
-                  f" + within {r['within']:+.3f}（年除去 {r['yr']:+.3f}・d {r['d']:+.3f}）"
+                  f" + within {r['within']:+.3f}（年除去 {r['yr']:+.3f}・d {r['d']:+.3f}"
+                  f"・p {r.get('p', np.nan):.4f}・vshare {r['vshare']:.3f}）"
                   f"{'  **符号反転**' if r['flip'] else ''}")
     # 事前予測の採点
     na88 = [r for r in tal.rows if r["arena"] == "旗88" and r["site"] in NA3
@@ -462,7 +707,24 @@ def real(sites, qc_max=None):
     print(f"    ★事前予測：H6（r_between の符号が r_raw と同じ：{same}/{len(bcells)} セル・"
           f"8 以上で当たり）＝{'当たり' if h6 else '外れ'}")
 
-    print("\n  結論（事前登録の集計規則）：")
+    # 追補 B の H8・H9（**当てる量は `year_swap` の `p` と `vshare`**）
+    p88 = [r for r in na88 if np.isfinite(r.get("p", np.nan))]
+    sig88 = sum(1 for r in p88 if r["p"] < 0.05)
+    h8 = bool(p88) and sig88 <= 2
+    a91v = [r for r in tal.rows if r["arena"] == "旗91" and r["season"] in ("春", "秋")
+            and np.isfinite(r["vshare"])]
+    hi91 = [r for r in a91v if r["vshare"] > 0.30]
+    h9 = len(hi91) >= 1
+    print(f"    ★事前予測：H8（旗88 の北米で p<0.05 は 2 セル以下：{sig88}/{len(p88)} セル）"
+          f"＝{'当たり' if h8 else '外れ'}")
+    print(f"    ★事前予測：H9（旗91 の帯に vshare > 0.30 のセルが 1 つ以上："
+          f"{len(hi91)}/{len(a91v)} セル）＝{'当たり' if h9 else '外れ'}")
+    if hi91:
+        print("      " + "／".join(f"{r['site']}{r['season']}{r['half']} {r['vshare']:.2f}"
+                                   for r in hi91))
+
+    print("\n  結論（事前登録の集計規則・**追補 B の判定で当てる**）：")
+    c = cb
     if c["骨格"] == 0 and c["効く"] == 0:
         print("    **骨格の r は年の対比に依っていない。旗88/89/91/106/107 の記述は変えない。**")
     elif c["骨格"] == 0:
@@ -474,6 +736,9 @@ def real(sites, qc_max=None):
     print("   ・**年除去の r が「正しい r」ではない。** 生の r は日と年をまとめた連関、")
     print("     年除去の r は**年内の連関**である。**誤りは前者を後者と読むことだけ。**")
     print("   ・**本測定は季節差の実在を再判定しない。**")
+    print("   ・**`p` が小さいことは「年間の因果」を意味しない**（追補 B）。")
+    print("     **年平均どうしが偶然を超えて結びついている、以上のことは言えない。**")
+    print(f"   ・**3 年の土俵（`ES-FcO`・旗143）には当てられない**——`p` の下限が 1/k! なので。")
     return tal
 
 
@@ -482,12 +747,22 @@ def main():
     ap.add_argument("--real", action="store_true", help="実データ（/mnt/hdd）")
     ap.add_argument("--g3sweep", action="store_true",
                     help="G3' が落ちた理由の切り分け（探索・合成のみ）")
+    ap.add_argument("--gatesB", action="store_true",
+                    help="門①（追補 B の G1''〜G3''・year_swap の較正）")
+    ap.add_argument("--flipsweep", action="store_true",
+                    help="符号反転ルートの偽陽性率（探索・合成のみ・穴 #74）")
     ap.add_argument("--sites", nargs="+", default=list(NA3) + list(MN3))
     ap.add_argument("--qc-max", type=int, default=None)
     a = ap.parse_args()
     tee_stdout("step144")
     if a.g3sweep:
         g3_sweep()
+        return 0
+    if a.gatesB:
+        gatesB()
+        return 0
+    if a.flipsweep:
+        flip_sweep()
         return 0
     if not a.real:
         gates()
