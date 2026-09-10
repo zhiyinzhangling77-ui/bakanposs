@@ -35,9 +35,11 @@ from __future__ import annotations
 import argparse
 import contextlib
 import sys
+from datetime import datetime
 from pathlib import Path
 
 import numpy as np
+from scipy import stats
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -61,6 +63,12 @@ LEVEL_MAX = 0.07      # G-B の上限（追補 D-3 と同じ）
 REACH_MIN = 0.80      # G-C の下限（追補 D-3 と同じ）
 SYNTH_YEARS = 20      # A-3 の年数（18–22）に合わせる
 ESFCO_D_LE = -0.218   # 旗142 の `ES-FcO` の Δ(θ→γLE)
+
+# **★旗156 の門① G-G（対照）**：旗154 が実際に出した先頭 200 本の集計。
+# `research/logs/step154_20260910_082911.txt:38-39`（0.065＝13/200・0.110＝22/200・有効 200/200）から
+# **実行前に写した**。**種は `i` だけで決まるので、600 本の先頭 200 本はこれと一致しなければならない。**
+G154_HEAD = {"h": 13, "le": 22, "n": 200}
+_G: dict = {}         # 門①の副次結果（G-G）を run_gates へ渡すだけの入れ物
 
 
 @contextlib.contextmanager
@@ -103,28 +111,102 @@ def gate_a() -> bool:
     return ok
 
 
+def _cp_ci(k: int, n: int) -> tuple[float, float]:
+    """**Clopper-Pearson（両側 95%）**（旗155 の `phase_asymmetry_step139._cp_ci` と同じ式）。"""
+    lo = 0.0 if k == 0 else float(stats.beta.ppf(0.025, k, n - k + 1))
+    hi = 1.0 if k == n else float(stats.beta.ppf(0.975, k + 1, n - k))
+    return lo, hi
+
+
+def _paired(rows: list[tuple]) -> dict:
+    """**★旗156（T-5）：対応のある 2 値（`sig_h`・`sig_le`）を 2×2 表と McNemar exact にする。**
+
+    `rows` は `_synth_rate` が記録した `(i, sig_h, sig_le, dh, dle, ph, ple)`。
+    **McNemar は discordant だけを使う両側の二項検定**（`binomtest(b, b+c, 0.5)`）。
+    **`b` = H だけ有意／`c` = LE だけ有意。**
+    """
+    n = len(rows)
+    both = sum(1 for r in rows if r[1] and r[2])
+    b = sum(1 for r in rows if r[1] and not r[2])
+    c = sum(1 for r in rows if r[2] and not r[1])
+    neither = n - both - b - c
+    nd = b + c
+    p = float(stats.binomtest(b, nd, 0.5).pvalue) if nd else float("nan")
+    kh, kle = both + b, both + c
+    return {"n": n, "both": both, "b": b, "c": c, "neither": neither, "nd": nd,
+            "p_mcnemar": p, "k_h": kh, "k_le": kle,
+            "rate_h": kh / n if n else float("nan"), "rate_le": kle / n if n else float("nan"),
+            "ci_h": _cp_ci(kh, n) if n else (np.nan, np.nan),
+            "ci_le": _cp_ci(kle, n) if n else (np.nan, np.nan)}
+
+
+def _report_paired(tag: str, rows: list[tuple]) -> dict:
+    """**★旗156（T-5）：2×2 表・McNemar・CP 区間を印字する。判定はしない。**"""
+    t = _paired(rows)
+    print(f"    ── {tag}（有効 {t['n']} 本）")
+    print(f"       θ→γH  {t['k_h']:3d}/{t['n']} = {t['rate_h']:.3f}"
+          f"  CP [{t['ci_h'][0]:.3f}, {t['ci_h'][1]:.3f}]")
+    print(f"       θ→γLE {t['k_le']:3d}/{t['n']} = {t['rate_le']:.3f}"
+          f"  CP [{t['ci_le'][0]:.3f}, {t['ci_le'][1]:.3f}]")
+    print(f"       2×2：両方 {t['both']}／H だけ b={t['b']}／LE だけ c={t['c']}"
+          f"／どちらでもない {t['neither']}")
+    print(f"       discordant b+c = {t['nd']}"
+          f"（独立なら期待 {t['n'] * (t['rate_h'] * (1 - t['rate_le']) + t['rate_le'] * (1 - t['rate_h'])):.1f}）"
+          f"／**McNemar exact 両側 p = {t['p_mcnemar']:.4f}**")
+    return t
+
+
 def _synth_rate(kind: str, reps: int, nperm: int, need_neg_h: bool) -> dict:
-    """**合成 `reps` 本で `p_delta < 0.05` の割合を出す**（G-B・G-C 共通の中身）。"""
+    """**合成 `reps` 本で `p_delta < 0.05` の割合を出す**（G-B・G-C 共通の中身）。
+
+    **★旗156（T-4）：replicate ごとの `(i, sig_h, sig_le, Δh, Δle, p_h, p_le)` を保持し、
+    CSV に 1 行ずつ追記する**（**周が途中で中断されても標本が失われないように**）。
+    **乱数の種も判定式も一行も変えていない——足したのは記録だけである。**
+    """
     cnt = {"h": 0, "le": 0}
     cnt_dir = 0
     deltas = {"h": [], "le": []}
+    rows: list[tuple] = []
     n_ok = 0
+    fh = None
+    try:                                        # **記録が取れなくても走行は止めない**（runlog と同じ作法）
+        p = Path(__file__).resolve().parent / "logs" / (
+            f"step156_pairs_{kind}_{datetime.now():%Y%m%d_%H%M%S}.csv")
+        fh = open(p, "w", encoding="utf-8", buffering=1)
+        fh.write("i,sig_h,sig_le,delta_h,delta_le,p_h,p_le\n")
+        print(f"      【記録】replicate ごとの対 → {p}")
+    except Exception as e:
+        print(f"      （**対を残せない**：{type(e).__name__}）")
     for i in range(reps):
         d = M.synth(kind, years=SYNTH_YEARS, seed=7000 + i, thin=False)
         r = M.perm_delta_p(d, nperm=nperm, seed=i)
         if not all(np.isfinite(r[k]["delta"]) for k in ("h", "le")):
             continue
         n_ok += 1
+        sig = {k: int(r[k]["p"] < M.ALPHA) for k in ("h", "le")}
         for k in ("h", "le"):
-            cnt[k] += int(r[k]["p"] < M.ALPHA)
+            cnt[k] += sig[k]
             deltas[k].append(r[k]["delta"])
+        rows.append((i, sig["h"], sig["le"], float(r["h"]["delta"]), float(r["le"]["delta"]),
+                     float(r["h"]["p"]), float(r["le"]["p"])))
+        if fh is not None:
+            try:
+                fh.write("%d,%d,%d,%.6f,%.6f,%.6f,%.6f\n" % rows[-1])
+            except Exception:
+                pass
         if need_neg_h:
             cnt_dir += int(r["h"]["p"] < M.ALPHA and r["h"]["delta"] < 0)
         if (i + 1) % 25 == 0:
             print(f"      … {i + 1}/{reps} 本")
+    if fh is not None:
+        try:
+            fh.close()
+        except Exception:
+            pass
     out = {k: cnt[k] / max(n_ok, 1) for k in ("h", "le")}
     out["dir"] = cnt_dir / max(n_ok, 1)
     out["n"] = n_ok
+    out["rows"] = rows
     for k in ("h", "le"):
         a = np.asarray(deltas[k], float)
         out[f"med_{k}"] = float(np.median(a)) if len(a) else np.nan
@@ -140,6 +222,24 @@ def gate_b(reps: int, nperm: int) -> bool:
         print(f"    {nm}：p<0.05 の割合 {r[k]:.3f}（要求 ≤ {LEVEL_MAX:.2f}）"
               f" {'○' if r[k] <= LEVEL_MAX else '**×**'}／Δ の中央値 {r[f'med_{k}']:+.3f}")
     print(f"    → G-B は {'○合格' if ok else '**×不合格**'}（有効 {r['n']}/{reps} 本）")
+
+    # ---- ★旗156（T-5）：対応のある比較。**旗154 の G-B の合否は上書きしない**（上の行が正）。
+    rows = r.get("rows") or []
+    if rows:
+        print("\n    ===== ★旗156：対応のある比較（`PREREGISTRATION_step156.md` 5 節）=====")
+        head = [x for x in rows if x[0] < 200] if reps >= 200 else []
+        if not head:
+            print("    （試走＝`reps` が 200 未満なので G-G は判定しない。**本番は 600 本で走らせる**）")
+        if head:
+            t200 = _report_paired("D-3 併記：先頭 200 本（＝旗154 と同一の標本）", head)
+            gg = (t200["k_h"] == G154_HEAD["h"] and t200["k_le"] == G154_HEAD["le"]
+                  and t200["n"] == G154_HEAD["n"])
+            print(f"       **【G-G 対照】旗154 の {G154_HEAD['h']}/{G154_HEAD['n']}・"
+                  f"{G154_HEAD['le']}/{G154_HEAD['n']} と一致するか："
+                  f"{'○合格' if gg else '**×不合格＝本周の数は読まない**'}**")
+            _G["gg"] = gg
+        if len(rows) > 200:
+            _report_paired("D-1 主判定：全 %d 本" % len(rows), rows)
     return ok
 
 
@@ -162,7 +262,13 @@ def run_gates(reps_b: int, reps_c: int, nperm: int) -> dict:
     b = gate_b(reps_b, nperm)
     c = gate_c(reps_c, nperm)
     print(f"\n  **門①：G-A {'○' if a else '×'}／G-B {'○' if b else '×'}／G-C {'○' if c else '×'}**")
-    return {"a": a, "b": b, "c": c}
+    if "gg" in _G:      # ★旗156：本周の門①は G-G（対照）・G-H（＝G-A）・G-I（＝G-C）の 3 本
+        gg = _G["gg"]
+        print(f"  **★旗156 の門①：G-G（対照・先頭 200 本の一致）{'○' if gg else '**×**'}"
+              f"／G-H（＝G-A）{'○' if a else '**×**'}／G-I（＝G-C）{'○' if c else '**×**'}**")
+        print("  " + ("  **3 本とも合格＝本周の対応のある比較を読んでよい**" if (gg and a and c)
+                      else "  **落ちた門がある＝本周の数は読まない（事前登録 4 節）**"))
+    return {"a": a, "b": b, "c": c, "gg": _G.get("gg")}
 
 
 # ------------------------------------------------------------------ 実データ
