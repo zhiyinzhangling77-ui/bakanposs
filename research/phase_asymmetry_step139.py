@@ -73,15 +73,29 @@
 **★ただし G4 は追補 D の下では対照として働かない**——**G4 の偽データの作り方と、
 追補 D-2 の Δ の帰無の作り方が同一だからである。** **置換検定の下では G4 の合格は構成上ほぼ自明で、
 証拠にならない。** **較正の荷は `none`（自己相関と季節構造を持つ合成）と G1〜G3 が負う。**
+
+## ★旗155（**穴 #91 を塞ぐ書き換え**・`PREREGISTRATION_step155.md`・**較正の数を見る前に確定**）
+**旗141 の `none` 0.030 は `θ→γH` の割合だけである**——**`θ→γLE` の割合（同じログに 0.070 と
+印字されていた）は一度も合否に入っていなかった。** **旗154 の 20 年規模では 0.110 まで上がった。**
+**書き換えは 3 箇所だけで、帰無・統計量・判定表・下限・`ALPHA`・`NPERM` は触っていない：**
+  ・**T-1**：`none` の合否を **`max(θ→γH, θ→γLE)`** にする（**閾値 0.07 は動かさない**）。
+  ・**T-2**：`--none-reps`（既定 600）で **`none` だけ replicate を増やす**（水準は精度が要る／到達は 1.000）。
+  ・**T-3**：`n_shift` を `math.prod`（任意精度）にする（**穴 #90**・印字専用の診断値）。
+**門 G-D＝先頭 200 replicate が旗141 の 6/200・14/200 に完全一致すること**（**書き換えが計算経路に
+触っていないことの対照**）。**落ちたら本周の較正値は読まない。**
+
+    python research/phase_asymmetry_step139.py --permcal --none-reps 600
 """
 from __future__ import annotations
 
 import argparse
+import math
 import sys
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+from scipy import stats
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -609,8 +623,11 @@ def shift_season_p(sub: pd.DataFrame, nperm: int = NPERM, seed: int = 0,
             le_cnt[k] += int(vals[k] <= obs[k])
             if keep_null:
                 null[k].append(vals[k])
+    # ★旗155（T-3・穴 #90）：`int(np.prod(n_shift))` は int64 で計算するので、20 年規模で溢れる
+    # （`US-SRM` SON は 14^22 = 1.6e25 で、旗154 は 7049268766814765056 という壊れた数を印字した）。
+    # `math.prod` は Python の任意精度整数で畳む。**印字専用の診断値で、`r`・`p`・`Δ` は通っていない。**
     out = {k: {"r": obs[k], "p": (1 + le_cnt[k]) / (n_ok + 1), "nperm": n_ok,
-               "n_shift": int(np.prod(n_shift))} for k in ("h", "le")}
+               "n_shift": math.prod(n_shift)} for k in ("h", "le")}
     if keep_null:                       # **追補 E：判定に使ったのと同じ帰無をそのまま取り出す**
         for k in ("h", "le"):
             out[k]["null"] = np.asarray(null[k], float)
@@ -713,21 +730,38 @@ def permcheck() -> bool:
 
 
 # **追補 D-3 の合否（実行前に固定・`PREREGISTRATION_step139_amendment2.md` の表）**
-PERMCAL_REQ = {"none": ("Δ の p<0.05 が出る割合", 0.07, "le"),
+# ★旗155（穴 #91・`PREREGISTRATION_step155.md` T-1）：`none` の見出しを
+# 「θ→γH の割合」から「**θ→γH と θ→γLE の悪いほう**」に変えた。**閾値 0.07 は動かしていない。**
+PERMCAL_REQ = {"none": ("Δ の p<0.05 が出る割合（H/LE の悪いほう）", 0.07, "le"),
                "phase_driven": ("★植生起因と整合 に到達する割合", 0.80, "ge"),
                "calendar_driven": ("▲植生起因ではない に到達する割合", 0.80, "ge")}
 
 
-def permcal(reps: int, nperm: int) -> bool:
+def _cp_ci(k: int, n: int, conf: float = 0.95) -> tuple[float, float]:
+    """**Clopper–Pearson の両側区間**（旗155 の規則 B・**点推定だけで水準を語らないため**）。
+
+    **`reps` が有限である以上、割合の点推定には Monte Carlo 誤差が乗る**
+    （旗141 の `0.070 ± 0.018` は閾値 `0.07` を挟んでいた＝穴 #91 の一部）。
+    """
+    a = 1.0 - conf
+    lo = 0.0 if k == 0 else float(stats.beta.ppf(a / 2, k, n - k + 1))
+    hi = 1.0 if k == n else float(stats.beta.ppf(1 - a / 2, k + 1, n - k))
+    return lo, hi
+
+
+def permcal(reps: int, nperm: int, none_reps: int | None = None) -> bool:
     """**追補 D-3：置換検定そのものを合成 3 種で較正する**（**通らなければ実データに当てない**）。
 
     **`none` の Δ 偽陽性 ≤ 0.07／`phase_driven` の ★到達 ≥ 0.80／`calendar_driven` の ▲到達 ≥ 0.80。**
     **しきい値は `PREREGISTRATION_step139_amendment2.md` に走らせる前から書いてある。**
     """
+    # ★旗155（T-2）：**水準（`none`）だけ replicate を増やす**。到達（1.000）は増やしても動く余地がない。
+    nrep = {"none": none_reps or reps, "phase_driven": reps, "calendar_driven": reps}
     print("\n  【追補 D-3：置換検定の較正】**合成 3 種・実データの日数（春 175・秋 131・3 年）**")
-    print(f"  **replicate {reps} 回 × 置換 {nperm} 本**"
-          "（**合否は事前登録の追補 D-3 で固定済み**）")
+    print(f"  **replicate none {nrep['none']} 回／他 {reps} 回 × 置換 {nperm} 本**"
+          "（**合否は事前登録の追補 D-3 ＋ 旗155 の T-1 で固定済み**）")
     got = {}
+    rate = {}
     for kind in ("none", "phase_driven", "calendar_driven"):
         tr = _truth(kind)
         print(f"\n  ===== `{kind}` =====")
@@ -738,7 +772,8 @@ def permcal(reps: int, nperm: int) -> bool:
         verd = {}
         pmin = {"delta": [], "sp": [], "au": []}
         n = 0
-        for i in range(reps):
+        first200 = {"h": 0, "le": 0, "n": 0}          # ★旗155 の門 G-D（旗141 の再現）
+        for i in range(nrep[kind]):
             d = synth(kind, years=3, seed=1000 + i, thin=True)
             res = perm_result(d, nperm=nperm, seed=1000 + i)
             if res is None:
@@ -747,6 +782,10 @@ def permcal(reps: int, nperm: int) -> bool:
             h = res["h"]
             for k in ("h", "le"):
                 sig[k] += int(res[k]["p_delta"] < ALPHA)
+                if i < 200:                       # ★旗155 G-D：先頭 200 本は旗141 と同じ種
+                    first200[k] += int(res[k]["p_delta"] < ALPHA)
+            if i < 200:
+                first200["n"] += 1
             rev["sp"] += int(h["p_sp"] < ALPHA and h["r_sp"] < 0)
             rev["au"] += int(h["p_au"] < ALPHA and h["r_au"] < 0)
             pmin["delta"].append(h["p_delta"])
@@ -759,7 +798,21 @@ def permcal(reps: int, nperm: int) -> bool:
             got[kind] = 0.0
             continue
         print(f"    **Δ が有意（p<0.05）になった割合：θ→γH {sig['h']/n:.3f}"
-              f"（{sig['h']}/{n}）／θ→γLE {sig['le']/n:.3f}**")
+              f"（{sig['h']}/{n}）／θ→γLE {sig['le']/n:.3f}（{sig['le']}/{n}）**")
+        # ★旗155（規則 B）：点推定だけで水準を語らない。**区間は印字するだけでなく合否にも使う**（下）。
+        for k in ("h", "le"):
+            lo, hi = _cp_ci(sig[k], n)
+            print(f"      θ→γ{k.upper():<2} の 95% Clopper–Pearson 区間："
+                  f"[{lo:.3f}, {hi:.3f}]（上端 {'≤' if hi <= 0.07 else '**>**'} 0.07）")
+        if kind == "none" and first200["n"]:
+            f2 = first200
+            print(f"    **★門 G-D（旗141 の再現・先頭 {f2['n']} 本）：θ→γH {f2['h']}/{f2['n']}"
+                  f"（{f2['h']/f2['n']:.3f}）／θ→γLE {f2['le']}/{f2['n']}（{f2['le']/f2['n']:.3f}）**"
+                  "　要求＝6/200 と 14/200 に完全一致")
+            gd = (f2["n"] == 200 and f2["h"] == 6 and f2["le"] == 14)
+            print(f"      → **{'○再現した＝書き換えは計算経路に触っていない' if gd else '**×再現しない＝書き換えを差し戻す**'}**")
+            got["_gd"] = 1.0 if gd else 0.0
+            got["_ci_le"] = _cp_ci(sig["le"], n)[1]
         print(f"    θ→γH で「反転あり」（片側 p<0.05 かつ r<0）：MAM {rev['sp']/n:.3f}"
               f" ／ SON {rev['au']/n:.3f}")
         print(f"    p の中央値：Δ {np.median(pmin['delta']):.3f}"
@@ -767,9 +820,12 @@ def permcal(reps: int, nperm: int) -> bool:
         print("    **判定表が返した結論の分布**：" +
               " ／ ".join(f"{k} {c}/{n}" for k, c in sorted(verd.items(), key=lambda x: -x[1])))
         label, thr, side = PERMCAL_REQ[kind]
-        val = sig["h"] / n if kind == "none" else verd.get(
+        # ★旗155（T-1・穴 #91）：`none` は **H と LE の悪いほう**で合否を決める。
+        # 旗141 まではここが `sig["h"] / n` で、`θ→γLE` は印字されるだけで門にかからなかった。
+        val = max(sig["h"], sig["le"]) / n if kind == "none" else verd.get(
             "★植生起因と整合" if kind == "phase_driven" else "▲植生起因ではない", 0) / n
         got[kind] = val
+        rate[kind] = {"h": sig["h"] / n, "le": sig["le"] / n, "n": n}
     print("\n  === 追補 D-3 の合否（**しきい値は実行前に固定**）===")
     allok = True
     for kind, (label, thr, side) in PERMCAL_REQ.items():
@@ -777,9 +833,43 @@ def permcal(reps: int, nperm: int) -> bool:
         ok = (v <= thr) if side == "le" else (v >= thr)
         allok &= ok
         sym = "≤" if side == "le" else "≥"
-        print(f"    {kind:<16}{label:<28}{v:.3f} （要求 {sym} {thr:.2f}）"
+        print(f"    {kind:<16}{label:<32}{v:.3f} （要求 {sym} {thr:.2f}）"
               f" {'○' if ok else '**×**'}")
     print(f"\n  **{'○＝置換検定を `ES-FcO` の実データに当ててよい' if allok else '**×＝置換検定も使わない。`ES-FcO` は「この標本では判定できない」で閉じ、量は記述としてのみ残す**'}**")
+
+    # ★旗155 の 5 節：規則 A（点推定・旗141 と同じ形）と規則 B（区間・本周に足す厳しい側）を分けて印字する。
+    print("\n  === ★旗155：規則 A と規則 B（**どちらも実行前に固定**・`PREREGISTRATION_step155.md` 5 節）===")
+    if "none" in rate:
+        r0 = rate["none"]
+        a_ok = max(r0["h"], r0["le"]) <= 0.07
+        b_hi = got.get("_ci_le", 1.0)
+        b_ok = b_hi <= 0.07
+        print(f"    規則 A（点推定 max(H, LE) ≤ 0.07）：max = {max(r0['h'], r0['le']):.3f}"
+              f" → {'○' if a_ok else '**×**'}")
+        print(f"    規則 B（LE の 95% CP 上端 ≤ 0.07）：上端 = {b_hi:.3f}"
+              f" → {'○' if b_ok else '**×**'}")
+        print(f"    門 G-D（旗141 の再現）：{'○' if got.get('_gd') == 1.0 else '**×**'}")
+        if got.get("_gd") != 1.0:
+            msg = "**G-D が落ちた＝本周の較正値は読まない**"
+        elif b_ok:
+            msg = ("**規則 B ○＝`ES-FcO` の Δ(θ→γLE)（旗142 の −0.218・p=0.0145）は"
+                   "水準の門を通った量として読んでよい**")
+        elif a_ok:
+            msg = ("**規則 A ○・規則 B ×＝「この標本数では 0.07 を保つと示せなかった」と書く。"
+                   "「保たれている」とも「壊れている」とも書かない**")
+        else:
+            msg = ("**規則 A ×＝`ES-FcO` の Δ(θ→γLE) に `p` を付けない。"
+                   "旗142 の −0.218 は水準の門を通らない量として確定する**")
+        print(f"    → {msg}")
+    print("\n  === ★事前予測 H23〜H25（`PREREGISTRATION_step155.md` 6 節・数を見る前に確定）===")
+    if "none" in rate and got.get("_gd") == 1.0:
+        r0 = rate["none"]
+        for tag, hit, txt in (("H23", r0["le"] > 0.07, "rate_le > 0.07（規則 A が落ちる）"),
+                              ("H24", r0["le"] > r0["h"], "rate_le > rate_h"),
+                              ("H25", r0["h"] <= 0.07, "rate_h ≤ 0.07")):
+            print(f"    {tag}：{txt:<32}{'○当たり' if hit else '**×外れ**'}")
+    else:
+        print("    **G-D が落ちたので較正値を読まない＝H23〜H25 は判定不能（分母には入れる）**")
     return allok
 
 
@@ -1467,6 +1557,8 @@ def main() -> int:
     ap.add_argument("--ns-ctrl-reps", type=int, default=200, help="追補 F の門①・F-3 の反復数")
     ap.add_argument("--nperm", type=int, default=NPERM, help="置換の本数（追補 D-2 は 2000）")
     ap.add_argument("--reps", type=int, default=200)
+    ap.add_argument("--none-reps", type=int, default=600,
+                    help="★旗155（T-2）：追補 D-3 の `none`（水準）だけ replicate を増やす")
     ap.add_argument("--boot", type=int, default=600)
     a = ap.parse_args()
 
@@ -1483,7 +1575,7 @@ def main() -> int:
         if not permcheck():
             print("\n  **自己点検が通らないので較正しない**")
             return 0
-        permcal(a.reps, a.nperm)
+        permcal(a.reps, a.nperm, a.none_reps)
         return 0
     if a.gates:
         run_gates(a.gate_reps, a.boot)
