@@ -1,0 +1,84 @@
+site,n_mapped,healthy_site_years,years_span,n_files,note
+JP-Tak,11,44,1998-2021,1,
+JP-Tef,11,40,2001-2023,1,
+JP-Fhk,11,36,2006-2023,1,
+JP-Tmd,11,36,2005-2023,1,
+JP-SMF,11,24,2002-2016,1,
+CN-HaM,11,22,2001-2014,1,
+JP-Spp,11,22,2000-2018,1,
+JP-Ta2,11,22,2005-2022,1,
+JP-Fjy,11,20,2001-2021,1,
+JP-MMF,11,17,2003-2011,1,
+JP-Mse,11,16,2001-2009,1,
+JP-Ynf,11,16,2013-2022,1,
+RU-Ege,11,15,2010-2018,1,
+TH-Mae,11,15,2005-2016,1,
+JP-MBF,11,14,2003-2011,1,
+RU-SkP,11,14,2004-2014,1,
+JP-Yms,11,12,2000-2023,1,
+JP-BBY,11,11,2012-2021,1,
+MN-Kbu,11,10,2003-2009,1,
+MN-Nkh,11,10,2015-2020,1,
+JP-Sb1,11,8,2007-2010,1,
+JP-Sb2,11,8,2007-2010,1,
+MN-Hst,11,8,2015-2020,1,
+MN-Skt,11,8,2003-2006,1,
+CN-Lsh,11,7,2002-2006,1,
+JP-Nkm,11,6,2018-2023,1,
+JP-Tgf,11,4,2002-2022,1,
+JP-Tmk,11,4,2001-2003,1,
+JP-Om2,11,2,2022-2023,1,
+RU-Tur,11,1,2004-2004,1,
+RU-NeF,11,0,1999-2006,1,
+CN-In1,10,0,,1,欠測: th
+CN-In2,10,0,,1,欠測: th
+CN-In3,10,0,,1,欠測: th
+CN-In4,10,0,,1,欠測: th
+CN-In5,10,0,,1,欠測: th
+CN-In6,10,0,,1,欠測: th
+CN-In7,10,0,,1,欠測: th
+CN-In8,10,0,,1,欠測: th
+JP-Api,10,0,,1,欠測: th
+JP-Hc1,10,0,,1,欠測: th
+JP-Hrt,10,0,,1,欠測: th
+JP-Khw,10,0,,1,欠測: th
+JP-Km2,10,0,,1,欠測: th
+JP-Kzw,10,0,,1,欠測: th
+JP-Nuf,10,0,,1,欠測: th
+JP-Om1,10,0,,1,欠測: Ts
+JP-Tdf,10,0,,1,欠測: th
+JP-Tkb,10,0,,1,欠測: Ts
+JP-Yrp,10,0,,1,欠測: th
+MN-Udg,10,0,,1,欠測: th
+MY-LHP,10,0,,1,欠測: Ts
+RU-NeB,10,0,,1,欠測: Ts
+RU-NeC,10,0,,1,欠測: Ts
+RU-Sk2,10,0,,1,欠測: th
+TH-Kog,10,0,,1,欠測: Ts
+ID-PaB,9,0,,1,"欠測: Ts,th"
+ID-PaD,9,0,,1,"欠測: Ts,th"
+ID-Pag,9,0,,1,"欠測: Ts,th"
+JP-Ako,9,0,,1,"欠測: Ts,th"
+JP-Fmt,9,0,,1,"欠測: Ts,th"
+JP-Hc2,9,0,,1,"欠測: Ts,th"
+JP-Hc3,9,0,,1,"欠測: Ts,th"
+JP-KaL,9,0,,1,"欠測: Ts,th"
+JP-KaP,9,0,,1,"欠測: Ts,th"
+JP-Km1,9,0,,1,"欠測: Ts,th"
+JP-Kwg,9,0,,1,"欠測: Ts,th"
+JP-Mra,9,0,,1,"欠測: Ts,th"
+JP-NsC,9,0,,1,"欠測: Ts,th"
+JP-NsM,9,0,,1,"欠測: Ts,th"
+JP-Nsb,9,0,,1,"欠測: Ts,th"
+JP-Ozm,9,0,,1,"欠測: Ts,th"
+JP-Shn,9,0,,1,"欠測: Ts,th"
+JP-Srk,9,0,,1,"欠測: Ts,th"
+JP-SwL,9,0,,1,"欠測: Ts,th"
+JP-Toc,9,0,,1,"欠測: Ts,th"
+JP-Tom,9,0,,1,"欠測: Ts,th"
+KH-Kmp,9,0,,1,"欠測: Ts,th"
+TH-Kms,9,0,,1,"欠測: Ts,th"
+JP-Kgu,6,0,,1,"欠測: GEP,GER,NEE,Ts,th"
+JP-Nap,6,0,,1,"欠測: GEP,GER,NEE,Ts,th"
+JP-Sac,6,0,,1,"欠測: GEP,GER,NEE,Ts,th"
+A3-base,0,0,,0,error: FileNotFoundError: no ALLVARS HH file under '/mnt/hdd/A3/SITE' matching '**/*BASE_HH_*.csv'

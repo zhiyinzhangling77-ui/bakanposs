@@ -16,6 +16,9 @@ research/tmp_*.sh
 # 解析の生成物（再生成可・巨大）。tracked な japanflux_pn/slides/*.png は対象外
 outputs*/
 *.log
+
+# 自走ループの実行コンソールログ（再生成可・毎周増える）。標本CSVは対象外
+research/logs/*.txt
 nohup.out
 .vscode/
 
