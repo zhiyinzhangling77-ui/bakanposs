@@ -8,6 +8,11 @@ __pycache__/
 # 自走ループの生ログ（1 周ごとの stream-json。大きく再現不要）
 research/loop_runs/
 
+# ループの一時状態・機械ローカル設定（版管理しない）
+research/.auto_resume_status
+research/tmp_*.sh
+.claude/settings.local.json
+
 # 解析の生成物（再生成可・巨大）。tracked な japanflux_pn/slides/*.png は対象外
 outputs*/
 *.log
